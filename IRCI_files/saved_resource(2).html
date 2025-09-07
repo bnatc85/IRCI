@@ -1,0 +1,402 @@
+
+<!-- saved from url=(0260)https://1712621647-atari-embeds.googleusercontent.com/embeds/16cb204cf3a9d4d223a0a3fd8b0eec5d/inner-frame-minified.html?jsh=m%3B%2F_%2Fscs%2Fabc-static%2F_%2Fjs%2Fk%3Dgapi.lb.en.PLtFj_-5DjQ.O%2Fd%3D1%2Frs%3DAHpOoo-J85zQk73PCqZPyWTydWEIq3_4KA%2Fm%3D__features__ -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base target="_blank">--><base href="." target="_blank">
+
+
+
+<title>IRCI — Dial Explainers</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#0b1020; --card:#11162a; --muted:#8ea0b7; --text:#f8fafc;
+    --hi:#16a34a; --mid:#f59e0b; --lo:#ef4444; --pill:#24304a; --border:#1f2a44;
+  }
+  body{margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif}
+  main{max-width:1000px; margin:auto; padding:24px}
+  h1{font-size:1.8rem; margin:0 0 12px}
+  p.lead{color:var(--muted); margin:.25rem 0 1.25rem}
+  .grid{display:grid; gap:14px}
+  @media(min-width:880px){ .grid{grid-template-columns:1fr 1fr} }
+
+  details{
+    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px 14px
+  }
+  details+details{margin-top:10px}
+  summary{
+    list-style:none; cursor:pointer; display:flex; gap:10px; align-items:center; font-weight:700
+  }
+  summary::-webkit-details-marker{display:none}
+  .pill{background:var(--pill); color:#c9d7ef; padding:.2rem .5rem; border-radius:999px; font-size:.8rem; margin-right:.35rem}
+  .row{display:flex; gap:16px; flex-wrap:wrap; margin-top:10px}
+  .card{background:#0e1428; border:1px solid var(--border); border-radius:12px; padding:12px}
+  .muted{color:var(--muted)}
+  .legend{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .badge{padding:.2rem .5rem; border-radius:999px; font-weight:600; font-size:.8rem}
+  .hi{background:color-mix(in oklab, var(--hi) 25%, transparent); border:1px solid var(--hi)}
+  .mid{background:color-mix(in oklab, var(--mid) 25%, transparent); border:1px solid var(--mid)}
+  .lo{ background:color-mix(in oklab, var(--lo)  25%, transparent); border:1px solid var(--lo)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  label{font-size:.9rem; color:#cbd5e1}
+  select{background:#0b1226; color:#e5eefc; border:1px solid var(--border); border-radius:8px; padding:.35rem .5rem}
+  .two-col{display:grid; gap:10px}
+  @media(min-width:620px){ .two-col{grid-template-columns:1fr 1fr} }
+  ul{margin:.4rem 0 .2rem 1.1rem}
+  .small{font-size:.9rem}
+  .divider{height:1px; background:var(--border); margin:10px 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>IRCI Dials — Plain-English Guide</h1>
+  <p class="lead">Choose “High / Mid / Low” to see what the score means and practical actions to consider. Percentiles refer to the peer set in the selected quarter.</p>
+  <div class="legend small">
+    <span class="badge hi">High ≥ 70</span>
+    <span class="badge mid">Mid 30–70</span>
+    <span class="badge lo">Low ≤ 30</span>
+    <span class="pill">0–100 peer percentile</span>
+  </div>
+
+  <div class="grid" style="margin-top:14px">
+
+    <!-- Valuation -->
+    <details open="">
+      <summary>💹 Valuation <span class="pill">EV/EBITDA vs peers</span></summary>
+      <div class="row">
+        <div class="card" style="flex:1 1 280px">
+          <div class="two-col">
+            <div>
+              <h4>What it is</h4>
+              <p class="small muted">Peer-relative “cheapness” based on EV/EBITDA (lower multiple ⇒ higher score). Percentiled vs the current peer set.</p>
+              <div class="divider"></div>
+              <h4>How we compute</h4>
+              <ul class="small">
+                <li>Compute EV/EBITDA for each ticker (TTM EBITDA; fallback per your code if needed).</li>
+                <li>Compare to peer mean (ex-self); map to percentile (0–100).</li>
+              </ul>
+            </div>
+            <div>
+              <label for="sel-valuation">Pick level</label><br>
+              <select id="sel-valuation" data-dial="valuation" class="level">
+                <option value="high">High (≥70)</option>
+                <option value="mid">Mid (30–70)</option>
+                <option value="low">Low (≤30)</option>
+              </select>
+              <div id="out-valuation" class="small" style="margin-top:8px">
+    <div class="badge hi">What a HIGH Valuation score means</div>
+    <div class="divider"></div>
+    <div><strong>How to read</strong><ul><li>Your EV/EBITDA is lower than most peers (i.e., ‘cheaper’ on this metric).</li><li>Often reflects strong EBITDA vs EV, or market under-appreciation.</li></ul></div>
+    <div><strong>Actions to consider</strong><ul><li>Sustain EBITDA growth with clear KPI tracking (margin, unit economics).</li><li>Maintain capital allocation discipline (debt reduction increases score by lowering EV; buybacks can be neutral depending on cash impact).</li><li>Keep comps transparent—ensure peer set reflects your business mix.</li></ul></div>
+    <p class="muted small" style="margin-top:6px">Reminder: scores are peer-relative; improvements may move slowly if the whole peer set also improves.</p>
+  </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Liquidity -->
+    <details>
+      <summary>💧 Liquidity <span class="pill">Turnover • Amihud • Roll spread</span></summary>
+      <div class="row">
+        <div class="card" style="flex:1 1 280px">
+          <div class="two-col">
+            <div>
+              <h4>What it is</h4>
+              <p class="small muted">How easily the stock trades: higher turnover and tighter spreads yield a higher score.</p>
+              <div class="divider"></div>
+              <h4>How we compute</h4>
+              <ul class="small">
+                <li>Quarter medians: turnover, Amihud illiquidity (lower is better), Roll spread (lower is better).</li>
+                <li>Percentiles per metric; blended into a 0–100 dial.</li>
+              </ul>
+            </div>
+            <div>
+              <label for="sel-liquidity">Pick level</label><br>
+              <select id="sel-liquidity" data-dial="liquidity" class="level">
+                <option value="high">High (≥70)</option>
+                <option value="mid">Mid (30–70)</option>
+                <option value="low">Low (≤30)</option>
+              </select>
+              <div id="out-liquidity" class="small" style="margin-top:8px">
+    <div class="badge hi">What a HIGH Liquidity score means</div>
+    <div class="divider"></div>
+    <div><strong>How to read</strong><ul><li>Active trading, tighter spreads, and lower price impact.</li><li>Investors can enter/exit positions with minimal friction.</li></ul></div>
+    <div><strong>Actions to consider</strong><ul><li>Maintain predictable disclosure cadence to sustain attention.</li><li>Support market-making programs (where permitted) and robust IR access.</li><li>Keep index eligibility and free-float health on the radar.</li></ul></div>
+    <p class="muted small" style="margin-top:6px">Reminder: scores are peer-relative; improvements may move slowly if the whole peer set also improves.</p>
+  </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Coverage -->
+    <details>
+      <summary>🗂️ Coverage <span class="pill">8-K cadence • 10-Q/K timeliness</span></summary>
+      <div class="row">
+        <div class="card" style="flex:1 1 280px">
+          <div class="two-col">
+            <div>
+              <h4>What it is</h4>
+              <p class="small muted">How promptly and consistently the company updates the market via SEC filings.</p>
+              <div class="divider"></div>
+              <h4>How we compute</h4>
+              <ul class="small">
+                <li>Count of 8-Ks within quarter, and days from quarter-end to first 10-Q/K.</li>
+                <li>Percentile 8-K (higher=better) and timeliness (faster=better); blend.</li>
+              </ul>
+            </div>
+            <div>
+              <label for="sel-coverage">Pick level</label><br>
+              <select id="sel-coverage" data-dial="coverage" class="level">
+                <option value="high">High (≥70)</option>
+                <option value="mid">Mid (30–70)</option>
+                <option value="low">Low (≤30)</option>
+              </select>
+              <div id="out-coverage" class="small" style="margin-top:8px">
+    <div class="badge hi">What a HIGH Coverage score means</div>
+    <div class="divider"></div>
+    <div><strong>How to read</strong><ul><li>Timely 10-Q/10-K and regular 8-Ks for material updates.</li><li>The market is rarely in the dark between earnings cycles.</li></ul></div>
+    <div><strong>Actions to consider</strong><ul><li>Maintain filing discipline and IR calendar reliability.</li><li>Use 8-Ks for material milestones to keep expectations aligned.</li><li>Publish FAQs or investor letters to pre-empt confusion.</li></ul></div>
+    <p class="muted small" style="margin-top:6px">Reminder: scores are peer-relative; improvements may move slowly if the whole peer set also improves.</p>
+  </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Trust / Sentiment -->
+    <details>
+      <summary>🧭 Trust (Sentiment/Calmness) <span class="pill">Residual calm • Event calm • Media tone</span></summary>
+      <div class="row">
+        <div class="card" style="flex:1 1 280px">
+          <div class="two-col">
+            <div>
+              <h4>What it is</h4>
+              <p class="small muted">Signals that investors “trust” the story: calm factor-adjusted trading and constructive news tone, especially around filings.</p>
+              <div class="divider"></div>
+              <h4>How we compute</h4>
+              <ul class="small">
+                <li>Baseline calmness: std of CAPM/FF5 residuals (lower std ⇒ higher score).</li>
+                <li>Event calmness: residual shock within ±k days of 8-K/10-Q/K (smaller ⇒ higher score).</li>
+                <li>Media tone: FinBERT sentiment (VADER fallback) averaged in-quarter.</li>
+              </ul>
+            </div>
+            <div>
+              <label for="sel-trust">Pick level</label><br>
+              <select id="sel-trust" data-dial="trust" class="level">
+                <option value="high">High (≥70)</option>
+                <option value="mid">Mid (30–70)</option>
+                <option value="low">Low (≤30)</option>
+              </select>
+              <div id="out-trust" class="small" style="margin-top:8px">
+    <div class="badge hi">What a HIGH Trust score means</div>
+    <div class="divider"></div>
+    <div><strong>How to read</strong><ul><li>Calm factor-adjusted trading and constructive media tone.</li><li>Few surprises around filings; guidance credible.</li></ul></div>
+    <div><strong>Actions to consider</strong><ul><li>Keep guidance bands realistic; reinforce with KPI bridges.</li><li>Run consistent comms across IR/PR/legal; invest in Q&amp;A quality.</li><li>Proactively engage press/analysts with data-rich materials.</li></ul></div>
+    <p class="muted small" style="margin-top:6px">Reminder: scores are peer-relative; improvements may move slowly if the whole peer set also improves.</p>
+  </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+  </div>
+
+  <p class="small muted" style="margin-top:14px">
+    Note: Percentile buckets are peer-relative. Improving a dial may require either operational changes (fundamentals) or communication/process improvements (disclosure, cadence, expectations).
+  </p>
+</main>
+
+<script>
+/* Content for “what it means” + “actions” per level. Keep concise and actionable. */
+const COPY = {
+  valuation: {
+    high: {
+      title: "What a HIGH Valuation score means",
+      meaning: [
+        "Your EV/EBITDA is lower than most peers (i.e., ‘cheaper’ on this metric).",
+        "Often reflects strong EBITDA vs EV, or market under-appreciation."
+      ],
+      actions: [
+        "Sustain EBITDA growth with clear KPI tracking (margin, unit economics).",
+        "Maintain capital allocation discipline (debt reduction increases score by lowering EV; buybacks can be neutral depending on cash impact).",
+        "Keep comps transparent—ensure peer set reflects your business mix."
+      ],
+      badge:"hi"
+    },
+    mid: {
+      title: "What a MID Valuation score means",
+      meaning: [
+        "Multiple sits near the peer median.",
+        "Market views your risk/growth roughly in line with comps."
+      ],
+      actions: [
+        "Sharpen guidance and disclose growth drivers to shift EBITDA trajectory.",
+        "Streamline reporting to reduce ‘conglomerate discount’.",
+        "Highlight catalysts (new products, mix shift, durability of cash flows)."
+      ],
+      badge:"mid"
+    },
+    low: {
+      title: "What a LOW Valuation score means",
+      meaning: [
+        "Your multiple is richer than peers (more ‘expensive’).",
+        "Could indicate high growth expectations or perceived risk/quality mix."
+      ],
+      actions: [
+        "Accelerate EBITDA (pricing, mix, efficiency); articulate the path credibly.",
+        "Reduce net debt where sensible; simplify structure (non-core divestitures).",
+        "Close disclosure gaps to reduce perceived uncertainty or risk."
+      ],
+      badge:"lo"
+    }
+  },
+  liquidity: {
+    high: {
+      title: "What a HIGH Liquidity score means",
+      meaning: [
+        "Active trading, tighter spreads, and lower price impact.",
+        "Investors can enter/exit positions with minimal friction."
+      ],
+      actions: [
+        "Maintain predictable disclosure cadence to sustain attention.",
+        "Support market-making programs (where permitted) and robust IR access.",
+        "Keep index eligibility and free-float health on the radar."
+      ],
+      badge:"hi"
+    },
+    mid: {
+      title: "What a MID Liquidity score means",
+      meaning: [
+        "Usable trading but not optimal in spread/turnover terms.",
+        "Interest may be episodic (events or news bursts)."
+      ],
+      actions: [
+        "Broaden coverage: analyst teach-ins, conferences, non-deal roadshows.",
+        "Consider share-split if price per share materially impacts retail access.",
+        "Enhance transparency to reduce information frictions."
+      ],
+      badge:"mid"
+    },
+    low: {
+      title: "What a LOW Liquidity score means",
+      meaning: [
+        "Wider spreads / higher price impact; harder for large orders.",
+        "Often linked to limited float or sparse coverage."
+      ],
+      actions: [
+        "Grow and stabilize investor base via structured IR program.",
+        "Evaluate listing/market-making options; improve float where feasible.",
+        "Publish more frequent KPI updates to sustain engagement."
+      ],
+      badge:"lo"
+    }
+  },
+  coverage: {
+    high: {
+      title: "What a HIGH Coverage score means",
+      meaning: [
+        "Timely 10-Q/10-K and regular 8-Ks for material updates.",
+        "The market is rarely in the dark between earnings cycles."
+      ],
+      actions: [
+        "Maintain filing discipline and IR calendar reliability.",
+        "Use 8-Ks for material milestones to keep expectations aligned.",
+        "Publish FAQs or investor letters to pre-empt confusion."
+      ],
+      badge:"hi"
+    },
+    mid: {
+      title: "What a MID Coverage score means",
+      meaning: [
+        "OK cadence; occasional delays or thin updates.",
+        "Information gaps can widen volatility around events."
+      ],
+      actions: [
+        "Tighten internal close & disclosure timelines.",
+        "Pre-announce key KPIs when warranted; improve Reg FD hygiene.",
+        "Expand 8-K usage for material product/contract developments."
+      ],
+      badge:"mid"
+    },
+    low: {
+      title: "What a LOW Coverage score means",
+      meaning: [
+        "Slow 10-Q/K or sparse 8-Ks; investors rely on rumor/press.",
+        "Risk of surprises and credibility drag."
+      ],
+      actions: [
+        "Define a formal disclosure policy; resource the reporting function.",
+        "Accelerate filing workflows; avoid NT 10-Q/K where possible.",
+        "Use plain-English summaries and timelines in filings."
+      ],
+      badge:"lo"
+    }
+  },
+  trust: {
+    high: {
+      title: "What a HIGH Trust score means",
+      meaning: [
+        "Calm factor-adjusted trading and constructive media tone.",
+        "Few surprises around filings; guidance credible."
+      ],
+      actions: [
+        "Keep guidance bands realistic; reinforce with KPI bridges.",
+        "Run consistent comms across IR/PR/legal; invest in Q&A quality.",
+        "Proactively engage press/analysts with data-rich materials."
+      ],
+      badge:"hi"
+    },
+    mid: {
+      title: "What a MID Trust score means",
+      meaning: [
+        "Mixed tone or occasional event-driven volatility.",
+        "Credibility is adequate but fragile if surprises occur."
+      ],
+      actions: [
+        "Pre-brief key context; publish data decks with methodology notes.",
+        "Tighten earnings-day narrative; reconcile GAAP↔non-GAAP clearly.",
+        "Monitor rumor cycles; correct quickly with 8-K/press when material."
+      ],
+      badge:"mid"
+    },
+    low: {
+      title: "What a LOW Trust score means",
+      meaning: [
+        "Negative tone and/or large residual shocks, especially at events.",
+        "Market perceives higher uncertainty or inconsistent messaging."
+      ],
+      actions: [
+        "Reduce surprises: earlier guidance updates; mid-quarter KPIs if material.",
+        "Improve risk disclosure & scenario analysis; publish post-mortems.",
+        "Strengthen crisis comms and media training; align internal spokespeople."
+      ],
+      badge:"lo"
+    }
+  }
+};
+
+/* Renderer */
+const render = (dial, level) => {
+  const node = document.getElementById(`out-${dial}`);
+  const c = COPY[dial][level];
+  node.innerHTML = `
+    <div class="badge ${c.badge}">${c.title}</div>
+    <div class="divider"></div>
+    <div><strong>How to read</strong><ul>${c.meaning.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    <div><strong>Actions to consider</strong><ul>${c.actions.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    <p class="muted small" style="margin-top:6px">Reminder: scores are peer-relative; improvements may move slowly if the whole peer set also improves.</p>
+  `;
+};
+
+document.querySelectorAll('.level').forEach(sel=>{
+  render(sel.dataset.dial, sel.value);
+  sel.addEventListener('change', e => render(sel.dataset.dial, sel.value));
+});
+</script>
+
+
+</body></html>

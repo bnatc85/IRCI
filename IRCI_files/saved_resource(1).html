@@ -1,0 +1,21 @@
+
+<!-- saved from url=(0260)https://1712621647-atari-embeds.googleusercontent.com/embeds/16cb204cf3a9d4d223a0a3fd8b0eec5d/inner-frame-minified.html?jsh=m%3B%2F_%2Fscs%2Fabc-static%2F_%2Fjs%2Fk%3Dgapi.lb.en.PLtFj_-5DjQ.O%2Fd%3D1%2Frs%3DAHpOoo-J85zQk73PCqZPyWTydWEIq3_4KA%2Fm%3D__features__ -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base target="_blank">--><base href="." target="_blank"></head><body><section>
+  <h2>How IRCI Works</h2>
+  <ol>
+    <li><strong>Ingest:</strong> Prices, Fama-French factors (or CAPM fallback), SEC events, news tone.</li>
+    <li><strong>Score dials:</strong> Each dial → 0–100 percentile vs. peer-set/quarter.</li>
+    <li><strong>Composite:</strong> Weighted average with missing-dial re-normalization.</li>
+  </ol>
+  <details>
+    <summary>See equations</summary>
+    <pre style="white-space:pre-wrap">Valuation% = 100 × rank_pct(− EV/EBITDA)
+Liquidity% = 100 × rank_pct(− Spread_bps, + Turnover)
+Coverage%  = 100 × rank_pct(− Days_to_10Q/10K, − 8-K spikes)
+Trust%     = 100 × rank_pct( w1·EventCalm + w2·BaselineCalm + w3·MediaTone )
+
+Composite% = (Σ w_dial · Dial%) / (Σ w_dial for available dials)
+    </pre>
+  </details>
+</section>
+</body></html>
