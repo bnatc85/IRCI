@@ -1,0 +1,929 @@
+import os, tomllib, subprocess, shlex
+import typer
+from typing import Optional, List
+from pathlib import Path
+import pandas as pd
+import numpy as np
+
+from .config import Settings
+from .logging import get_logger
+from .market import fetch_prices_fmp, quarterly_features
+from .metrics import irci_score
+from .liquidity import daily_liquidity_bundle, quarterly_liquidity, add_liquidity_percentile
+from .coverage import coverage_snapshot
+from .trust import trust_snapshot
+
+app = typer.Typer(help="IRCI command-line interface")
+log = get_logger("irci")
+
+# Small helpers
+def _load_cfg() -> dict:
+    for p in (Path("irci.toml"), Path.home() / ".irci.toml"):
+        if p.exists():
+            return tomllib.loads(p.read_text())
+    return {}
+
+def _quarter_bounds(qstr: str) -> tuple[str, str]:
+    q = pd.Period(qstr, freq="Q-DEC")
+    start = q.start_time.date().isoformat()
+    end = q.end_time.date().isoformat()
+    return start, end
+
+def _sh(cmd: str):
+    typer.secho(f"$ {cmd}", fg=typer.colors.BLUE)
+    subprocess.run(cmd, shell=True, check=True)
+
+def _pick_symbols(preset: str | None, symbols: str | None, cfg: dict) -> str:
+    if symbols: return symbols
+    if preset and "presets" in cfg and preset in cfg["presets"]:
+        return cfg["presets"][preset].get("symbols", "")
+    return cfg.get("defaults", {}).get("symbols", "")
+
+# --- ADD NEW COMMAND ---
+@app.command("run")
+def run_cmd(
+    preset: str = typer.Option(None, help="Preset name from irci.toml (e.g., 'bigtech')"),
+    symbols: str = typer.Option(None, help='Comma list e.g. "AAPL,MSFT,AMZN,GOOGL"'),
+    quarter: str = typer.Option(None, help="Quarter like 2025Q2; if omitted, uses cfg.defaults.quarter"),
+    news_csv: Path | None = typer.Option(None, help="Optional news CSV"),
+    out_dir: Path = typer.Option(Path("outputs"), help="Output directory"),
+):
+    cfg = _load_cfg()
+    syms = _pick_symbols(preset, symbols, cfg)
+    if not syms:
+        raise typer.BadParameter("No symbols. Provide --symbols or set defaults/preset in irci.toml")
+
+    q = quarter or cfg.get("defaults", {}).get("quarter")
+    if not q:
+        raise typer.BadParameter("No quarter. Provide --quarter or set defaults.quarter in irci.toml")
+    start, end = _quarter_bounds(q)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1) Trust (sentiment)
+    trust_out = out_dir / "trust.csv"
+    cmd = f'irci trust --symbols "{syms}" --start {start} --end {end} --out-csv {trust_out}'
+    if news_csv: cmd += f" --news-csv {shlex.quote(str(news_csv))}"
+    _sh(cmd)
+
+    # 2) Valuation (use quarter end date as as_of)
+    val_out = out_dir / f"valuation_{q.lower()}.csv"
+    _sh(f'irci valuation --symbols "{syms}" --as-of {end} --out-csv {val_out}')
+
+    # 3) Coverage (same quarter end date)
+    cov_out = out_dir / f"coverage_{q.lower()}.csv"
+    _sh(f'irci coverage --symbols "{syms}" --as-of {end} --out-csv {cov_out}')
+
+    # 4) Composite
+    comp_out = out_dir / f"irci_composite_{q.lower()}.csv"
+    _sh(
+        f'irci composite '
+        f'--valuation {val_out} '
+        f'--liquidity {out_dir}/liquidity.csv '
+        f'--coverage {cov_out} '
+        f'--sentiment-csv {trust_out} '
+        f'--quarter {q} '
+        f'--out-csv {comp_out}'
+    )
+
+    typer.secho(f"Done. Composite: {comp_out}", fg=typer.colors.GREEN)
+
+
+@app.command("wizard")
+def wizard_cmd():
+    syms = typer.prompt('Symbols (comma-separated)', default="AAPL,MSFT,AMZN,GOOGL")
+    quarter = typer.prompt('Quarter (e.g., 2025Q2)', default="2025Q2")
+    news = typer.prompt('News CSV (optional)', default="")
+    args = f'--symbols "{syms}" --quarter {quarter}'
+    if news.strip(): args += f' --news-csv {news}'
+    if typer.confirm(f"Run now with: irci run {args} ?", default=True):
+        _sh(f"irci run {args}")
+
+@app.command("init")
+def init_cmd(
+    path: Path = typer.Option(Path.home() / ".irci.toml", help="Where to write the config"),
+):
+    template = """# IRCI config
+[defaults]
+symbols = "AAPL,MSFT,AMZN,GOOGL"
+quarter = "2025Q2"
+news_csv = "data/news.csv"
+
+[presets.bigtech]
+symbols = "AAPL,MSFT,AMZN,GOOGL"
+
+[presets.mag7]
+symbols = "AAPL,MSFT,AMZN,GOOGL,NVDA,META,TSLA"
+"""
+    path.write_text(template)
+    typer.secho(f"Wrote {path}", fg=typer.colors.GREEN)
+
+
+@app.command(name="liquidity")
+def liquidity_cmd(
+    symbols: str = typer.Option(..., help='Comma-separated tickers, e.g. "AAPL,MSFT,GOOGL,AMZN"'),
+    start: str = typer.Option("2022-01-01", help="YYYY-MM-DD (ignored if --as-of is provided)"),
+    end: str = typer.Option(None, help="YYYY-MM-DD (defaults to today; ignored if --as-of is provided)"),
+    as_of: Optional[str] = typer.Option(
+        None, help="Compute and report the quarter containing this date (YYYY-MM-DD)"
+    ),
+    out_csv: Path = typer.Option(Path("./outputs/liquidity.csv"), help="Where to save the liquidity snapshot"),
+    quarter_freq: str = typer.Option("QE-DEC", help="Quarter-end freq (e.g., QE-DEC, QE-JUN)"),
+    autofetch: bool = typer.Option(True, help="Fetch prices from FMP if local parquet is missing"),
+):
+    try:
+     from .liquidity import liquidity_snapshot
+    except Exception as e:
+     typer.secho(f"Import error in liquidity module: {e}", fg=typer.colors.RED, err=True)
+     raise typer.Exit(1)
+    """
+    Build the Liquidity dial per ticker (turnover, Amihud, Roll spread), and
+    output a peer-relative percentile (0..100) per quarter.
+    """
+    s = Settings.load()
+    syms: List[str] = [t.strip().upper() for t in symbols.split(",") if t.strip()]
+    if not syms:
+        typer.secho("No symbols provided.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    # If as_of is given, we'll let liquidity_snapshot pick the correct quarter;
+    # otherwise we pass a date range.
+    if end is None:
+        end = pd.Timestamp.utcnow().date().isoformat()
+
+    df = liquidity_snapshot(
+        symbols=syms,
+        start=None if as_of else start,
+        end=None if as_of else end,
+        as_of=as_of,                       # <-- new
+        freq=quarter_freq,
+        autofetch=autofetch,
+        apikey=s.fmp_api_key,
+    )
+
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out_csv, index=False)
+    typer.secho(f"Wrote {out_csv} with {len(df)} rows", fg=typer.colors.GREEN)
+
+    # Pretty print latest quarter
+    last_q = pd.to_datetime(df["quarter_end"], utc=True).max()
+    snap = (
+        df[df["quarter_end"] == last_q]
+        .sort_values("liquidity_pct", ascending=False)
+        [["ticker", "liquidity_pct", "turnover_pct", "amihud_per_1m", "roll_spread_bps"]]
+        .rename(columns={
+            "turnover_pct": "turnover (%)",
+            "amihud_per_1m": "amihud (per $1M)",
+            "roll_spread_bps": "roll_spread (bps)",
+        })
+    )
+    typer.echo(f"\n== Liquidity snapshot @ {last_q.date()} ==")
+    typer.echo(snap.to_string(index=False, float_format=lambda x: f"{x:,.2f}"))
+    
+@app.command(name="trust")
+def trust_cmd(
+    symbols: str = typer.Option(..., help='Comma-separated tickers, e.g. "AAPL,MSFT,GOOGL,AMZN"'),
+    start: Optional[str] = typer.Option(None, help="Start date (YYYY-MM-DD) for prices/FF factors"),
+    end: Optional[str] = typer.Option(None, help="End date (YYYY-MM-DD)"),
+    news_csv: Optional[Path] = typer.Option(None, help="Optional CSV with columns: date,ticker,title|text"),
+    out_csv: Path = typer.Option(Path("./outputs/trust.csv"), help="Where to save the trust snapshot"),
+):
+    s = Settings.load()
+    syms = [t.strip().upper() for t in symbols.split(",") if t.strip()]
+    if not syms:
+        typer.secho("No symbols provided.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    df = trust_snapshot(syms, start=start, end=end, news_df=None, apikey=s.fmp_api_key)
+    import pandas as pd
+    news_df = None
+    if news_csv is not None and news_csv.exists():
+        news_df = pd.read_csv(news_csv)
+    df = trust_snapshot(syms, start=start, end=end, news_df=news_df, apikey=s.fmp_api_key)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out_csv, index=False)
+    typer.secho(f"Wrote {out_csv} with {len(df)} rows", fg=typer.colors.GREEN)
+    last_q = df["quarter_end"].max()
+    snap = df[df["quarter_end"] == last_q].copy().sort_values("trust_pct", ascending=False)
+    cols = ["ticker", "trust_pct", "p_event_calm", "p_baseline_calm", "p_media_tone", "event_count"]
+    typer.echo(f"\\n== Trust snapshot @ {last_q.date()} ==")
+    typer.echo(snap[cols].to_string(index=False))
+
+@app.command()
+def hello(name: str = "world"):
+    typer.echo(f"IRCI says hello, {name}!")
+
+@app.command(name="coverage")
+def coverage_cmd(
+    symbols: str = typer.Option(..., help='Comma-separated tickers, e.g. "AAPL,MSFT,GOOGL,AMZN"'),
+    as_of: Optional[str] = typer.Option(None, help="Quarter to score (YYYY-MM-DD). Defaults to current quarter."),
+    out_csv: Path = typer.Option(Path("./outputs/coverage.csv"), help="Where to save the coverage snapshot"),
+    quarter: Optional[str] = typer.Option(None, "--quarter", help="Filter to a quarter like 2025Q2"),
+
+):
+    syms = [t.strip().upper() for t in symbols.split(",") if t.strip()]
+    if not syms:
+        typer.secho("No symbols provided.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    df = coverage_snapshot(syms, as_of=as_of or None)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+
+        # Normalize and stamp quarter_end on output
+    as_of_ts = pd.to_datetime(as_of, utc=True)  # <-- 'as_of' is the CLI option for coverage
+    df["as_of"] = as_of_ts
+    # Avoid tz warning by dropping tz before Period conversion, then re-localize
+    df["quarter_end"] = (
+        pd.PeriodIndex(df["as_of"].dt.tz_localize(None), freq="Q-DEC")
+        .end_time
+        .tz_localize("UTC")
+    )
+
+    as_of_ts = pd.to_datetime(as_of, utc=True)
+    df["as_of"] = as_of_ts
+    df["quarter_end"] = (
+        pd.PeriodIndex(df["as_of"].dt.tz_localize(None), freq="Q-DEC")
+          .end_time
+          .tz_localize("UTC")
+    )
+    df.to_csv(out_csv, index=False)
+    typer.secho(f"Wrote {out_csv} with {len(df)} rows", fg=typer.colors.GREEN)
+
+    last_q = pd.to_datetime(df["as_of"]).max().date()
+    snap = df.sort_values("coverage_pct", ascending=False).copy()
+    snap = snap.rename(columns={
+        "q_8k_count": "8-Ks (quarter)",
+        "q_days_to_10q": "days_to_10Q/10K",
+    })
+    cols = ["ticker", "coverage_pct", "8-Ks (quarter)", "days_to_10Q/10K"]
+    typer.echo(f"\n== Coverage snapshot @ {last_q} ==")
+    typer.echo(snap[cols].to_string(index=False, float_format=lambda x: f"{x: .1f}"))
+
+
+@app.command()
+def fetch_prices(
+    symbol: str = typer.Argument(..., help="Ticker symbol, e.g., AAPL"),
+    start: str = typer.Option("2022-01-01", help="YYYY-MM-DD"),
+    end: str = typer.Option(None, help="YYYY-MM-DD (defaults to today)"),
+    outfile: Path = typer.Option(Path("./data/prices.parquet"), help="Output parquet"),
+):
+    """Fetch daily OHLCV from FMP and save to parquet."""
+    s = Settings.load()
+    if not s.fmp_api_key:
+        typer.secho("FMP_API_KEY is not set (see .env.example)", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    end = end or pd.Timestamp.utcnow().date().isoformat()
+    df = fetch_prices_fmp(symbol, start, end, s.fmp_api_key)
+    outfile.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(outfile)
+    typer.secho(f"Saved {len(df):,} rows → {outfile}", fg=typer.colors.GREEN)
+
+
+@app.command()
+def compute(
+    prices: Path = typer.Option(Path("./data/prices.parquet"), help="Daily prices parquet"),
+    out_csv: Path = typer.Option(Path("./outputs/irci_quarterly.csv"), help="Quarterly CSV"),
+    quarter_freq: str = typer.Option("QE-DEC", help="Quarter-end freq (e.g., QE-DEC, QE-JUN)"),
+):
+    """Compute quarterly features and IRCI score from daily prices."""
+    Settings.load()  # ensures dirs exist
+    df = pd.read_parquet(prices)
+    feats = quarterly_features(df, freq=quarter_freq)
+    score = irci_score(feats)
+    out = feats.join(score)
+    out.index.name = "quarter_end"
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(out_csv)
+    typer.secho(f"Wrote {out_csv} with {len(out)} quarters", fg=typer.colors.GREEN)
+
+
+@app.command()
+def report(csv: Path = typer.Option(Path("./outputs/irci_quarterly.csv"))):
+    """Print a small summary report."""
+    df = pd.read_csv(csv, parse_dates=["quarter_end"]).set_index("quarter_end")
+    last = df.iloc[-1]
+    typer.echo("== IRCI Quarterly Snapshot ==")
+    typer.echo(df.tail(6).to_string(float_format=lambda x: f"{x: .3f}"))
+    typer.echo("\nLatest quarter:")
+    typer.echo(
+        f"IRCI={last['irci_score']:.2f} | Return={last['q_return']:.2%} | "
+        f"Vol(GK)={last['q_vol_gk']:.3f} | Drawdown={last['q_drawdown']:.2%} | VolZ={last['q_volume_z']:.2f}"
+    )
+
+
+@app.command(name="compute-peers")
+def compute_peers(
+    symbols: str = typer.Option(..., help='Comma-separated tickers, e.g. "AAPL,MSFT,GOOGL,AMZN"'),
+    start: str = typer.Option("2022-01-01", help="YYYY-MM-DD"),
+    end: str = typer.Option(None, help="YYYY-MM-DD (defaults to today)"),
+    out_csv: Path = typer.Option(Path("./outputs/peers_irci.csv"), help="Output CSV"),
+    quarter_freq: str = typer.Option("QE-DEC", help="Quarter-end freq (e.g., QE-DEC, QE-JUN)"),
+    autofetch: bool = typer.Option(True, help="Fetch prices from FMP if local parquet is missing"),
+):
+    """
+    Compute IRCI for a cohort of tickers and add peer-relative metrics:
+    - peer_mean_excl_self, excess_irci, rank_in_peer (per quarter).
+    """
+    s = Settings.load()
+    syms: List[str] = [t.strip().upper() for t in symbols.split(",") if t.strip()]
+    if not syms:
+        typer.secho("No symbols provided.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    if autofetch and not s.fmp_api_key:
+        typer.secho("FMP_API_KEY is not set (see .env.example)", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    if end is None:
+        end = pd.Timestamp.utcnow().date().isoformat()
+
+    rows = []
+    for sym in syms:
+        # get daily prices
+        parquet_path = Path(f"./data/{sym}.parquet")
+        if parquet_path.exists() and not autofetch:
+            df = pd.read_parquet(parquet_path)
+        else:
+            df = fetch_prices_fmp(sym, start, end, s.fmp_api_key) if autofetch else pd.read_parquet(parquet_path)
+            parquet_path.parent.mkdir(parents=True, exist_ok=True)
+            df.to_parquet(parquet_path)
+
+        # features + score
+        feats = quarterly_features(df, freq=quarter_freq)
+        sc = irci_score(feats)
+
+        # make quarter_end a real column
+        tmp = feats.join(sc).reset_index()  # brings index -> a column
+        # normalize the column name no matter what it's called
+        if "quarter_end" not in tmp.columns:
+            if "date" in tmp.columns:
+                tmp = tmp.rename(columns={"date": "quarter_end"})
+            elif "index" in tmp.columns:
+                tmp = tmp.rename(columns={"index": "quarter_end"})
+
+        tmp["quarter_end"] = pd.to_datetime(tmp["quarter_end"], utc=True)
+        tmp["ticker"] = sym
+        rows.append(tmp)
+
+
+    out = pd.concat(rows, ignore_index=True)
+    out["quarter_end"] = pd.to_datetime(out["quarter_end"], utc=True)
+
+    # peer metrics per quarter
+    grp = out.groupby("quarter_end", group_keys=False)
+    out["peer_count"] = grp["irci_score"].transform("count")
+    sum_scores = grp["irci_score"].transform("sum")
+    out["peer_mean_excl_self"] = ((sum_scores - out["irci_score"]) / (out["peer_count"] - 1)).where(
+        out["peer_count"] > 1
+    )
+    out["excess_irci"] = out["irci_score"] - out["peer_mean_excl_self"]
+    out["rank_in_peer"] = grp["irci_score"].transform(lambda s: s.rank(method="min", ascending=False))
+
+    out = out.sort_values(["quarter_end", "rank_in_peer"])
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(out_csv, index=False)
+    typer.secho(f"Wrote {out_csv} with {len(out)} rows", fg=typer.colors.GREEN)
+
+    # print last-quarter snapshot
+    last_q = out["quarter_end"].max()
+    snap_cols = ["ticker", "irci_score", "peer_mean_excl_self", "excess_irci", "q_return", "q_vol_gk", "q_drawdown", "q_volume_z"]
+    snap = out.loc[out["quarter_end"] == last_q, snap_cols].sort_values("irci_score", ascending=False)
+    typer.echo(f"\n== Peer snapshot @ {last_q.date()} ==")
+    typer.echo(snap.to_string(index=False, float_format=lambda x: f"{x: .3f}"))
+
+@app.command(name="report-peers")
+def report_peers(
+    csv: Path = typer.Option(Path("./outputs/peers_irci.csv"), help="CSV produced by compute-peers"),
+    top: int = typer.Option(10, help="How many top movers (by Δ IRCI) to show"),
+    sort_by: str = typer.Option("irci", help="Sort latest snapshot by: 'irci' or 'excess'"),
+    # ↓↓↓ change this line ↓↓↓
+    ascending: bool = typer.Option(False, "--ascending/--descending", help="Sort direction"),
+    tickers: Optional[str] = typer.Option(None, help='Optional filter: comma-separated tickers, e.g. "AAPL,MSFT"'),
+    export_pivot: Optional[Path] = typer.Option(
+        None, help="Optional path to save a pivot (rows=quarter_end, cols=ticker, values=irci_score)"
+    ),
+    export_md: Optional[Path] = typer.Option(
+        None, help="Optional path to save a Markdown summary of the latest snapshot & movers"
+    ),
+):
+    """
+    Summarize the latest peer cohort and show quarter-over-quarter changes.
+
+    - Snapshot (ranked): IRCI, peer_mean_excl_self, excess_irci, core features.
+    - Movers: Δ IRCI vs previous quarter.
+    - Optional exports: wide pivot CSV and Markdown report.
+    """
+    if not csv.exists():
+        typer.secho(f"File not found: {csv}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    df = pd.read_csv(csv, parse_dates=["quarter_end"])
+    if df.empty:
+        typer.secho("No rows in peers CSV.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    # Optional ticker filter
+    if tickers:
+        keep = {t.strip().upper() for t in tickers.split(",") if t.strip()}
+        df = df[df["ticker"].isin(keep)]
+        if df.empty:
+            typer.secho("After filtering, no rows remain.", fg=typer.colors.RED, err=True)
+            raise typer.Exit(1)
+
+    # Identify latest and prior quarter
+    last_q = df["quarter_end"].max()
+    prev_q = df.loc[df["quarter_end"] < last_q, "quarter_end"].max()
+
+    # Build current snapshot
+    cur = df[df["quarter_end"] == last_q].copy()
+    # Ranks (1 = highest IRCI in cohort)
+    cur["rank_irci"] = cur["irci_score"].rank(method="min", ascending=False)
+    cur["rank_excess"] = cur["excess_irci"].rank(method="min", ascending=False)
+
+    # Join previous quarter to compute Δ IRCI
+    if pd.isna(prev_q):
+        cur["irci_prev"] = pd.NA
+        cur["delta"] = pd.NA
+    else:
+        prev = (
+            df[df["quarter_end"] == prev_q][["ticker", "irci_score"]]
+            .rename(columns={"irci_score": "irci_prev"})
+        )
+        cur = cur.merge(prev, on="ticker", how="left")
+        cur["delta"] = cur["irci_score"] - cur["irci_prev"]
+
+    # Choose sort column
+    sort_map = {"irci": "irci_score", "excess": "excess_irci"}
+    sort_col = sort_map.get(sort_by.lower(), "irci_score")
+    cur = cur.sort_values(sort_col, ascending=ascending)
+
+    # Pretty print snapshot
+    cols = [
+        "ticker", "rank_irci", "rank_excess",
+        "irci_score", "peer_mean_excl_self", "excess_irci",
+        "irci_prev", "delta",
+        "q_return", "q_vol_gk", "q_drawdown", "q_volume_z",
+    ]
+    cur = cur[cols]
+
+    fmt = lambda x: f"{x: .3f}" if isinstance(x, (int, float, float)) else f"{x}"
+    typer.echo(f"== Peer snapshot @ {last_q.date()}" + ("" if pd.isna(prev_q) else f" (vs {prev_q.date()})") + " ==")
+    typer.echo(cur.to_string(index=False, float_format=lambda x: f"{x: .3f}"))
+
+    # Top movers table (skip if we have no previous quarter)
+    if not pd.isna(prev_q):
+        movers = cur.sort_values("delta", ascending=False).head(top)
+        typer.echo("\nTop movers (Δ IRCI vs previous):")
+        typer.echo(movers[["ticker", "irci_prev", "irci_score", "delta"]]
+                   .to_string(index=False, float_format=lambda x: f"{x: .3f}"))
+    else:
+        typer.echo("\n(Only one quarter available; Δ IRCI not computed.)")
+
+    # Optional pivot export: wide table of IRCI by quarter x ticker
+    if export_pivot:
+        pivot = df.pivot(index="quarter_end", columns="ticker", values="irci_score").sort_index()
+        export_pivot.parent.mkdir(parents=True, exist_ok=True)
+        pivot.to_csv(export_pivot)
+        typer.secho(f"\nSaved pivot → {export_pivot}", fg=typer.colors.GREEN)
+
+    # Optional Markdown export
+    if export_md:
+        from io import StringIO
+        buf = StringIO()
+        buf.write(f"# IRCI Peer Report\n\n")
+        buf.write(f"**Snapshot @ {last_q.date()}**")
+        if not pd.isna(prev_q):
+            buf.write(f" (vs {prev_q.date()})")
+        buf.write("\n\n")
+        buf.write(cur.to_markdown(index=False, floatfmt=".3f"))
+        if not pd.isna(prev_q):
+            buf.write("\n\n## Top movers (Δ IRCI)\n\n")
+            buf.write(movers[["ticker", "irci_prev", "irci_score", "delta"]]
+                      .to_markdown(index=False, floatfmt=".3f"))
+        export_md.parent.mkdir(parents=True, exist_ok=True)
+        export_md.write_text(buf.getvalue())
+        typer.secho(f"Saved Markdown report → {export_md}", fg=typer.colors.GREEN)
+
+
+@app.command(name="liquidity")
+def liquidity_cmd(
+    symbols: str = typer.Option(..., help='Comma-separated tickers, e.g. "AAPL,MSFT,GOOGL,AMZN"'),
+    start: str = typer.Option("2022-01-01", help="YYYY-MM-DD"),
+    end: str = typer.Option(None, help="YYYY-MM-DD (defaults to today)"),
+    out_csv: Path = typer.Option(Path("./outputs/liquidity.csv"), help="Where to save the liquidity snapshot"),
+    quarter_freq: str = typer.Option("QE-DEC", help="Quarter-end freq (e.g., QE-DEC, QE-JUN)"),
+    autofetch: bool = typer.Option(True, help="Fetch prices if parquet missing"),
+):
+    """
+    Compute daily liquidity metrics (Amihud, turnover, Roll spread),
+    aggregate to quarters, and produce a peer-relative Liquidity dial (0–100%).
+    """
+    s = Settings.load()
+    syms: List[str] = [t.strip().upper() for t in symbols.split(",") if t.strip()]
+    if not syms:
+        typer.secho("No symbols provided.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    if end is None:
+        end = pd.Timestamp.utcnow().date().isoformat()
+
+    rows = []
+    for sym in syms:
+        # daily prices
+        pq = Path(f"./data/{sym}.parquet")
+        if pq.exists() and not autofetch:
+            px = pd.read_parquet(pq)
+        else:
+            px = fetch_prices_fmp(sym, start, end, s.fmp_api_key) if s.fmp_api_key else pd.read_parquet(pq)
+            pq.parent.mkdir(parents=True, exist_ok=True)
+            px.to_parquet(pq)
+
+        # daily → quarterly
+        daily = daily_liquidity_bundle(sym, s, px, end)
+        q = quarterly_liquidity(daily, freq=quarter_freq).reset_index()
+        # normalize column name
+        if "quarter_end" not in q.columns:
+            q = q.rename(columns={"date": "quarter_end", "index": "quarter_end"})
+        q["quarter_end"] = pd.to_datetime(q["quarter_end"], utc=True)
+        q["ticker"] = sym
+        rows.append(q)
+
+    out = pd.concat(rows, ignore_index=True)
+    out = add_liquidity_percentile(out)  # adds 'liquidity_pct' per quarter
+    out = out.sort_values(["quarter_end", "liquidity_pct"], ascending=[True, False])
+
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(out_csv, index=False)
+    typer.secho(f"Wrote {out_csv} with {len(out)} rows", fg=typer.colors.GREEN)
+
+    # Print latest-quarter snapshot (pretty units)
+    last_q = out["quarter_end"].max()
+    snap = out.loc[out["quarter_end"] == last_q].copy()
+
+    # Build a display frame with per-column formatting
+    disp = snap[["ticker", "liquidity_pct", "q_turnover", "q_amihud_e6", "q_spread_bps"]].copy()
+    disp["turnover (%)"] = disp["q_turnover"] * 100.0
+    disp["amihud (per $1M)"] = disp["q_amihud_e6"].map(lambda x: f"{x:.2e}")      # scientific notation
+    disp["roll_spread (bps)"] = disp["q_spread_bps"].map(lambda x: f"{x:,.2f}")   # 2 decimals
+    disp = disp[["ticker", "liquidity_pct", "turnover (%)", "amihud (per $1M)", "roll_spread (bps)"]]
+
+    typer.echo(f"\n== Liquidity snapshot @ {last_q.date()} ==")
+    # note: we already formatted strings per column; avoid float_format here
+    typer.echo(disp.sort_values("liquidity_pct", ascending=False).to_string(index=False))
+
+# --- COMPOSITE DIALS → IRCI composite ---
+@app.command(name="composite")
+def composite_cmd(
+    valuation: Path = typer.Option(Path("./outputs/valuation.csv"), help="CSV from irci valuation"),
+    liquidity: Path = typer.Option(Path("./outputs/liquidity.csv"), help="CSV from irci liquidity"),
+    coverage: Optional[Path] = typer.Option(None, help="Optional CSV from irci coverage"),
+    w_valuation: float = typer.Option(0.5, help="Weight for valuation dial"),
+    w_liquidity: float = typer.Option(0.5, help="Weight for liquidity dial"),
+    w_coverage: float = typer.Option(0.2, help="Weight for coverage dial (if present)"),
+    sentiment_csv: Path = typer.Option(
+        None, help="CSV with sentiment_pct and quarter_end"
+    ),
+    out_csv: Path = typer.Option(Path("./outputs/irci_composite.csv"), help="Where to save the composite snapshot"),
+    round_to: int = typer.Option(1, help="Rounding for composite percent"),
+    quarter: Optional[str] = typer.Option(None, "--quarter", help="Filter to a quarter like 2025Q2"),
+):
+
+    """
+    Merge dial snapshots and compute the IRCI composite percent (0-100). Weights are re-normalized
+    row-by-row when a dial is missing for a given ticker.
+    """
+    # --- Load inputs ---
+    sent_df = None
+    if sentiment_csv is not None and sentiment_csv.exists():
+        sent_df = pd.read_csv(sentiment_csv, parse_dates=["quarter_end"])
+    if not valuation.exists():
+        typer.secho(f"Valuation file not found: {valuation}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    if not liquidity.exists():
+        typer.secho(f"Liquidity file not found: {liquidity}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    v = pd.read_csv(valuation, parse_dates=["as_of"])  # valuation always has 'as_of'
+    liq = pd.read_csv(liquidity)
+    cov = None
+    if coverage and coverage.exists():
+        cov = pd.read_csv(coverage) 
+    else:
+        cov = pd.DataFrame(columns=["ticker", "as_of", "as_of_bucket", "coverage_pct"])
+
+    # --- normalize datetimes ---
+    # valuation
+    v["as_of"] = pd.to_datetime(v["as_of"], utc=True, errors="coerce")
+
+    # liquidity
+    if "as_of" in liq.columns:
+        liq["as_of"] = pd.to_datetime(liq["as_of"], utc=True, errors="coerce")
+    if "as_of_bucket" in liq.columns:
+        liq["as_of_bucket"] = pd.to_datetime(liq["as_of_bucket"], utc=True, errors="coerce")
+
+    # coverage (optional file)
+    if coverage and coverage.exists():
+        cov["as_of"] = pd.to_datetime(cov["as_of"], utc=True, errors="coerce")
+        if "as_of_bucket" in cov.columns:
+            cov["as_of_bucket"] = pd.to_datetime(cov["as_of_bucket"], utc=True, errors="coerce")
+
+    # valuation quarter bucket (UTC, midnight)
+    v["as_of_bucket"] = (
+        v["as_of"]
+        .dt.tz_convert("UTC")
+        .dt.tz_localize(None)
+        .dt.to_period("Q")
+        .dt.end_time
+        .dt.tz_localize("UTC")
+        .dt.normalize()
+)
+
+    # --- helper to build quarter bucket from an as_of column ---
+    def _ensure_bucket(df: pd.DataFrame, asof_col: str) -> pd.Series:
+        s = pd.to_datetime(df[asof_col], utc=True, errors="coerce")
+        return (
+            s.dt.tz_convert("UTC").dt.tz_localize(None)
+             .dt.to_period("Q").dt.end_time
+             .dt.tz_localize("UTC").dt.normalize()
+        )
+
+    # valuation: compute its bucket to anchor "last_bucket"
+    v["as_of_bucket"] = _ensure_bucket(v, "as_of")
+    last_bucket = v["as_of_bucket"].max()
+
+# liquidity: synthesize as_of/as_of_bucket if missing
+    if "as_of" not in liq.columns:
+        # prefer quarter_end if present
+        if "quarter_end" in liq.columns:
+            liq["as_of"] = pd.to_datetime(liq["quarter_end"], utc=True, errors="coerce")
+        else:
+            liq["as_of"] = pd.NaT
+    if "as_of_bucket" not in liq.columns:
+        liq["as_of_bucket"] = _ensure_bucket(liq, "as_of")
+
+# coverage: synthesize bucket if missing
+    if cov is not None:
+        if "as_of" in cov.columns:
+            cov["as_of"] = pd.to_datetime(cov["as_of"], utc=True, errors="coerce")
+        else:
+            cov["as_of"] = pd.NaT
+        if "as_of_bucket" not in cov.columns:
+            cov["as_of_bucket"] = _ensure_bucket(cov, "as_of")
+
+# --- now slice latest rows consistently ---
+    last_val_date = v["as_of"].max()
+    v_last = v.loc[v["as_of"] == last_val_date, ["ticker", "valuation_pct"]]
+
+    liq_last = liq.loc[liq["as_of_bucket"] == last_bucket, ["ticker", "liquidity_pct"]]
+
+    df = v_last.merge(liq_last, on="ticker", how="left")
+
+    if cov is not None:
+        cov_last = cov.loc[cov["as_of_bucket"] == last_bucket, ["ticker", "coverage_pct"]]
+        df = df.merge(cov_last, on="ticker", how="left")
+
+# ...continue with weighting, ranking, printing, and saving as you already do
+
+    # --- Robust quarter bucket alignment ---
+    def to_bucket(series):
+        dt = pd.to_datetime(series, utc=True)
+        return (
+            dt.dt.tz_convert("UTC").dt.tz_localize(None)
+            .dt.to_period("Q").dt.end_time
+            .dt.tz_localize("UTC").dt.normalize()
+        )
+
+    if "as_of" in v.columns:
+        v["as_of_bucket"] = to_bucket(v["as_of"])
+
+    if "as_of_bucket" not in liq.columns:
+        # Try to derive from a date-ish column
+        src_col = None
+        for c in ["as_of", "quarter_end"]:
+            if c in liq.columns:
+                src_col = c
+                break
+        if src_col is not None:
+            liq["as_of_bucket"] = to_bucket(liq[src_col])
+
+    if "as_of_bucket" not in cov.columns and "as_of" in cov.columns:
+        cov["as_of_bucket"] = to_bucket(cov["as_of"])
+
+    # --- Select the latest common bucket ---
+    # --- pick a common quarter bucket from whatever we have ---
+    bucket_candidates = []
+
+# valuation bucket (from v)
+    if not v.empty and "as_of_bucket" in v.columns:
+        vb = v["as_of_bucket"].max()
+        if pd.notna(vb):
+            bucket_candidates.append(vb)
+
+# liquidity bucket
+    if "as_of_bucket" in liq.columns:
+        lb = liq["as_of_bucket"].max()
+        if pd.notna(lb):
+            bucket_candidates.append(lb)
+
+# coverage bucket (only if file provided)
+    if coverage and coverage.exists() and "as_of_bucket" in cov.columns:
+        cb = cov["as_of_bucket"].max()
+        if pd.notna(cb):
+            bucket_candidates.append(cb)
+
+# guard
+    bucket_candidates = [b for b in bucket_candidates if isinstance(b, pd.Timestamp)]
+    if not bucket_candidates:
+        typer.secho("Could not determine a quarter bucket from inputs.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    last_bucket = max(bucket_candidates)
+
+    # --- Prepare dial slices for that bucket ---
+    v_cols = ["ticker"]
+    if "valuation_pct" in v.columns:
+        v_cols.append("valuation_pct")
+    # --- Prepare dial slices for that bucket ---
+    v_last = v.loc[v["as_of_bucket"] == last_bucket, ["ticker", "valuation_pct"]].copy()
+
+    liq_last = liq.copy()
+    if "as_of_bucket" in liq_last.columns:
+        liq_last = liq_last.loc[liq_last["as_of_bucket"] == last_bucket, ["ticker", "liquidity_pct"]]
+    else:
+    # fallback: if no bucket column, derive from 'as_of'
+        tmp = liq.copy()
+        tmp["as_of_bucket"] = (
+            pd.to_datetime(tmp["as_of"], utc=True, errors="coerce")
+            .dt.tz_convert("UTC").dt.tz_localize(None)
+            .dt.to_period("Q").dt.end_time.dt.tz_localize("UTC").dt.normalize()
+    )
+        liq_last = tmp.loc[tmp["as_of_bucket"] == last_bucket, ["ticker", "liquidity_pct"]]
+
+    if coverage and coverage.exists():
+        cov_last = cov.loc[cov["as_of_bucket"] == last_bucket, ["ticker", "coverage_pct"]].copy()
+    else:
+        cov_last = pd.DataFrame(columns=["ticker", "coverage_pct"])
+
+# --- Outer-merge so we keep all tickers present in any dial ---
+    df = v_last.merge(liq_last, on="ticker", how="outer")
+    df = df.merge(cov_last, on="ticker", how="outer")
+
+    # --- Row-wise composite with on-the-fly weight renormalization ---
+    def row_composite(row) -> float:
+        weights = []
+        values = []
+        if "valuation_pct" in row and pd.notna(row["valuation_pct"]):
+            weights.append(w_valuation); values.append(float(row["valuation_pct"]))
+        if "liquidity_pct" in row and pd.notna(row["liquidity_pct"]):
+            weights.append(w_liquidity); values.append(float(row["liquidity_pct"]))
+        if "coverage_pct" in row and pd.notna(row["coverage_pct"]):
+            weights.append(w_coverage); values.append(float(row["coverage_pct"]))
+        if not weights:
+            return np.nan
+        wsum = float(sum(weights))
+        return float(np.dot(values, weights) / wsum)
+
+    df["irci_composite_pct"] = df.apply(row_composite, axis=1).round(round_to)
+    if quarter:
+        q = pd.Period(quarter, freq="Q-DEC")
+        df["quarter_end"] = pd.to_datetime(df["quarter_end"], utc=True, errors="coerce")
+        df["quarter"] = pd.PeriodIndex(df["quarter_end"], freq="Q-DEC")
+        df = df[df["quarter"] == q].drop(columns=["quarter"])
+        # --- Peer rank (higher is better) ---
+        df["rank_in_peer"] = df["irci_composite_pct"].rank(method="min", ascending=False)
+        # rank within quarter
+    df["rank_in_peer"] = df.groupby("quarter_end")["irci_composite_pct"].rank(ascending=False, method="min")
+
+    # optional quarter filter
+    if quarter:
+        q = pd.Period(quarter, freq="Q-DEC")
+        df["quarter"] = pd.PeriodIndex(pd.to_datetime(df["quarter_end"], utc=True, errors="coerce"), freq="Q-DEC")
+        df = df[df["quarter"] == q].drop(columns=["quarter"])
+
+    # ALWAYS save quarter_end and dial columns
+    cols = ["ticker","quarter_end","irci_composite_pct","valuation_pct","liquidity_pct","coverage_pct","sentiment_pct","rank_in_peer"]
+    df[[c for c in cols if c in df.columns]].to_csv(out_csv, index=False)
+    typer.secho(f"Wrote {out_csv} with {len(df)} rows", fg=typer.colors.GREEN)
+    # --- Save & pretty print ---
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    out = df.copy()
+    out["as_of"] = last_bucket
+    out.to_csv(out_csv, index=False)
+    typer.secho(f"Wrote {out_csv} with {len(out)} rows", fg=typer.colors.GREEN)
+
+    cols = ["ticker", "irci_composite_pct", "valuation_pct", "liquidity_pct", "coverage_pct", "rank_in_peer"]
+    snap = df.sort_values("irci_composite_pct", ascending=False)
+    typer.echo(f"\n== IRCI composite @ {last_bucket.date()} ==")
+    typer.echo(snap[cols].to_string(index=False, float_format=lambda x: f"{x: .1f}"))
+
+@app.command(name="valuation")
+def valuation_cmd(
+    symbols: str = typer.Option(..., help='Comma-separated tickers, e.g. "AAPL,MSFT,GOOGL,AMZN"'),
+    as_of: Optional[str] = typer.Option(None, help="Use EV as of this date (YYYY-MM-DD). Defaults to most recent."),
+    out_csv: Path = typer.Option(Path("./outputs/valuation.csv"), help="Where to save the valuation snapshot"),
+    units: str = typer.Option("raw", "--units", help="Display units for EV/EBITDA magnitudes: 'raw', 'B' (billions), or 'M' (millions)"),
+):
+    """
+    Compute EV (FMP) + TTM EBITDA (SEC) and EV/EBITDA per ticker, plus peer valuation gap %.
+    """
+    try:
+        from .valuation import valuation_snapshot
+    except Exception as e:
+        typer.secho(f"Import error: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    syms = [t.strip().upper() for t in symbols.split(",") if t.strip()]
+    if not syms:
+        typer.secho("No symbols provided.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    df = valuation_snapshot(syms, as_of=as_of or None)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+
+    # Normalize and stamp quarter_end on output
+    as_of_ts = pd.to_datetime(as_of, utc=True)  # <-- 'as_of' is the CLI option for valuation
+    df["as_of"] = as_of_ts
+    # Avoid tz warning by dropping tz before Period conversion, then re-localize
+    df["quarter_end"] = (
+        pd.PeriodIndex(df["as_of"].dt.tz_localize(None), freq="Q-DEC")
+        .end_time
+        .tz_localize("UTC")
+    )
+
+    as_of_ts = pd.to_datetime(as_of, utc=True)
+    df["as_of"] = as_of_ts
+    df["quarter_end"] = (
+        pd.PeriodIndex(df["as_of"].dt.tz_localize(None), freq="Q-DEC")
+          .end_time
+          .tz_localize("UTC")
+    )
+    df.to_csv(out_csv, index=False)
+typer.secho(f"Wrote {out_csv} with {len(df)} rows", fg=typer.colors.GREEN)
+
+    # normalize to quarter-end (UTC) so close-by dates group together, without warning
+    # Normalize for display units (your existing code)
+df["as_of"] = pd.to_datetime(df["as_of"], utc=True)True)
+
+    df["as_of_bucket"] = (
+        df["as_of"].dt.tz_convert("UTC").dt.tz_localize(None)
+        .dt.to_period("Q").dt.end_time.dt.tz_localize("UTC")
+)
+    last_bucket = df["as_of_bucket"].max()
+    snap = df.loc[df["as_of_bucket"] == last_bucket].copy()
+
+    # ----- scale for display (your existing units code) -----
+    unit = (units or "raw").upper()
+    div = 1.0; suffix = ""
+    if unit == "B":
+        div, suffix = 1e9, " (B)"
+    elif unit == "M":
+        div, suffix = 1e6, " (M)"
+
+    display = snap.copy()
+    if div != 1.0:
+        display["enterprise_value"] = display["enterprise_value"] / div
+        display["ttm_ebitda"] = display["ttm_ebitda"] / div
+        display = display.rename(columns={
+            "enterprise_value": f"enterprise_value{suffix}",
+            "ttm_ebitda": f"ttm_ebitda{suffix}",
+        })
+    ev_col = "enterprise_value" if div == 1.0 else f"enterprise_value{suffix}"
+    ebitda_col = "ttm_ebitda"    if div == 1.0 else f"ttm_ebitda{suffix}"
+
+    cols = [
+        "ticker",
+        "valuation_pct",
+        "ev_to_ebitda",
+        "peer_mean_excl_self",
+        "valuation_gap_pct",
+        ev_col,
+        ebitda_col,
+        "ebitda_method",
+    ]
+        # pretty formats
+    display["valuation_gap_pct"] = display["valuation_gap_pct"].map(lambda x: f"{x:.1%}" if pd.notna(x) else "NA")
+    display["valuation_pct"] = display.get("valuation_pct", pd.Series(dtype="float64")).map(
+        lambda x: f"{x:.0f}%" if pd.notna(x) else "NA"
+    )
+    display["valuation_pct_empirical"] = display.get("valuation_pct_empirical", pd.Series(dtype="float64")).map(
+        lambda x: f"{x:.0f}%" if pd.notna(x) else "NA"
+    )
+
+    cols = [
+        "ticker",
+        "valuation_pct",            # median-anchored dial (0..100, median=50)
+        "valuation_pct_empirical",  # pure percentile dial
+        "ev_to_ebitda",
+        "peer_mean_excl_self",
+        "valuation_gap_pct",
+        ev_col,
+        ebitda_col,
+        "ebitda_method",
+    ]
+
+    typer.echo(
+        display[cols]
+          .sort_values("valuation_pct", ascending=False)
+          .to_string(index=False, float_format=lambda x: f"{x:,.3f}")
+    )
+
+if __name__ == "__main__":
+ app()

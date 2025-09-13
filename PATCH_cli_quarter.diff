@@ -1,0 +1,61 @@
+*** a/irci/cli.py
+--- b/irci/cli.py
+***************
+*** 1,5 ****
+--- 1,6 ----
+  from __future__ import annotations
+  import typer
++ import pandas as pd
+  from pathlib import Path
+  from .logging import get_logger
+  from .composite import (
+***************
+*** 80,91 ****
+  @app.command("valuation")
+  def valuation_cmd(...):
+      # df built here as before
+-     df.to_csv(out_csv, index=False)
++     as_of_ts = pd.to_datetime(as_of, utc=True)
++     df["as_of"] = as_of_ts
++     df["quarter_end"] = (
++         pd.PeriodIndex(df["as_of"].dt.tz_localize(None), freq="Q-DEC")
++           .end_time
++           .tz_localize("UTC")
++     )
++     df.to_csv(out_csv, index=False)
+      typer.secho(f"Wrote {out_csv} with {len(df)} rows", fg=typer.colors.GREEN)
+***************
+*** 120,131 ****
+  @app.command("coverage")
+  def coverage_cmd(...):
+      # df built here as before
+-     df.to_csv(out_csv, index=False)
++     as_of_ts = pd.to_datetime(as_of, utc=True)
++     df["as_of"] = as_of_ts
++     df["quarter_end"] = (
++         pd.PeriodIndex(df["as_of"].dt.tz_localize(None), freq="Q-DEC")
++           .end_time
++           .tz_localize("UTC")
++     )
++     df.to_csv(out_csv, index=False)
+      typer.secho(f"Wrote {out_csv} with {len(df)} rows", fg=typer.colors.GREEN)
+***************
+*** 160,172 ****
+  @app.command("composite")
+  def composite_cmd(
+      valuation: Path = typer.Option(..., "--valuation"),
+      liquidity: Path = typer.Option(..., "--liquidity"),
+      coverage: Path = typer.Option(..., "--coverage"),
+      sentiment_csv: Path | None = typer.Option(None, "--sentiment-csv"),
+      out_csv: Path = typer.Option(Path("outputs/irci_composite.csv"), "--out-csv"),
+! ):
+      # build frames -> df = irci_composite(...)
+      # (existing code)
+-     df.to_csv(out_csv, index=False)
++     # rank within quarter
++     df["rank_in_peer"] = df.groupby("quarter_end")["irci_composite_pct"].rank(ascending=False, method="min")
++     df_cols = ["ticker","quarter_end","irci_composite_pct","valuation_pct","liquidity_pct","coverage_pct","sentiment_pct","rank_in_peer"]
++     df[[c for c in df_cols if c in df.columns]].to_csv(out_csv, index=False)
+      typer.secho(f"Wrote {out_csv} with {len(df)} rows", fg=typer.colors.GREEN)
+--- 
+*** End Patch
