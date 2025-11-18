@@ -75,14 +75,37 @@ st.markdown("""
     /* Sidebar styling */
     [data-testid="stSidebar"] {
         background-color: #1e2130;
+        font-size: 1.1rem;
     }
 
     [data-testid="stSidebar"] label {
         color: #fafafa !important;
+        font-size: 1.1rem !important;
     }
 
     [data-testid="stSidebar"] .stMarkdown {
         color: #e0e0e0 !important;
+        font-size: 1.1rem !important;
+    }
+
+    [data-testid="stSidebar"] h3 {
+        font-size: 1.4rem !important;
+    }
+
+    [data-testid="stSidebar"] p {
+        font-size: 1.1rem !important;
+    }
+
+    [data-testid="stSidebar"] input {
+        font-size: 1.05rem !important;
+    }
+
+    [data-testid="stSidebar"] textarea {
+        font-size: 1.05rem !important;
+    }
+
+    [data-testid="stSidebar"] select {
+        font-size: 1.05rem !important;
     }
 
     /* Text input styling */
@@ -143,6 +166,103 @@ st.markdown("""
 
     .contact-info a:hover {
         text-decoration: underline;
+    }
+
+    /* Info message styling - improved readability */
+    .stInfo {
+        background-color: #1e2130 !important;
+        color: #fafafa !important;
+        border-left-color: #00d4ff !important;
+    }
+
+    .stInfo p {
+        color: #fafafa !important;
+    }
+
+    /* Expander header styling - improved readability */
+    .streamlit-expanderHeader {
+        background-color: #1e2130 !important;
+        color: #e0e0e0 !important;
+    }
+
+    [data-testid="stExpander"] summary {
+        background-color: #1e2130 !important;
+        color: #e0e0e0 !important;
+    }
+
+    [data-testid="stExpander"] summary:hover {
+        background-color: #2e3440 !important;
+    }
+
+    /* Button styling */
+    .stButton button {
+        background-color: #00d4ff;
+        color: #000000 !important;
+        border: none;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+
+    .stButton button:hover {
+        background-color: #00a8cc;
+        color: #000000 !important;
+    }
+
+    /* Sidebar button text size */
+    [data-testid="stSidebar"] .stButton button {
+        font-size: 1.15rem !important;
+    }
+
+    /* Download button styling */
+    .stDownloadButton button {
+        background-color: #00d4ff;
+        color: #000000 !important;
+        border: none;
+        font-weight: bold;
+    }
+
+    .stDownloadButton button:hover {
+        background-color: #00a8cc;
+        color: #000000 !important;
+    }
+
+    /* File uploader styling */
+    [data-testid="stFileUploader"] button {
+        background-color: #00d4ff !important;
+        color: #000000 !important;
+        border: 1px solid #00d4ff !important;
+    }
+
+    [data-testid="stFileUploader"] button:hover {
+        background-color: #00a8cc !important;
+        color: #000000 !important;
+    }
+
+    [data-testid="stFileUploader"] label {
+        color: #fafafa !important;
+    }
+
+    /* Ensure main content area has dark background */
+    [data-testid="stAppViewContainer"] {
+        background-color: #0e1117 !important;
+    }
+
+    [data-testid="stHeader"] {
+        background-color: #0e1117 !important;
+    }
+
+    /* Slider styling */
+    .stSlider {
+        color: #fafafa !important;
+    }
+
+    /* Text elements */
+    p, li, span {
+        color: #e0e0e0;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        color: #00d4ff !important;
     }
 </style>
 """, unsafe_allow_html=True)
