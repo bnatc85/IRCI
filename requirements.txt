@@ -1,3 +1,7 @@
 # IRCI Web Application
+# Install build tools first
+setuptools>=68
+wheel
+
 # Install the IRCI package with all dependencies from pyproject.toml
 -e .
