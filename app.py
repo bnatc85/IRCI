@@ -56,7 +56,7 @@ st.markdown("""
 
     .sub-header {
         font-size: 1.2rem;
-        color: #b3b3b3;
+        color: #e0e0e0;
         margin-bottom: 2rem;
     }
 
@@ -77,9 +77,31 @@ st.markdown("""
         background-color: #1e2130;
     }
 
-    /* DataFrame styling */
+    [data-testid="stSidebar"] label {
+        color: #fafafa !important;
+    }
+
+    [data-testid="stSidebar"] .stMarkdown {
+        color: #e0e0e0 !important;
+    }
+
+    /* Text input styling */
+    .stTextArea label, .stTextInput label, .stSelectbox label {
+        color: #fafafa !important;
+    }
+
+    /* DataFrame styling - improved contrast */
     .dataframe {
         background-color: #1e2130 !important;
+        color: #fafafa !important;
+    }
+
+    .dataframe th {
+        background-color: #2e3440 !important;
+        color: #00d4ff !important;
+    }
+
+    .dataframe td {
         color: #fafafa !important;
     }
 
@@ -89,11 +111,38 @@ st.markdown("""
     }
 
     .stTabs [data-baseweb="tab"] {
-        color: #b3b3b3;
+        color: #e0e0e0;
     }
 
     .stTabs [aria-selected="true"] {
         color: #00d4ff;
+    }
+
+    /* Metric cards */
+    [data-testid="stMetricValue"] {
+        color: #00d4ff !important;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #e0e0e0 !important;
+    }
+
+    /* Contact info styling */
+    .contact-info {
+        padding: 1rem;
+        margin-top: 2rem;
+        border-top: 1px solid #2e3440;
+        font-size: 0.85rem;
+        color: #b3b3b3;
+    }
+
+    .contact-info a {
+        color: #00d4ff;
+        text-decoration: none;
+    }
+
+    .contact-info a:hover {
+        text-decoration: underline;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -163,6 +212,16 @@ with st.sidebar:
 
     # Run button
     run_analysis = st.button("🚀 Run Analysis", type="primary", use_container_width=True)
+
+    # Contact information
+    st.markdown("""
+    <div class="contact-info">
+        <strong>Contact:</strong><br>
+        Bonnie Rushing<br>
+        <a href="mailto:brushing@uccs.edu">brushing@uccs.edu</a><br>
+        <a href="https://www.thebonnierushing.com" target="_blank">www.thebonnierushing.com</a>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Main content area
 if not run_analysis:
