@@ -31,31 +31,69 @@ st.set_page_config(
     page_title="IRCI Analysis",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'About': "IRCI Analysis Platform - Information Risk, Coverage, Trust, Liquidity & Valuation"
+    }
 )
 
-# Custom CSS
+# Custom CSS for dark mode
 st.markdown("""
 <style>
+    /* Dark mode theme */
+    .main {
+        background-color: #0e1117;
+        color: #fafafa;
+    }
+
     .main-header {
         font-size: 2.5rem;
         font-weight: bold;
-        color: #1f77b4;
+        color: #00d4ff;
         margin-bottom: 0.5rem;
+        text-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
     }
+
     .sub-header {
         font-size: 1.2rem;
-        color: #666;
+        color: #b3b3b3;
         margin-bottom: 2rem;
     }
+
     .metric-card {
-        background-color: #f0f2f6;
+        background-color: #1e2130;
         padding: 1rem;
         border-radius: 0.5rem;
         margin: 0.5rem 0;
+        border: 1px solid #2e3440;
     }
+
     .stAlert {
         margin-top: 1rem;
+    }
+
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: #1e2130;
+    }
+
+    /* DataFrame styling */
+    .dataframe {
+        background-color: #1e2130 !important;
+        color: #fafafa !important;
+    }
+
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #1e2130;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        color: #b3b3b3;
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: #00d4ff;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -66,7 +104,7 @@ st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuatio
 
 # Sidebar
 with st.sidebar:
-    st.image("https://via.placeholder.com/200x80/1f77b4/ffffff?text=IRCI", use_container_width=True)
+    st.image("IRCI_icon_primary.png", use_container_width=True)
     st.markdown("### Analysis Configuration")
 
     # Company selection
@@ -254,8 +292,8 @@ else:
         rows = []
         for sym in tickers:
             try:
-                px = fetch_prices_fmp(sym, start_date, end_date, s.fmp_api_key)
-                daily = daily_liquidity_bundle(sym, s, px, end_date)
+                prices = fetch_prices_fmp(sym, start_date, end_date, s.fmp_api_key)
+                daily = daily_liquidity_bundle(sym, s, prices, end_date)
                 q = quarterly_liquidity(daily, freq="QE-DEC").reset_index()
                 if "quarter_end" not in q.columns:
                     q = q.rename(columns={"Date": "quarter_end", "date": "quarter_end", "index": "quarter_end"})
@@ -386,11 +424,20 @@ if 'df_composite' in st.session_state:
             title=f'IRCI Composite Scores - {selected_quarter}',
             labels={'irci_composite_pct': 'Composite Score (%)', 'ticker': 'Company'},
             color='irci_composite_pct',
-            color_continuous_scale='RdYlGn',
+            color_continuous_scale='Viridis',
             text='irci_composite_pct'
         )
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(showlegend=False, height=400)
+        fig.update_layout(
+            showlegend=False,
+            height=400,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(30,33,48,0.5)',
+            font=dict(color='#fafafa'),
+            title_font=dict(color='#00d4ff'),
+            xaxis=dict(gridcolor='#2e3440'),
+            yaxis=dict(gridcolor='#2e3440')
+        )
         st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
@@ -412,13 +459,30 @@ if 'df_composite' in st.session_state:
             r=values,
             theta=categories,
             fill='toself',
-            name=selected_company
+            name=selected_company,
+            line=dict(color='#00d4ff', width=2),
+            fillcolor='rgba(0, 212, 255, 0.3)'
         ))
         fig.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 100],
+                    gridcolor='#2e3440',
+                    color='#fafafa'
+                ),
+                angularaxis=dict(
+                    gridcolor='#2e3440',
+                    color='#fafafa'
+                ),
+                bgcolor='rgba(30,33,48,0.5)'
+            ),
             showlegend=True,
             title=f'{selected_company} - Dial Breakdown',
-            height=500
+            title_font=dict(color='#00d4ff'),
+            height=500,
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#fafafa')
         )
         st.plotly_chart(fig, use_container_width=True)
 
