@@ -1,9 +1,6 @@
 # IRCI Web Application Dependencies
 # For Streamlit Cloud deployment
 
-# Install IRCI package from current directory
--e .
-
 # Core IRCI dependencies
 pyarrow>=15
 numpy>=1.26
