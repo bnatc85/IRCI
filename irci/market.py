@@ -8,20 +8,19 @@ from .logging import get_logger
 
 log = get_logger("irci.market")
 
-
 def _fmp_hist_url(symbol: str, start: str, end: str, apikey: str) -> str:
     base = "https://financialmodelingprep.com/api/v3/historical-price-full"
     return f"{base}/{symbol}?from={start}&to={end}&apikey={apikey}"
-
 
 def fetch_prices_fmp(symbol: str, start: str, end: str, apikey: str) -> pd.DataFrame:
     """
     Daily OHLCV loader with:
       1) local cache under data/prices/{symbol}.parquet (or .csv fallback)
       2) FMP API fetch
-      3) fallback to Yahoo Finance (yfinance) if FMP 429/HTTP error
-    Returns DataFrame with columns: open, high, low, close, adj_close, volume
-    indexed by UTC datetimes ascending.
+      3) fallback to Yahoo Finance (yfinance) if FMP/HTTP error
+
+    Returns DataFrame indexed by UTC datetimes with columns:
+    ['open','high','low','close','adj_close','volume'].
     """
     s = Settings.load()
     cache_dir = s.data_dir / "prices"
@@ -30,22 +29,26 @@ def fetch_prices_fmp(symbol: str, start: str, end: str, apikey: str) -> pd.DataF
     csv_path = cache_dir / f"{symbol.upper()}.csv"
 
     def _normalize(df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
-        df.index = pd.to_datetime(df.index, utc=True)
-        df = df.sort_index()
-        cols = ["open", "high", "low", "close", "adj_close", "volume"]
-        return df[cols]
+        if df is None or df.empty:
+            return pd.DataFrame(columns=["open","high","low","close","adj_close","volume"])
+        out = df.copy()
+        out.index = pd.to_datetime(out.index, utc=True)
+        out = out.sort_index()
+        cols = ["open","high","low","close","adj_close","volume"]
+        # keep only expected cols (fill if missing)
+        for c in cols:
+            if c not in out.columns:
+                out[c] = np.nan
+        return out[cols]
 
     def _read_cache() -> pd.DataFrame | None:
         try:
             if pq_path.exists():
-                df = pd.read_parquet(pq_path)
-                return _normalize(df)
+                return _normalize(pd.read_parquet(pq_path))
         except Exception:
             pass
         if csv_path.exists():
-            df = pd.read_csv(csv_path, index_col=0)
-            return _normalize(df)
+            return _normalize(pd.read_csv(csv_path, index_col=0))
         return None
 
     def _write_cache(df: pd.DataFrame):
@@ -54,18 +57,19 @@ def fetch_prices_fmp(symbol: str, start: str, end: str, apikey: str) -> pd.DataF
         except Exception:
             df.to_csv(csv_path)
 
-    # 0) Try cache first
+    # normalize date bounds
+    lo = pd.Timestamp(start, tz="UTC")
+    hi = pd.Timestamp(end, tz="UTC")
+
+    # 0) cache first
     cached = _read_cache()
-    if cached is not None:
-        lo = pd.Timestamp(start, tz="UTC")
-        hi = pd.Timestamp(end, tz="UTC")
-        have_range = (cached.index.min() <= lo) and (cached.index.max() >= hi)
-        if have_range:
+    if cached is not None and not cached.empty:
+        if cached.index.min() <= lo and cached.index.max() >= hi:
             return cached.loc[(cached.index >= lo) & (cached.index <= hi)].copy()
 
-    # 1) Try FMP
+    # 1) FMP
     try:
-        url = _fmp_hist_url(symbol, start, end, apikey)
+        url = _fmp_hist_url(symbol, lo.date().isoformat(), hi.date().isoformat(), apikey)
         log.info(f"GET {url.replace(apikey, '***')}")
         r = requests.get(url, timeout=60)
         r.raise_for_status()
@@ -73,53 +77,56 @@ def fetch_prices_fmp(symbol: str, start: str, end: str, apikey: str) -> pd.DataF
         hist = js.get("historical") or []
         if not hist:
             raise RuntimeError(f"FMP returned no data for {symbol}")
+
         df = pd.DataFrame(hist)
-        # normalize
         df["date"] = pd.to_datetime(df["date"], utc=True)
         df = df.set_index("date").sort_index()
+
         out = pd.DataFrame(index=df.index)
-        out["open"] = df["open"].astype(float)
-        out["high"] = df["high"].astype(float)
-        out["low"] = df["low"].astype(float)
-        out["close"] = df["close"].astype(float)
-        # prefer adjClose if present, else close
+        out["open"]      = df["open"].astype(float)
+        out["high"]      = df["high"].astype(float)
+        out["low"]       = df["low"].astype(float)
+        out["close"]     = df["close"].astype(float)
         out["adj_close"] = df.get("adjClose", df["close"]).astype(float)
-        out["volume"] = df["volume"].astype(float)
-        # merge into cache
-        merged = out if cached is None else pd.concat([cached, out]).drop_duplicates  # noqa: E999
+        out["volume"]    = df["volume"].astype(float)
+
+        merged_df = out if cached is None else pd.concat([cached, out])
+        merged_df = merged_df.sort_index().groupby(level=0).last()
+        _write_cache(merged_df)
+        return merged_df.loc[(merged_df.index >= lo) & (merged_df.index <= hi)].copy()
+
     except Exception as e:
-        # If this was a 429 or any HTTP error, fall back to yfinance
-        try:
-            status = getattr(e, "response", None).status_code if hasattr(e, "response") else None
-        except Exception:
-            status = None
         log.warning("FMP fetch failed for %s (%s). Falling back to yfinance.", symbol, e)
+
+        # 2) yfinance fallback
         try:
             import yfinance as yf
-            yf_df = yf.download(symbol, start=start, end=end, auto_adjust=False, progress=False)
+            yf_df = yf.download(symbol, start=lo.date().isoformat(), end=hi.date().isoformat(),
+                                auto_adjust=False, progress=False)
             if yf_df is None or yf_df.empty:
                 raise RuntimeError(f"yfinance returned no data for {symbol}")
+
             yf_df.index = pd.to_datetime(yf_df.index, utc=True)
             out = pd.DataFrame(index=yf_df.index)
-            out["open"] = yf_df["Open"].astype(float)
-            out["high"] = yf_df["High"].astype(float)
-            out["low"] = yf_df["Low"].astype(float)
-            out["close"] = yf_df["Close"].astype(float)
-            # Adj Close may be missing for some assets; fallback to close
+            out["open"]      = yf_df["Open"].astype(float)
+            out["high"]      = yf_df["High"].astype(float)
+            out["low"]       = yf_df["Low"].astype(float)
+            out["close"]     = yf_df["Close"].astype(float)
             out["adj_close"] = yf_df.get("Adj Close", yf_df["Close"]).astype(float)
-            out["volume"] = yf_df["Volume"].astype(float)
-            merged = out if cached is None else pd.concat([cached, out]).sort_index().groupby(level=0).last()
-            _write_cache(merged)
-            lo = pd.Timestamp(start, tz="UTC"); hi = pd.Timestamp(end, tz="UTC")
-            return merged.loc[(merged.index >= lo) & (merged.index <= hi)].copy()
+            out["volume"]    = yf_df["Volume"].astype(float)
+
+            merged_df = out if cached is None else pd.concat([cached, out])
+            merged_df = merged_df.sort_index().groupby(level=0).last()
+            _write_cache(merged_df)
+            return merged_df.loc[(merged_df.index >= lo) & (merged_df.index <= hi)].copy()
+
         except Exception as e2:
+            # If we still have cache, return the slice we have; else raise.
+            if cached is not None and not cached.empty:
+                log.warning("Both FMP and yfinance failed; serving cached data for %s.", symbol)
+                return cached.loc[(cached.index >= lo) & (cached.index <= hi)].copy()
             raise RuntimeError(f"Both FMP and yfinance failed for {symbol}: {e2}") from e
 
-    # Save/return merged (FMP success path)
-    merged = merged.sort_index().groupby(level=0).last()
-    _write_cache(merged)
-    lo = pd.Timestamp(start, tz="UTC"); hi = pd.Timestamp(end, tz="UTC")
-    return merged.loc[(merged.index >= lo) & (merged.index <= hi)].copy()
 
 
 

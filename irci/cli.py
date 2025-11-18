@@ -57,34 +57,10 @@ def _pick_symbols(preset: str | None, symbols: str | None, cfg: dict) -> str:
 
 
 def _to_bucket(s):
-    """
-    Convert a datetime-like (scalar or Series) to the UTC quarter-end DATE at 00:00:00.
-    Uses calendar-year quarters (Q-DEC). Normalized to midnight to ensure joins work.
-    """
     dt = pd.to_datetime(s, utc=True, errors="coerce")
-
-    # Series path
     if isinstance(dt, pd.Series):
-        base = dt.dt.tz_convert("UTC").dt.tz_localize(None)
-        # IMPORTANT: normalize() after end_time
-        return (
-            base.dt.to_period("Q-DEC")
-                .dt.end_time
-                .dt.tz_localize("UTC")
-                .dt.normalize()
-        )
-    
-    # Scalar Timestamp path
-    base = dt.tz_convert("UTC").tz_localize(None)
-    p = base.to_period("Q-DEC")
-    return p.end_time.tz_localize("UTC").normalize()
-
-
-    # Scalar Timestamp path
-    base = dt.tz_convert("UTC").tz_localize(None)
-    p = base.to_period("Q-DEC")
-    return p.end_time.tz_localize("UTC")
-
+        return dt.dt.to_period("Q-DEC").dt.end_time.dt.tz_localize("UTC").dt.normalize()
+    return dt.to_period("Q-DEC").end_time.tz_localize("UTC").normalize()
 
 # ---------------------------
 # convenience runner
@@ -118,11 +94,15 @@ def run_cmd(
 
     # 2) Valuation
     val_out = out_dir / f"valuation_{q.lower()}.csv"
-    _sh(f'irci valuation --symbols "{syms}" --as-of {end} --out-csv {val_out}')
+    _sh(f'irci valuation --symbols "{syms}" --start {start} --end {end} --out-csv {val_out}')
 
     # 3) Coverage
     cov_out = out_dir / f"coverage_{q.lower()}.csv"
-    _sh(f'irci coverage --symbols "{syms}" --as-of {end} --out-csv {cov_out}')
+    _sh(f'irci coverage --symbols "{syms}" --start {start} --end {end} --out-csv {cov_out}')
+
+    # 3.5) Liquidity  ← ADD THIS BLOCK
+    liq_out = out_dir / "liquidity.csv"
+    _sh(f'irci liquidity --symbols "{syms}" --start {start} --end {end} --out-csv {liq_out}')
 
     # 4) Composite
     comp_out = out_dir / f"irci_composite_{q.lower()}.csv"
@@ -272,7 +252,10 @@ def liquidity_cmd(
         daily = daily_liquidity_bundle(sym, s, px, end)
         q = quarterly_liquidity(daily, freq=quarter_freq).reset_index()
         if "quarter_end" not in q.columns:
-            q = q.rename(columns={"date": "quarter_end", "index": "quarter_end"})
+            q = q.rename(columns={"Date": "quarter_end", "date": "quarter_end", "index": "quarter_end"})
+            q = quarterly_liquidity(daily, freq=quarter_freq).reset_index()
+            if "quarter_end" not in q.columns:
+                q = q.rename(columns={"Date": "quarter_end", "date": "quarter_end", "index": "quarter_end"})
         q["quarter_end"] = pd.to_datetime(q["quarter_end"], utc=True)
         q["ticker"] = sym
         rows.append(q)
@@ -413,7 +396,8 @@ def composite_cmd(
     if sent is not None and "quarter_end" in sent.columns:
         sent["quarter_end"] = pd.to_datetime(sent["quarter_end"], utc=True, errors="coerce")
         sent["quarter_end"] = _to_bucket(sent["quarter_end"])
-
+    if sent is not None and "sentiment_pct" not in sent.columns and "trust_pct" in sent.columns:
+        sent = sent.rename(columns={"trust_pct": "sentiment_pct"})
     # Choose bucket
     if quarter:
         last_bucket = pd.Period(quarter, freq="Q-DEC").end_time.tz_localize("UTC").normalize()
@@ -463,7 +447,7 @@ def composite_cmd(
         return float(np.dot(vals, wts) / sum(wts))
 
     df["irci_composite_pct"] = df.apply(row_composite, axis=1).round(round_to)
-    df["rank_in_peer"] = df["irci_composite_pct"].rank(method="min", ascending=False)
+    df["rank_in_peer"] = df["irci_composite_pct"].rank(method="dense", ascending=False)
 
     # Save & print
     out_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -476,6 +460,240 @@ def composite_cmd(
     typer.echo(snap[["ticker", "irci_composite_pct", "valuation_pct", "liquidity_pct", "coverage_pct", "rank_in_peer"]]
                .to_string(index=False, float_format=lambda x: f"{x: .1f}"))
 
+@app.command("export-bridge")
+def export_bridge_cmd(
+    out_dir: Path = typer.Option(Path("./outputs"), help="Where your pipeline CSVs are written"),
+    exports: Path = typer.Option(Path("./exports"), help="Where to write the canonical exports/*.csv"),
+    quarter: Optional[str] = typer.Option(None, help="Force a quarter like 2025Q2; else use latest bucket"),
+    w_valuation: float = typer.Option(0.35, help="Weight for valuation dial (for COMPOSITE.csv)"),
+    w_liquidity: float = typer.Option(0.35, help="Weight for liquidity dial"),
+    w_coverage: float = typer.Option(0.15, help="Weight for coverage dial"),
+    w_trust: float = typer.Option(0.15, help="Weight for trust dial"),
+    excel: Optional[Path] = typer.Option(None, help="(Optional) Excel file to write sheets to"),
+):
+    """
+    Build low/no-code exports from existing outputs:
+      - DIALS.csv   (quarter, ticker, Coverage/Trust/Liquidity/Valuation %)
+      - COMPOSITE.csv (quarter, ticker, weights, CompositePct, RankInPeer)
+      - COMPOSITE_WEIGHTED.csv (optional: simple weighted composite from DIALS)
+    If present, will also pass through NEWS.csv (if you supplied --news-csv to trust).
+    """
+    exports.mkdir(parents=True, exist_ok=True)
+    exp = exports
+    def read_latest(glob_pat: str):
+        paths = sorted(out_dir.glob(glob_pat))
+        return pd.read_csv(paths[-1]) if paths else pd.DataFrame()
 
-if __name__ == "__main__":
-    app()
+    # Load whatever exists
+    trust = read_latest("trust*.csv")
+    liq   = read_latest("liquidity*.csv")
+    val   = read_latest("valuation*.csv")
+    cov   = read_latest("coverage*.csv")
+    comp  = read_latest("irci_composite*.csv")
+
+    # Parse/standardize quarter_end columns
+    def bucketize(s):
+        dt = pd.to_datetime(s, utc=True, errors="coerce")
+        return dt.dt.to_period("Q-DEC").dt.end_time.dt.tz_localize("UTC").dt.normalize()
+
+    for df, col in (
+        (trust, "quarter_end"),
+        (liq, "quarter_end"),
+        (val, "quarter_end"),
+        (cov, "quarter_end"),
+        (comp, "quarter_end"),
+    ):
+        if not df.empty and col in df.columns:
+            df[col] = bucketize(df[col])
+        elif not df.empty and "as_of" in df.columns:
+            df["quarter_end"] = bucketize(df["as_of"])
+
+    # Choose quarter bucket
+    if quarter:
+        last_bucket = pd.Period(quarter, freq="Q-DEC").end_time.tz_localize("UTC").normalize()
+    else:
+        candidates = []
+        for df in (trust, liq, val, cov, comp):
+            if not df.empty and "quarter_end" in df.columns:
+                candidates.append(df["quarter_end"].max())
+        if not candidates:
+            typer.secho("No quarter_end found in outputs; run the dials first.", fg=typer.colors.RED, err=True)
+            raise typer.Exit(1)
+        last_bucket = max(candidates)
+
+    # Slice helpers
+    def slice_cols(df, cols_map):
+        if df.empty:
+            return pd.DataFrame(columns=["ticker"] + list(cols_map.values()) + ["quarter_end"])
+        df2 = df.loc[df["quarter_end"] == last_bucket].copy()
+        df2 = df2.rename(columns=cols_map)
+        keep = ["ticker", "quarter_end"] + list(cols_map.values())
+        return df2[[c for c in keep if c in df2.columns]]
+
+    trust_q = slice_cols(trust, {"trust_pct": "Trust_pct"})
+    liq_q   = slice_cols(liq,   {"liquidity_pct": "Liquidity_pct"})
+    val_q   = slice_cols(val,   {"valuation_pct": "Valuation_pct"})
+    cov_q   = slice_cols(cov,   {"coverage_pct": "Coverage_pct"})
+        # Build a per-ticker opportunity/risk export for the chosen quarter
+    val_meta = slice_cols(val, {
+        "valuation_gap_pct": "valuation_gap_pct",
+        "enterprise_value":  "enterprise_value",
+    })
+    if not val_meta.empty:
+        vm = val_meta.rename(columns={"ticker":"Ticker"}).copy()
+        gap = pd.to_numeric(vm["valuation_gap_pct"], errors="coerce")
+        EV  = pd.to_numeric(vm["enterprise_value"],  errors="coerce")
+        target_closure = 0.50
+
+        vm["ValuationOpportunity_$"] = EV * np.where(gap < 0, -gap * target_closure / 100.0, 0.0)
+        vm["CompressionRisk_$"]      = EV * np.where(gap > 0,  gap * target_closure / 100.0, 0.0)
+        vm["Opportunity_%EV"]        = 100.0 * vm["ValuationOpportunity_$"] / EV
+
+        mask = vm["Opportunity_%EV"] < 1.0
+        vm.loc[mask, ["ValuationOpportunity_$","Opportunity_%EV"]] = 0.0
+
+        # Keep the quarter label consistent
+        vm["Quarter"] = vm["quarter_end"].dt.to_period("Q-DEC").astype(str)
+        vm_out = vm[["Quarter","Ticker","enterprise_value","valuation_gap_pct",
+                    "ValuationOpportunity_$","CompressionRisk_$","Opportunity_%EV"]]
+        vm_out.to_csv(exports / "VALUATION_OPPORTUNITY.csv", index=False)
+
+
+    # Build DIALS
+    from functools import reduce
+    parts = [x for x in (trust_q, liq_q, val_q, cov_q) if not x.empty]
+    if not parts:
+        typer.secho("No dial inputs found in outputs/.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    dials = reduce(lambda a, b: pd.merge(a, b, on=["ticker", "quarter_end"], how="outer"), parts)
+    p = dials["quarter_end"].dt.to_period("Q-DEC")
+    dials["Quarter"] = p.astype(str)  # e.g., '2025Q2'
+    dials = dials.rename(columns={"ticker": "Ticker"})
+    dials_out = dials[["Quarter", "Ticker", "Coverage_pct", "Trust_pct", "Liquidity_pct", "Valuation_pct"]]
+    dials_out.to_csv(exports / "DIALS.csv", index=False)
+
+    # Build COMPOSITE (pipeline version if present; else weighted fallback)
+    if not comp.empty and "irci_composite_pct" in comp.columns:
+        comp_q = comp[comp["quarter_end"] == last_bucket].copy()
+
+        out_comp = comp_q[["ticker", "quarter_end", "irci_composite_pct", "rank_in_peer"]].copy()
+        p2 = out_comp["quarter_end"].dt.to_period("Q-DEC")
+        out_comp["Quarter"] = p2.astype(str)
+        out_comp = out_comp.rename(columns={
+            "ticker": "Ticker",
+            "irci_composite_pct": "CompositePct",
+        })
+        # Keep weights as metadata; tag provenance
+        out_comp["wCoverage"]  = w_coverage
+        out_comp["wTrust"]     = w_trust
+        out_comp["wLiquidity"] = w_liquidity
+        out_comp["wValuation"] = w_valuation
+        out_comp["composite_source"] = "pipeline"
+
+        out_comp = out_comp[
+            ["Quarter", "Ticker", "wCoverage", "wTrust", "wLiquidity", "wValuation", "CompositePct", "rank_in_peer", "composite_source"]
+        ]
+        out_comp.to_csv(exports / "COMPOSITE.csv", index=False)
+
+        # Also produce a simple weighted version from DIALS for comparison
+        def _to_quarter(s):
+            return s.dt.to_period("Q-DEC").astype(str)
+
+        W = {"Coverage": w_coverage, "Trust": w_trust, "Liquidity": w_liquidity, "Valuation": w_valuation}
+        WSUM = (W["Coverage"] + W["Trust"] + W["Liquidity"] + W["Valuation"]) or 1.0
+
+        dials_q = dials.copy()
+        dials_q["Quarter"] = _to_quarter(dials_q["quarter_end"])
+
+        wc = dials_q.assign(
+            wCoverage=W["Coverage"],
+            wTrust=W["Trust"],
+            wLiquidity=W["Liquidity"],
+            wValuation=W["Valuation"],
+        )
+
+        for c in ["Coverage_pct", "Trust_pct", "Liquidity_pct", "Valuation_pct"]:
+            wc[c] = pd.to_numeric(wc[c], errors="coerce")
+
+        wc["CompositePct"] = (
+            wc["Coverage_pct"] * wc["wCoverage"]
+            + wc["Trust_pct"] * wc["wTrust"]
+            + wc["Liquidity_pct"] * wc["wLiquidity"]
+            + wc["Valuation_pct"] * wc["wValuation"]
+        ) / WSUM
+
+        wc["rank_in_peer"] = wc.groupby("Quarter")["CompositePct"].rank(ascending=False, method="dense")
+        wc["composite_source"] = "weighted"
+
+        wc_out = wc[[
+            "Quarter", "Ticker", "wCoverage", "wTrust", "wLiquidity", "wValuation",
+            "CompositePct", "rank_in_peer", "composite_source"
+        ]]
+        wc_out.to_csv(exports / "COMPOSITE_WEIGHTED.csv", index=False)
+
+    else:
+        # Fallback: compute weighted from DIALS only
+        tmp = dials_out.copy()
+        for c in ["Coverage_pct", "Trust_pct", "Liquidity_pct", "Valuation_pct"]:
+            tmp[c] = pd.to_numeric(tmp[c], errors="coerce")
+        wsum = w_coverage + w_trust + w_liquidity + w_valuation
+        tmp["CompositePct"] = (
+            (tmp["Coverage_pct"] * w_coverage) +
+            (tmp["Trust_pct"] * w_trust) +
+            (tmp["Liquidity_pct"] * w_liquidity) +
+            (tmp["Valuation_pct"] * w_valuation)
+        ) / (wsum or 1.0)
+        tmp["CompositePct"] = tmp["CompositePct"].round(1)
+        tmp["rank_in_peer"] = tmp.groupby("Quarter")["CompositePct"].rank(method="dense", ascending=False)
+        comp_q = tmp.rename(columns={"Ticker": "Ticker"})
+        comp_q["wCoverage"] = w_coverage
+        comp_q["wTrust"] = w_trust
+        comp_q["wLiquidity"] = w_liquidity
+        comp_q["wValuation"] = w_valuation
+        comp_q["composite_source"] = "weighted_fallback"
+        comp_q = comp_q[["Quarter", "Ticker", "wCoverage", "wTrust", "wLiquidity", "wValuation", "CompositePct", "rank_in_peer", "composite_source"]]
+        comp_q.to_csv(exports / "COMPOSITE.csv", index=False)
+
+    # Optional: pass-through NEWS (adjust to your actual NEWS source if needed)
+    # news_csv = out_dir / "trust.csv"
+
+    msg = f"Wrote {exports/'DIALS.csv'} and {exports/'COMPOSITE.csv'}"
+    if (exports / "COMPOSITE_WEIGHTED.csv").exists():
+        msg += f" and {exports/'COMPOSITE_WEIGHTED.csv'}"
+        msg += f" for {last_bucket.date()}"
+    typer.secho(msg, fg=typer.colors.GREEN)
+
+    if excel is not None:
+        try:
+            comp = pd.read_csv(exports / "COMPOSITE.csv")
+            cmp_w_path = exports / "COMPOSITE_WEIGHTED.csv"
+            comp_w = pd.read_csv(cmp_w_path) if cmp_w_path.exists() else None
+
+            if excel.exists():
+                # append sheets
+                with pd.ExcelWriter(excel, engine="openpyxl", mode="a", if_sheet_exists="replace") as xls:
+                    comp.to_excel(xls, sheet_name="COMPOSITE", index=False)
+                    if comp_w is not None:
+                        comp_w.to_excel(xls, sheet_name="COMPOSITE_WEIGHTED", index=False)
+                        both = pd.concat(
+                            [comp.assign(composite_source="pipeline"),
+                                comp_w.assign(composite_source="weighted")],
+                            ignore_index=True
+                        )
+                        both.to_excel(xls, sheet_name="COMPOSITE_ALL", index=False)
+            else:
+                # new file
+                with pd.ExcelWriter(excel, engine="openpyxl", mode="w") as xls:
+                    comp.to_excel(xls, sheet_name="COMPOSITE", index=False)
+                    if comp_w is not None:
+                        comp_w.to_excel(xls, sheet_name="COMPOSITE_WEIGHTED", index=False)
+                        both = pd.concat(
+                            [comp.assign(composite_source="pipeline"),
+                                comp_w.assign(composite_source="weighted")],
+                            ignore_index=True
+                        )
+                        both.to_excel(xls, sheet_name="COMPOSITE_ALL", index=False)
+            typer.secho(f"Updated Excel: {excel}", fg=typer.colors.GREEN)
+        except Exception as e:
+            typer.secho(f"[WARN] Excel write skipped: {e}", fg=typer.colors.YELLOW)

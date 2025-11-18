@@ -1,0 +1,5 @@
+Quarter,Ticker,wCoverage,wTrust,wLiquidity,wValuation,CompositePct,rank_in_peer,composite_source
+2025Q2,MSFT,0.15,0.15,0.35,0.35,67.52209568720376,1.0,pipeline
+2025Q2,AAPL,0.15,0.15,0.35,0.35,60.60104869375653,2.0,pipeline
+2025Q2,AMZN,0.15,0.15,0.35,0.35,31.101567224907377,3.0,pipeline
+2025Q2,GOOGL,0.15,0.15,0.35,0.35,21.5,4.0,pipeline

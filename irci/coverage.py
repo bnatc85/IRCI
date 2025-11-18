@@ -1,4 +1,3 @@
-# irci/coverage.py
 from __future__ import annotations
 
 from typing import List, Tuple, Optional, Callable, Dict
@@ -89,8 +88,9 @@ def _quarter_window(as_of) -> Tuple[pd.Timestamp, pd.Timestamp]:
     """
     Given a reference date, return the UTC start/end of that quarter.
     """
-    ts = pd.to_datetime(as_of, utc=True)
-    p = ts.to_period("Q")
+    ts = pd.to_datetime(as_of, utc=True)           # tz-aware
+    ts_naive = ts.tz_convert("UTC").tz_localize(None)
+    p = ts_naive.to_period("Q")
     start = p.start_time.tz_localize("UTC")
     end = p.end_time.tz_localize("UTC")
     return start, end
@@ -129,6 +129,7 @@ def _media_visibility(
     q_end: pd.Timestamp,
     s: Settings,
     media_fetcher: Optional[Callable[[str, pd.Timestamp, pd.Timestamp, Settings], pd.DataFrame]] = None,
+    persist_media: bool = False,   # <-- add this
 ) -> dict:
     """
     Compute media visibility metrics for the quarter.
@@ -157,10 +158,20 @@ def _media_visibility(
         df["domain"] = df["url"].map(lambda u: urlparse(u).netloc.lower() if isinstance(u, str) else None)
 
     df["domain"] = df["domain"].astype(str).str.lower().str.removeprefix("www.")
+    from irci.media_store import upsert_news_rows
 
-    # Optional language filter
+    # after filtering & normalizing df, right before returning metrics:
+    if persist_media and not df.empty:
+        from irci.media_store import upsert_news_rows
+        cols = ["published_at","url","domain","lang"]
+        extra = [c for c in ["headline","source","ticker"] if c in df.columns]
+        rows = df[cols + extra].to_dict("records")
+        upsert_news_rows(ticker, rows, getattr(s, "data_root", "."))
+
     if "lang" in df.columns:
-        df = df[df["lang"].fillna("en").str.startswith("en")]
+        df["lang"] = df["lang"].astype(str)
+        df = df[df["lang"].fillna("en").str.lower().str.startswith("en")]
+
 
     if df.empty:
         return {"q_media_weighted": np.nan, "q_media_unique_articles": 0, "q_media_unique_domains": 0}
@@ -190,6 +201,8 @@ def coverage_snapshot(
     lookahead_days: int = 90,
     media_fetcher: Optional[Callable[[str, pd.Timestamp, pd.Timestamp, Settings], pd.DataFrame]] = None,
     media_weight: float = 0.50,
+    persist_media: bool = False,
+    debug_components: bool = False,    
 ) -> pd.DataFrame:
     """
     Coverage/Visibility dial (per quarter end = as_of bucket):
@@ -224,13 +237,14 @@ def coverage_snapshot(
         except Exception as e:
             log.warning(f"SEC submissions unavailable for {sym}: {e}")
             row = {"ticker": sym, "as_of": q_end, "q_8k_count": np.nan, "q_days_to_10q": np.nan}
-            row.update(_media_visibility(sym, q_start, q_end, s, media_fetcher=None))
+            row.update(_media_visibility(sym, q_start, q_end, s,    
+                media_fetcher=media_fetcher, persist_media=persist_media))
             rows.append(row)
             continue
 
         if subs.empty or "filingDate" not in subs.columns or "form" not in subs.columns:
             row = {"ticker": sym, "as_of": q_end, "q_8k_count": np.nan, "q_days_to_10q": np.nan}
-            row.update(_media_visibility(sym, q_start, q_end, s, media_fetcher=None))
+            row.update(_media_visibility(sym, q_start, q_end, s, media_fetcher=media_fetcher))
             rows.append(row)
             continue
 
@@ -238,16 +252,25 @@ def coverage_snapshot(
         in_q = (subs["filingDate"] >= q_start) & (subs["filingDate"] <= q_end)
         q_8k_count = int((subs.loc[in_q, "form"].isin(["8-K", "8-K/A"])).sum())
 
-        # Timeliness: days from quarter-end to first 10-Q (or 10-K in Q4), within the lookahead window
-        ten_x_forms = ["10-Q", "10-Q/A"]
-        if q_end.to_period("Q").quarter == 4:
-            ten_x_forms = ["10-K", "10-K/A"]
+        # Timeliness: days from quarter-end to first 10-Q (fallback to 10-K) within lookahead.
+        # Initialize first so it's always defined (prevents UnboundLocalError).
+        q_days_to_10q = np.nan
 
-        post = (subs["filingDate"] > q_end) & (subs["filingDate"] <= q_end + pd.Timedelta(days=lookahead_days))
-        f10 = subs.loc[post & subs["form"].isin(ten_x_forms)].sort_values("filingDate")
-        q_days_to_10q = (f10.iloc[0]["filingDate"] - q_end).days if not f10.empty else np.nan
+        post_mask = (subs["filingDate"] > q_end) & (subs["filingDate"] <= q_end + pd.Timedelta(days=lookahead_days))
 
-        media_metrics = _media_visibility(sym, q_start, q_end, s, media_fetcher=media_fetcher)
+        # Try 10-Q first
+        f10q = subs.loc[post_mask & subs["form"].isin(["10-Q", "10-Q/A"])].sort_values("filingDate")
+        if not f10q.empty:
+            q_days_to_10q = (f10q.iloc[0]["filingDate"] - q_end).days
+        else:
+            # Fall back to 10-K (covers fiscal year-end quarters cleanly)
+            f10k = subs.loc[post_mask & subs["form"].isin(["10-K", "10-K/A"])].sort_values("filingDate")
+            if not f10k.empty:
+                q_days_to_10q = (f10k.iloc[0]["filingDate"] - q_end).days
+
+        media_metrics = _media_visibility(sym, q_start, q_end, s,
+    media_fetcher=media_fetcher, persist_media=persist_media)
+
 
         row = {
             "ticker": sym,
@@ -265,29 +288,47 @@ def coverage_snapshot(
     cov["as_of_bucket"] = _to_quarter_bucket(cov["as_of"])
 
     # percentile ranks within the cohort for this run
-    cov["p_8k"] = _pct_rank(cov["q_8k_count"], higher_is_better=True)          # more 8-Ks -> better
-    cov["p_timely"] = _pct_rank(cov["q_days_to_10q"], higher_is_better=False)  # fewer days -> better
+    cov["p_8k"] = _pct_rank(cov["q_8k_count"], higher_is_better=True)
+    cov["p_timely"] = _pct_rank(cov["q_days_to_10q"], higher_is_better=False)
 
-    has_media = "q_media_weighted" in cov.columns and cov["q_media_weighted"].notna().any()
+    # treat "has media" as "a fetcher was provided"
+    has_media = (media_fetcher is not None)
     if has_media:
-        cov["p_media"] = _pct_rank(cov["q_media_weighted"], higher_is_better=True)
+        # even if all NaN, we still create the column for a stable schema
+        cov["p_media"] = _pct_rank(cov.get("q_media_weighted", pd.Series(index=cov.index, dtype=float)),
+                                higher_is_better=True)
 
-    # Blend weights
-    if has_media and media_fetcher is not None:
+    if has_media:
         w_media = float(media_weight)
-        w_8k = 0.30
-        w_time = 0.20
-        # If user sets media_weight != 0.50, scale the others proportionally (0.30 : 0.20)
+        # scale the remaining 0.5 in the 0.30 : 0.20 ratio
         remainder = max(0.0, 1.0 - w_media)
-        scale = remainder / (0.30 + 0.20) if (0.30 + 0.20) > 0 else 0.0
-        w_8k *= scale
-        w_time *= scale
+        total = 0.30 + 0.20
+        w_8k = 0.30 * (remainder / total) if total else 0.0
+        w_time = 0.20 * (remainder / total) if total else 0.0
         cov["coverage_pct"] = (w_8k * cov["p_8k"] + w_time * cov["p_timely"] + w_media * cov["p_media"]).round(1)
     else:
-        cov["coverage_pct"] = (0.6 * cov["p_8k"] + 0.4 * cov["p_timely"]).round(1)
+        w_media, w_8k, w_time = 0.0, 0.60, 0.40
+        cov["coverage_pct"] = (w_8k * cov["p_8k"] + w_time * cov["p_timely"]).round(1)
+
+    # if debugging, expose component weights as constant columns
+    if debug_components:
+        cov["w_8k"] = w_8k
+        cov["w_time"] = w_time
+        cov["w_media"] = w_media
 
     # Order & return
     base_cols = ["ticker", "as_of", "as_of_bucket", "coverage_pct", "q_8k_count", "q_days_to_10q"]
     media_cols = ["q_media_weighted", "q_media_unique_articles", "q_media_unique_domains"] if has_media else []
-    cov = cov[base_cols + media_cols].sort_values(["as_of_bucket", "ticker"]).reset_index(drop=True)
+    debug_cols = []
+    if debug_components:
+        debug_cols = ["p_8k", "p_timely"] + (["p_media"] if has_media else []) + ["w_8k", "w_time"] + (["w_media"] if has_media else [])
+
+    cov = cov[base_cols + media_cols + debug_cols].sort_values(["as_of_bucket", "ticker"]).reset_index(drop=True)
     return cov
+
+
+if __name__ == "__main__":
+    from irci.media_fetchers.github_csv import github_csv_media_fetcher
+    df = coverage_snapshot(["AAPL","MSFT"], as_of="2025-09-30",
+                           media_fetcher=github_csv_media_fetcher, media_weight=0.50)
+    print(df.head())
