@@ -219,9 +219,8 @@ else:
         if not df_trust.empty:
             if "quarter_end" not in df_trust.columns:
                 df_trust["quarter_end"] = quarter_end_dt
-            # Ensure timezone-naive
-            if hasattr(df_trust["quarter_end"], 'dt'):
-                df_trust["quarter_end"] = pd.to_datetime(df_trust["quarter_end"]).dt.tz_localize(None)
+            # Force timezone-naive by normalizing to date
+            df_trust["quarter_end"] = pd.to_datetime(pd.to_datetime(df_trust["quarter_end"]).dt.date)
         progress_bar.progress(30)
 
         # 2. Valuation
@@ -233,9 +232,8 @@ else:
         if not df_val.empty:
             if "quarter_end" not in df_val.columns:
                 df_val["quarter_end"] = quarter_end_dt
-            # Ensure timezone-naive
-            if hasattr(df_val["quarter_end"], 'dt'):
-                df_val["quarter_end"] = pd.to_datetime(df_val["quarter_end"]).dt.tz_localize(None)
+            # Force timezone-naive by normalizing to date
+            df_val["quarter_end"] = pd.to_datetime(pd.to_datetime(df_val["quarter_end"]).dt.date)
         progress_bar.progress(50)
 
         # 3. Coverage
@@ -247,9 +245,8 @@ else:
         if not df_cov.empty:
             if "quarter_end" not in df_cov.columns:
                 df_cov["quarter_end"] = quarter_end_dt
-            # Ensure timezone-naive
-            if hasattr(df_cov["quarter_end"], 'dt'):
-                df_cov["quarter_end"] = pd.to_datetime(df_cov["quarter_end"]).dt.tz_localize(None)
+            # Force timezone-naive by normalizing to date
+            df_cov["quarter_end"] = pd.to_datetime(pd.to_datetime(df_cov["quarter_end"]).dt.date)
         progress_bar.progress(70)
 
         # 4. Liquidity
@@ -268,19 +265,28 @@ else:
                 st.warning(f"⚠️ Liquidity data unavailable for {sym}: {str(e)}")
         df_liq = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
         if not df_liq.empty:
-            # Convert quarter_end to timezone-naive to match other dials
+            # Force timezone-naive by normalizing to date
             if "quarter_end" in df_liq.columns:
-                qe = pd.to_datetime(df_liq["quarter_end"])
-                # Remove timezone if present
-                if qe.dt.tz is not None:
-                    df_liq["quarter_end"] = qe.dt.tz_localize(None)
-                else:
-                    df_liq["quarter_end"] = qe
+                df_liq["quarter_end"] = pd.to_datetime(pd.to_datetime(df_liq["quarter_end"]).dt.date)
             df_liq = add_liquidity_percentile(df_liq)
         progress_bar.progress(85)
 
         # 5. Composite
         status_text.text("Computing composite scores...")
+
+        # Final timezone normalization - ensure ALL quarter_end columns are timezone-naive
+        def strip_timezone(df):
+            if df is not None and not df.empty and "quarter_end" in df.columns:
+                # Convert to naive datetime by going through numpy datetime64
+                df = df.copy()
+                df["quarter_end"] = df["quarter_end"].values.astype('datetime64[ns]')
+            return df
+
+        df_val = strip_timezone(df_val)
+        df_liq = strip_timezone(df_liq)
+        df_cov = strip_timezone(df_cov)
+        df_trust = strip_timezone(df_trust)
+
         df_composite = irci_composite(
             valuation=df_val,
             liquidity=df_liq,
@@ -328,8 +334,9 @@ if 'df_composite' in st.session_state:
 
     # Prepare display data
     display_df = df_composite.copy()
-    display_df = display_df.sort_values('rank_in_peer')
-    display_df['rank'] = display_df['rank_in_peer'].astype(int)
+    # Sort by composite score (highest first) and create rank
+    display_df = display_df.sort_values('irci_composite_pct', ascending=False)
+    display_df['rank'] = range(1, len(display_df) + 1)
 
     # Format percentages
     for col in ['irci_composite_pct', 'valuation_pct', 'liquidity_pct', 'coverage_pct', 'sentiment_pct']:
