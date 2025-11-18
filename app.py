@@ -268,6 +268,14 @@ else:
                 st.warning(f"⚠️ Liquidity data unavailable for {sym}: {str(e)}")
         df_liq = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
         if not df_liq.empty:
+            # Convert quarter_end to timezone-naive to match other dials
+            if "quarter_end" in df_liq.columns:
+                qe = pd.to_datetime(df_liq["quarter_end"])
+                # Remove timezone if present
+                if qe.dt.tz is not None:
+                    df_liq["quarter_end"] = qe.dt.tz_localize(None)
+                else:
+                    df_liq["quarter_end"] = qe
             df_liq = add_liquidity_percentile(df_liq)
         progress_bar.progress(85)
 
