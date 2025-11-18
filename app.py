@@ -7,13 +7,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from pathlib import Path
-import sys
 from datetime import datetime
 import io
-
-# Add irci to path
-sys.path.insert(0, str(Path(__file__).parent))
 
 from irci.config import Settings
 from irci.trust import trust_snapshot
@@ -59,7 +54,7 @@ st.markdown("""
 
 # Header
 st.markdown('<div class="main-header">IRCI Analysis Platform</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Information Risk, Coverage, Trust, Liquidity & Valuation Analysis</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuation Analysis</div>', unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
