@@ -9,6 +9,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import io
+import sys
+from pathlib import Path
+
+# Add the repository root to Python path so we can import irci modules
+# This works both locally and on Streamlit Cloud
+repo_root = Path(__file__).parent
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
 from irci.config import Settings
 from irci.trust import trust_snapshot
