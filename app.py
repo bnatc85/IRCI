@@ -329,11 +329,12 @@ with st.sidebar:
     st.caption(f"Period: {start_date} to {end_date}")
 
     # News file upload
-    st.markdown("### Optional: News Data")
+    st.markdown("### News Data")
+    st.info("📰 News articles are automatically fetched from FMP API for sentiment analysis")
     uploaded_news = st.file_uploader(
-        "Upload News CSV (optional)",
+        "Or upload custom News CSV (optional override)",
         type=["csv"],
-        help="CSV with columns: date, ticker, headline"
+        help="CSV with columns: date, ticker, headline. If provided, this will override automatic fetching."
     )
 
     # Weights configuration
@@ -370,11 +371,11 @@ if not run_analysis:
 
     with col1:
         st.markdown("### 📊 Coverage")
-        st.markdown("SEC filing cadence & disclosure timeliness")
+        st.markdown("SEC filings + media visibility (auto-fetched)")
 
     with col2:
         st.markdown("### 💭 Trust")
-        st.markdown("Sentiment & event stability analysis")
+        st.markdown("News sentiment + event stability (auto-analyzed)")
 
     with col3:
         st.markdown("### 💧 Liquidity")
@@ -395,10 +396,10 @@ if not run_analysis:
         1. **Coverage Dial** - How well does the company communicate?
            - 8-K filing frequency
            - 10-Q/10-K filing timeliness
-           - Media visibility (if news data provided)
+           - Media visibility (automatically from FMP API)
 
         2. **Trust Dial** - How stable is the company?
-           - Market sentiment from news headlines
+           - Market sentiment from news headlines (automatically analyzed)
            - Event calmness (reactions to SEC filings)
            - Baseline volatility (Fama-French factor analysis)
 
@@ -427,11 +428,33 @@ else:
         # Load settings
         s = Settings.load()
 
-        # Prepare news data
+        # Prepare news data - automatically fetch from FMP API
         news_df = None
         if uploaded_news is not None:
+            # User uploaded news file
             news_df = pd.read_csv(uploaded_news)
-            st.success(f"✓ Loaded {len(news_df)} news articles")
+            st.success(f"✓ Loaded {len(news_df)} news articles from upload")
+        else:
+            # Automatically fetch news for all tickers using FMP API
+            status_text.text("Fetching news articles from FMP API...")
+            news_list = []
+            q_start = pd.to_datetime(start_date, utc=True)
+            q_end = pd.to_datetime(end_date, utc=True)
+
+            for ticker in tickers:
+                try:
+                    ticker_news = fmp_news_media_fetcher(ticker, q_start, q_end, s)
+                    if not ticker_news.empty:
+                        ticker_news['ticker'] = ticker
+                        news_list.append(ticker_news)
+                except Exception as e:
+                    st.warning(f"⚠️ Could not fetch news for {ticker}: {str(e)}")
+
+            if news_list:
+                news_df = pd.concat(news_list, ignore_index=True)
+                st.success(f"✓ Automatically fetched {len(news_df)} news articles from FMP API for {len(news_list)} tickers")
+            else:
+                st.info("ℹ️ No news articles found for this period")
 
         # Convert end_date to timezone-naive datetime for consistency
         quarter_end_dt = pd.to_datetime(end_date)
