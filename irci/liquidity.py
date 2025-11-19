@@ -54,8 +54,11 @@ def _market_cap_series(symbol: str, s: Settings, df_prices: pd.DataFrame, end: s
         as_of_ts = pd.to_datetime(end, utc=True) if end else pd.Timestamp.utcnow(tz="UTC")
         so = shares_outstanding_from_sec(symbol, as_of_ts, s=s).get("shares_outstanding")
         if not so or so <= 0:
-            raise RuntimeError(f"shares outstanding missing for {symbol}")
-        series = (df_prices["adj_close"].astype(float) * float(so)).rename("marketCap")
+            log.warning(f"shares outstanding missing for {symbol}; returning NaN market cap series")
+            # Return NaN series instead of raising error to allow partial analysis
+            series = pd.Series(np.nan, index=df_prices.index, name="marketCap")
+        else:
+            series = (df_prices["adj_close"].astype(float) * float(so)).rename("marketCap")
     series.index = _utc_index(series.index)
     return series
 
@@ -118,11 +121,14 @@ def add_liquidity_percentile(df_q: pd.DataFrame) -> pd.DataFrame:
     df_q["quarter_end"] = pd.to_datetime(df_q["quarter_end"], utc=True)
 
     def per_quarter(x: pd.DataFrame) -> pd.DataFrame:
+        # Percentiles; some components may be entirely/partially NaN
         p_amihud = x["q_amihud"].rank(pct=True, ascending=False)   # lower is better -> higher pct
         p_spread = x["q_roll_spread"].rank(pct=True, ascending=False)
         p_turn   = x["q_turnover"].rank(pct=True, ascending=True)  # higher is better
-
-        dial = ((p_amihud + p_spread + p_turn) / 3.0) * 100.0
+        comps   = pd.concat([p_amihud, p_spread, p_turn], axis=1)
+        counts  = comps.notna().sum(axis=1)        # how many components are present
+        sums    = comps.fillna(0).sum(axis=1)      # sum only the present ones
+        dial    = (sums / counts.clip(lower=1)) * 100.0
 
         out = x[["quarter_end", "ticker"]].copy()
         out["liquidity_pct"] = dial.round().astype("Int64")
