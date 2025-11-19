@@ -1,10 +1,77 @@
 # irci/peers.py
 """
-Peer company discovery using FMP API
+Peer company discovery - curated peer groups for common tickers
 """
 import requests
 import pandas as pd
 from typing import List, Optional
+
+# Curated peer groups by industry/sector
+PEER_GROUPS = {
+    # Mega-cap Tech
+    "AAPL": ["MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "NFLX", "ADBE"],
+    "MSFT": ["AAPL", "GOOGL", "AMZN", "META", "ORCL", "ADBE", "CRM", "NVDA"],
+    "GOOGL": ["META", "AAPL", "MSFT", "AMZN", "NFLX", "DIS", "SNAP", "PINS"],
+    "META": ["GOOGL", "SNAP", "PINS", "TWTR", "AAPL", "MSFT", "NFLX"],
+    "AMZN": ["WMT", "TGT", "COST", "EBAY", "SHOP", "AAPL", "MSFT", "GOOGL"],
+
+    # Cloud/Enterprise Software
+    "CRM": ["MSFT", "ORCL", "NOW", "WDAY", "ADBE", "SAP", "TEAM", "ZM"],
+    "NOW": ["CRM", "WDAY", "SNOW", "DDOG", "MSFT", "ORCL"],
+    "SNOW": ["DDOG", "MDB", "NET", "CRWD", "NOW", "PLTR"],
+
+    # Semiconductors
+    "NVDA": ["AMD", "INTC", "TSM", "QCOM", "AVGO", "MU", "ASML"],
+    "AMD": ["NVDA", "INTC", "QCOM", "MU", "AVGO", "MRVL"],
+    "INTC": ["AMD", "NVDA", "QCOM", "TXN", "AVGO", "MU"],
+
+    # Auto/EV
+    "TSLA": ["GM", "F", "RIVN", "LCID", "NIO", "XPEV", "LI"],
+    "RIVN": ["TSLA", "LCID", "F", "GM", "NIO"],
+    "LCID": ["RIVN", "TSLA", "NIO", "XPEV"],
+
+    # Streaming/Entertainment
+    "NFLX": ["DIS", "PARA", "WBD", "CMCSA", "GOOGL", "AAPL"],
+    "DIS": ["NFLX", "PARA", "WBD", "CMCSA", "LYV"],
+
+    # E-commerce
+    "SHOP": ["AMZN", "EBAY", "ETSY", "WMT", "MELI"],
+    "ETSY": ["SHOP", "EBAY", "AMZN", "PINS"],
+
+    # Fintech/Payments
+    "SQ": ["PYPL", "V", "MA", "ADYEN", "AFRM", "COIN"],
+    "PYPL": ["SQ", "V", "MA", "ADYEN", "AFRM"],
+    "V": ["MA", "PYPL", "AXP", "SQ"],
+    "MA": ["V", "PYPL", "AXP", "SQ"],
+
+    # Social Media
+    "SNAP": ["PINS", "META", "GOOGL", "TWTR"],
+    "PINS": ["SNAP", "ETSY", "META", "GOOGL"],
+
+    # Cybersecurity
+    "CRWD": ["PANW", "ZS", "FTNT", "S", "OKTA"],
+    "PANW": ["CRWD", "FTNT", "ZS", "CHKP"],
+    "ZS": ["CRWD", "PANW", "NET", "OKTA"],
+
+    # Cloud Infrastructure
+    "DDOG": ["SNOW", "NET", "ESTC", "SPLK", "MDB"],
+    "NET": ["DDOG", "FSLY", "AKAMAI", "CRWD"],
+
+    # Retail
+    "WMT": ["TGT", "COST", "KR", "DG", "AMZN"],
+    "TGT": ["WMT", "COST", "DG", "BBY"],
+    "COST": ["WMT", "TGT", "BJ", "AMZN"],
+
+    # Airlines
+    "DAL": ["UAL", "AAL", "LUV", "JBLU", "SAVE"],
+    "UAL": ["DAL", "AAL", "LUV", "JBLU"],
+    "AAL": ["DAL", "UAL", "LUV", "JBLU"],
+
+    # Banks
+    "JPM": ["BAC", "WFC", "C", "GS", "MS"],
+    "BAC": ["JPM", "WFC", "C", "USB", "PNC"],
+    "WFC": ["JPM", "BAC", "C", "USB"],
+}
 
 
 def find_peers_by_industry(
@@ -89,31 +156,24 @@ def find_peers_by_industry(
 
 def find_peers_simple(ticker: str, api_key: str, max_peers: int = 5) -> List[str]:
     """
-    Simple peer finder using FMP's stock peers endpoint.
+    Simple peer finder using curated peer groups.
 
     Args:
         ticker: Base ticker symbol
-        api_key: FMP API key
+        api_key: FMP API key (not used with curated approach)
         max_peers: Maximum number of peers to return
 
     Returns:
         List of peer ticker symbols
     """
-    try:
-        # Try FMP's peers endpoint first (if available)
-        url = f"https://financialmodelingprep.com/api/v4/stock_peers?symbol={ticker}&apikey={api_key}"
-        response = requests.get(url, timeout=10)
+    ticker_upper = ticker.upper()
 
-        if response.status_code == 200:
-            data = response.json()
-            if data and isinstance(data, list) and len(data) > 0:
-                peers_data = data[0]
-                if 'peersList' in peers_data:
-                    return peers_data['peersList'][:max_peers]
+    # Check curated peer groups first
+    if ticker_upper in PEER_GROUPS:
+        peers = PEER_GROUPS[ticker_upper][:max_peers]
+        print(f"Found {len(peers)} curated peers for {ticker_upper}")
+        return peers
 
-        # Fallback to industry-based search
-        return find_peers_by_industry(ticker, api_key, max_peers)
-
-    except Exception as e:
-        print(f"Warning: Simple peer lookup failed for {ticker}: {e}")
-        return find_peers_by_industry(ticker, api_key, max_peers)
+    # If not in curated list, inform user
+    print(f"No curated peers for {ticker_upper}. Add to PEER_GROUPS in irci/peers.py for this ticker.")
+    return []

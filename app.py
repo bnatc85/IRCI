@@ -298,7 +298,9 @@ with st.sidebar:
 
     # Peer discovery section
     with st.expander("🔍 Find Peer Companies", expanded=False):
-        st.markdown("Enter a ticker to automatically find similar companies")
+        st.markdown("**Curated peer groups** for 60+ popular tickers")
+        st.caption("Examples: AAPL, TSLA, NVDA, NFLX, JPM, WMT, CRM")
+
         peer_base_ticker = st.text_input(
             "Base Company Ticker",
             value="",
@@ -309,20 +311,19 @@ with st.sidebar:
 
         if st.button("Find Peers", use_container_width=True):
             if peer_base_ticker:
-                with st.spinner(f"Finding peers for {peer_base_ticker.upper()}..."):
-                    try:
-                        s = Settings.load()
-                        peers = find_peers_simple(peer_base_ticker.upper(), s.fmp_api_key, max_peers=peer_count)
-                        if peers:
-                            # Store peers in session state
-                            all_tickers = [peer_base_ticker.upper()] + peers
-                            st.session_state['found_peers'] = ",".join(all_tickers)
-                            st.success(f"✓ Found {len(peers)} peers for {peer_base_ticker.upper()}")
-                            st.info(f"Peers: {', '.join(peers)}")
-                        else:
-                            st.warning(f"No peers found for {peer_base_ticker.upper()}")
-                    except Exception as e:
-                        st.error(f"Error finding peers: {str(e)}")
+                try:
+                    s = Settings.load()
+                    peers = find_peers_simple(peer_base_ticker.upper(), s.fmp_api_key, max_peers=peer_count)
+                    if peers:
+                        # Store peers in session state
+                        all_tickers = [peer_base_ticker.upper()] + peers
+                        st.session_state['found_peers'] = ",".join(all_tickers)
+                        st.success(f"✓ Found {len(peers)} peers for {peer_base_ticker.upper()}")
+                        st.info(f"**Peers:** {', '.join(peers)}")
+                    else:
+                        st.warning(f"⚠️ {peer_base_ticker.upper()} not in curated peer database. Try: AAPL, TSLA, NVDA, NFLX, CRM, JPM, WMT, SNAP, CRWD")
+                except Exception as e:
+                    st.error(f"Error finding peers: {str(e)}")
             else:
                 st.warning("Please enter a ticker")
 
