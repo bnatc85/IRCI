@@ -26,6 +26,7 @@ from irci.liquidity import daily_liquidity_bundle, quarterly_liquidity, add_liqu
 from irci.market import fetch_prices_fmp
 from irci.composite import irci_composite
 from irci.media_fetchers.fmp_news import fmp_news_media_fetcher
+from irci.media_fetchers.alpha_vantage_news import alpha_vantage_news_fetcher
 
 # Page config
 st.set_page_config(
@@ -435,26 +436,43 @@ else:
             news_df = pd.read_csv(uploaded_news)
             st.success(f"✓ Loaded {len(news_df)} news articles from upload")
         else:
-            # Automatically fetch news for all tickers using FMP API
-            status_text.text("Fetching news articles from FMP API...")
+            # Automatically fetch news for all tickers using API (FMP → Alpha Vantage fallback)
+            status_text.text("Fetching news articles...")
             news_list = []
             q_start = pd.to_datetime(start_date, utc=True)
             q_end = pd.to_datetime(end_date, utc=True)
+            news_source = None
 
             for ticker in tickers:
                 try:
+                    # Try FMP first
                     ticker_news = fmp_news_media_fetcher(ticker, q_start, q_end, s)
                     if not ticker_news.empty:
                         ticker_news['ticker'] = ticker
                         news_list.append(ticker_news)
-                except Exception as e:
-                    st.warning(f"⚠️ Could not fetch news for {ticker}: {str(e)}")
+                        news_source = "FMP API"
+                except Exception:
+                    pass  # Silently try fallback
+
+                # If FMP failed or returned no results, try Alpha Vantage
+                if not news_list or news_list[-1].empty if news_list else True:
+                    try:
+                        ticker_news = alpha_vantage_news_fetcher(ticker, q_start, q_end, s)
+                        if not ticker_news.empty:
+                            if ticker in [n.get('ticker', '') for n in news_list]:
+                                # Remove empty FMP result
+                                news_list = [n for n in news_list if n.get('ticker', '') != ticker]
+                            ticker_news['ticker'] = ticker
+                            news_list.append(ticker_news)
+                            news_source = "Alpha Vantage API (free tier)"
+                    except Exception as e:
+                        pass  # Silent fallback failure
 
             if news_list:
                 news_df = pd.concat(news_list, ignore_index=True)
-                st.success(f"✓ Automatically fetched {len(news_df)} news articles from FMP API for {len(news_list)} tickers")
+                st.success(f"✓ Fetched {len(news_df)} news articles from {news_source} for {len(news_list)} ticker(s)")
             else:
-                st.info("ℹ️ No news articles found for this period")
+                st.warning("⚠️ News API access unavailable (FMP requires paid plan, Alpha Vantage rate limited). Analysis will continue without news data.")
 
         # Convert end_date to timezone-naive datetime for consistency
         quarter_end_dt = pd.to_datetime(end_date)
