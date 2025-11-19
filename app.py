@@ -25,6 +25,7 @@ from irci.coverage import coverage_snapshot
 from irci.liquidity import daily_liquidity_bundle, quarterly_liquidity, add_liquidity_percentile
 from irci.market import fetch_prices_fmp
 from irci.composite import irci_composite
+from irci.media_fetchers.fmp_news import fmp_news_media_fetcher
 
 # Page config
 st.set_page_config(
@@ -194,13 +195,21 @@ st.markdown("""
         background-color: #2e3440 !important;
     }
 
-    /* Button styling */
+    /* Button styling - FIXED */
     .stButton button {
         background-color: #00d4ff;
         color: #000000 !important;
         border: none;
         font-weight: bold;
-        font-size: 1.1rem;
+        font-size: 1.3rem;
+    }
+
+    .stButton button p {
+        color: #000000 !important;
+    }
+
+    .stButton button span {
+        color: #000000 !important;
     }
 
     .stButton button:hover {
@@ -210,15 +219,24 @@ st.markdown("""
 
     /* Sidebar button text size */
     [data-testid="stSidebar"] .stButton button {
-        font-size: 1.15rem !important;
+        font-size: 1.4rem !important;
     }
 
-    /* Download button styling */
+    /* Download button styling - FIXED */
     .stDownloadButton button {
         background-color: #00d4ff;
         color: #000000 !important;
         border: none;
         font-weight: bold;
+        font-size: 1.3rem;
+    }
+
+    .stDownloadButton button p {
+        color: #000000 !important;
+    }
+
+    .stDownloadButton button span {
+        color: #000000 !important;
     }
 
     .stDownloadButton button:hover {
@@ -457,7 +475,8 @@ else:
         status_text.text("Running Coverage analysis...")
         df_cov = coverage_snapshot(
             tickers,
-            as_of=end_date
+            as_of=end_date,
+            media_fetcher=fmp_news_media_fetcher
         )
         if not df_cov.empty:
             if "quarter_end" not in df_cov.columns:
