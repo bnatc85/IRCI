@@ -1458,11 +1458,8 @@ if 'df_composite' in st.session_state:
         try:
             dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
 
-            # Filter out rows with NaN enterprise_value
-            dollar_value_df = dollar_value_df.dropna(subset=['enterprise_value', 'company_$/irci_pt', 'regression_r2'])
-
             if dollar_value_df.empty:
-                st.warning("⚠️ No enterprise value data available for dollar value calculations.")
+                st.warning("⚠️ No enterprise value data available for dollar value calculations. The valuation dial may not have enterprise_value data for this time period.")
             else:
                 # Display key metric
                 avg_company_dollars_per_point = dollar_value_df['company_$/irci_pt'].mean()

@@ -36,12 +36,43 @@ def compute_dollar_value_per_irci_point(
         - market_cap_gap: Estimated $ gap to reach top performer's IRCI
     """
     # Merge composite and valuation data
+    # First check if df_valuation has the required columns
+    required_cols = ['ticker', 'enterprise_value']
+    missing_cols = [col for col in required_cols if col not in df_valuation.columns]
+    if missing_cols:
+        print(f"Warning: df_valuation missing columns: {missing_cols}")
+        # Return empty dataframe with expected columns
+        return pd.DataFrame(columns=[
+            'ticker', 'enterprise_value', 'irci_composite_pct',
+            'company_$/irci_pt', 'peer_group_$/irci_pt', 'irci_gap_to_top',
+            'market_cap_gap_regression', 'market_cap_gap_group',
+            'company_ev_efficiency', 'regression_r2'
+        ])
+
+    # Select columns that exist in df_valuation
+    val_cols = ['ticker', 'enterprise_value']
+    if 'as_of' in df_valuation.columns:
+        val_cols.append('as_of')
+    if 'ev_to_ebitda' in df_valuation.columns:
+        val_cols.append('ev_to_ebitda')
+
     df = df_composite[['ticker', 'quarter_end', 'irci_composite_pct']].merge(
-        df_valuation[['ticker', 'as_of', 'enterprise_value', 'ev_to_ebitda']],
-        left_on=['ticker'],
-        right_on=['ticker'],
+        df_valuation[val_cols],
+        on='ticker',
         how='inner'
     )
+
+    # Filter out rows with NaN enterprise_value BEFORE any calculations
+    df = df.dropna(subset=['enterprise_value', 'irci_composite_pct'])
+
+    if df.empty:
+        print("Warning: No valid enterprise_value data after merge and dropna")
+        return pd.DataFrame(columns=[
+            'ticker', 'enterprise_value', 'irci_composite_pct',
+            'company_$/irci_pt', 'peer_group_$/irci_pt', 'irci_gap_to_top',
+            'market_cap_gap_regression', 'market_cap_gap_group',
+            'company_ev_efficiency', 'regression_r2'
+        ])
 
     # Calculate peer group statistics
     peer_max_irci = df['irci_composite_pct'].max()
