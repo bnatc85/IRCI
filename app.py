@@ -27,6 +27,7 @@ from irci.market import fetch_prices_fmp
 from irci.composite import irci_composite
 from irci.media_fetchers.fmp_news import fmp_news_media_fetcher
 from irci.media_fetchers.alpha_vantage_news import alpha_vantage_news_fetcher
+from irci.peers import find_peers_simple
 
 # Page config
 st.set_page_config(
@@ -295,12 +296,46 @@ with st.sidebar:
     st.image("IRCI_icon_primary.png", use_container_width=True)
     st.markdown("### Analysis Configuration")
 
+    # Peer discovery section
+    with st.expander("🔍 Find Peer Companies", expanded=False):
+        st.markdown("Enter a ticker to automatically find similar companies")
+        peer_base_ticker = st.text_input(
+            "Base Company Ticker",
+            value="",
+            placeholder="e.g., AAPL",
+            help="Enter a ticker to find peers in the same industry"
+        )
+        peer_count = st.slider("Number of Peers", 3, 15, 8)
+
+        if st.button("Find Peers", use_container_width=True):
+            if peer_base_ticker:
+                with st.spinner(f"Finding peers for {peer_base_ticker.upper()}..."):
+                    try:
+                        s = Settings.load()
+                        peers = find_peers_simple(peer_base_ticker.upper(), s.fmp_api_key, max_peers=peer_count)
+                        if peers:
+                            # Store peers in session state
+                            all_tickers = [peer_base_ticker.upper()] + peers
+                            st.session_state['found_peers'] = ",".join(all_tickers)
+                            st.success(f"✓ Found {len(peers)} peers for {peer_base_ticker.upper()}")
+                            st.info(f"Peers: {', '.join(peers)}")
+                        else:
+                            st.warning(f"No peers found for {peer_base_ticker.upper()}")
+                    except Exception as e:
+                        st.error(f"Error finding peers: {str(e)}")
+            else:
+                st.warning("Please enter a ticker")
+
     # Company selection
-    default_tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA"]
+    default_tickers = ["AAPL", "MSFT", "GOOGL", "AMZN"]
+
+    # Use found peers if available, otherwise use default
+    initial_value = st.session_state.get('found_peers', ",".join(default_tickers))
+
     ticker_input = st.text_area(
         "Company Tickers (one per line or comma-separated)",
-        value=",".join(default_tickers[:4]),
-        help="Enter stock tickers like AAPL, MSFT, GOOGL"
+        value=initial_value,
+        help="Enter stock tickers like AAPL, MSFT, GOOGL or use the peer finder above"
     )
 
     # Parse tickers
