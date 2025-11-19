@@ -688,7 +688,7 @@ if 'df_composite' in st.session_state:
     # Visualizations
     st.markdown("### 📈 Visualizations")
 
-    tab1, tab2, tab3 = st.tabs(["Composite Scores", "Dial Breakdown", "Detailed Metrics"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Composite Scores", "Dial Breakdown", "Detailed Metrics", "📊 Insights"])
 
     with tab1:
         # Bar chart of composite scores
@@ -823,6 +823,335 @@ if 'df_composite' in st.session_state:
             use_container_width=True,
             hide_index=True
         )
+
+    with tab4:
+        # Import insights module
+        from irci.dial_insights import (
+            compute_dollar_value_per_irci_point,
+            compute_dial_contribution,
+            recommend_optimal_weights
+        )
+
+        # Section 1: Dollar Value per IRCI Point
+        st.markdown("#### 💵 Dollar Value per IRCI Point")
+        st.markdown("*Reveals how much enterprise value corresponds to each IRCI point improvement*")
+
+        try:
+            dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
+
+            # Display key metric
+            group_dollars_per_point = dollar_value_df['peer_group_$/irci_pt'].iloc[0]
+            avg_company_dollars_per_point = dollar_value_df['company_$/irci_pt'].mean()
+            r2_score = dollar_value_df['regression_r2'].iloc[0]
+
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric(
+                "Peer Group $/IRCI Point",
+                f"${group_dollars_per_point:,.0f}",
+                help="Dollar value change per 1-point IRCI improvement across peer group (range-based)"
+            )
+            col2.metric(
+                "Avg Company $/IRCI Point",
+                f"${avg_company_dollars_per_point:,.0f}",
+                help="Average company-specific dollar value per IRCI point (regression-based)"
+            )
+            col3.metric(
+                "Regression R²",
+                f"{r2_score:.2f}",
+                help="How well EV correlates with IRCI scores (0-1 scale)"
+            )
+            col4.metric(
+                "Max IRCI Gap",
+                f"{dollar_value_df['irci_gap_to_top'].max():.1f} pts",
+                help="Largest gap between a peer and the top performer"
+            )
+
+            # Per-Ticker $/IRCI Point Table (Most Important)
+            st.markdown("**Per-Ticker Dollar Value per IRCI Point:**")
+            st.dataframe(
+                dollar_value_df[['ticker', 'irci_composite_pct', 'company_$/irci_pt', 'peer_group_$/irci_pt', 'irci_gap_to_top', 'market_cap_gap_regression']].rename(columns={
+                    'ticker': 'Ticker',
+                    'irci_composite_pct': 'IRCI Score %',
+                    'company_$/irci_pt': '🎯 Company $/IRCI Point',
+                    'peer_group_$/irci_pt': 'Peer Group $/IRCI Point',
+                    'irci_gap_to_top': 'Gap to Top (pts)',
+                    'market_cap_gap_regression': 'Potential $ Upside'
+                }).style.format({
+                    'IRCI Score %': '{:.1f}%',
+                    '🎯 Company $/IRCI Point': '${:,.0f}',
+                    'Peer Group $/IRCI Point': '${:,.0f}',
+                    'Gap to Top (pts)': '{:.1f}',
+                    'Potential $ Upside': '${:,.0f}'
+                }),
+                use_container_width=True,
+                hide_index=True
+            )
+            st.caption("💡 **Company $/IRCI Point** shows how much each ticker's enterprise value could change per 1-point IRCI improvement based on peer group regression")
+
+            # Additional detailed metrics
+            with st.expander("📊 Additional Enterprise Value Metrics"):
+                st.dataframe(
+                    dollar_value_df[['ticker', 'enterprise_value', 'company_ev_efficiency']].rename(columns={
+                        'ticker': 'Ticker',
+                        'enterprise_value': 'Enterprise Value ($)',
+                        'company_ev_efficiency': 'EV Efficiency ($/IRCI)'
+                    }).style.format({
+                        'Enterprise Value ($)': '${:,.0f}',
+                        'EV Efficiency ($/IRCI)': '${:,.0f}'
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+            # Visualization: Scatter plot of EV vs IRCI with regression line
+            fig = px.scatter(
+                dollar_value_df,
+                x='irci_composite_pct',
+                y='enterprise_value',
+                text='ticker',
+                title=f'Enterprise Value vs IRCI Score (R² = {r2_score:.2f})',
+                labels={'irci_composite_pct': 'IRCI Score (%)', 'enterprise_value': 'Enterprise Value ($)'},
+                color='company_$/irci_pt',
+                color_continuous_scale='Viridis',
+                size='enterprise_value',
+                hover_data={
+                    'company_$/irci_pt': ':,.0f',
+                    'irci_composite_pct': ':.1f',
+                    'enterprise_value': ':,.0f',
+                    'market_cap_gap_regression': ':,.0f'
+                }
+            )
+            fig.update_traces(textposition='top center')
+
+            # Add regression line if R² is reasonable
+            if r2_score > 0.1:
+                from scipy import stats
+                slope, intercept, _, _, _ = stats.linregress(
+                    dollar_value_df['irci_composite_pct'],
+                    dollar_value_df['enterprise_value']
+                )
+                x_range = [dollar_value_df['irci_composite_pct'].min(), dollar_value_df['irci_composite_pct'].max()]
+                y_range = [slope * x + intercept for x in x_range]
+                fig.add_scatter(
+                    x=x_range,
+                    y=y_range,
+                    mode='lines',
+                    name=f'Trend (${abs(slope):,.0f}/pt)',
+                    line=dict(color='#ff0066', width=2, dash='dash')
+                )
+
+            fig.update_layout(
+                height=500,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(30,33,48,0.5)',
+                font=dict(color='#fafafa'),
+                title_font=dict(color='#00d4ff'),
+                xaxis=dict(gridcolor='#2e3440'),
+                yaxis=dict(gridcolor='#2e3440'),
+                legend=dict(
+                    bgcolor='rgba(30,33,48,0.8)',
+                    bordercolor='#2e3440',
+                    borderwidth=1
+                )
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        except Exception as e:
+            st.warning(f"Could not compute dollar value metrics: {str(e)}")
+
+        st.markdown("---")
+
+        # Section 2: Dial Contribution Analysis
+        st.markdown("#### 🎯 Dial Contribution Analysis")
+        st.markdown("*Shows how much each dial contributes to the composite score for this peer group*")
+
+        try:
+            # Get current weights from sidebar
+            current_weights = {
+                'valuation': weight_valuation / 100,
+                'liquidity': weight_liquidity / 100,
+                'coverage': weight_coverage / 100,
+                'sentiment': weight_trust / 100
+            }
+
+            contrib_df = compute_dial_contribution(df_composite, weights=current_weights)
+
+            # Summary metrics
+            col1, col2, col3, col4 = st.columns(4)
+
+            avg_val_contrib = contrib_df['val_contrib_pct'].mean()
+            avg_liq_contrib = contrib_df['liq_contrib_pct'].mean()
+            avg_cov_contrib = contrib_df['cov_contrib_pct'].mean()
+            avg_sent_contrib = contrib_df['sent_contrib_pct'].mean()
+
+            col1.metric(
+                "Avg Valuation Contribution",
+                f"{avg_val_contrib:.1f}%",
+                help="Average percentage of composite score from Valuation dial"
+            )
+            col2.metric(
+                "Avg Liquidity Contribution",
+                f"{avg_liq_contrib:.1f}%",
+                help="Average percentage of composite score from Liquidity dial"
+            )
+            col3.metric(
+                "Avg Coverage Contribution",
+                f"{avg_cov_contrib:.1f}%",
+                help="Average percentage of composite score from Coverage dial"
+            )
+            col4.metric(
+                "Avg Trust Contribution",
+                f"{avg_sent_contrib:.1f}%",
+                help="Average percentage of composite score from Trust dial"
+            )
+
+            # Detailed contribution table
+            st.markdown("**Detailed Contribution Breakdown:**")
+            st.dataframe(
+                contrib_df[['ticker', 'irci_composite_pct', 'val_contrib_abs', 'liq_contrib_abs', 'cov_contrib_abs', 'sent_contrib_abs', 'dominant_dial', 'weakest_dial']].rename(columns={
+                    'ticker': 'Ticker',
+                    'irci_composite_pct': 'Composite %',
+                    'val_contrib_abs': 'Val Points',
+                    'liq_contrib_abs': 'Liq Points',
+                    'cov_contrib_abs': 'Cov Points',
+                    'sent_contrib_abs': 'Trust Points',
+                    'dominant_dial': 'Strongest Dial',
+                    'weakest_dial': 'Weakest Dial'
+                }).style.format({
+                    'Composite %': '{:.1f}%',
+                    'Val Points': '{:.1f}',
+                    'Liq Points': '{:.1f}',
+                    'Cov Points': '{:.1f}',
+                    'Trust Points': '{:.1f}'
+                }),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # Stacked bar chart showing composition
+            st.markdown("**Composite Score Composition by Dial:**")
+
+            # Prepare data for stacked bar
+            chart_data = contrib_df[['ticker', 'val_contrib_abs', 'liq_contrib_abs', 'cov_contrib_abs', 'sent_contrib_abs']].copy()
+            chart_data = chart_data.melt(id_vars=['ticker'], var_name='Dial', value_name='Contribution')
+            chart_data['Dial'] = chart_data['Dial'].map({
+                'val_contrib_abs': 'Valuation',
+                'liq_contrib_abs': 'Liquidity',
+                'cov_contrib_abs': 'Coverage',
+                'sent_contrib_abs': 'Trust'
+            })
+
+            fig = px.bar(
+                chart_data,
+                x='ticker',
+                y='Contribution',
+                color='Dial',
+                title='Dial Contributions to Composite Score',
+                labels={'Contribution': 'Contribution (points)', 'ticker': 'Company'},
+                color_discrete_map={
+                    'Valuation': '#00d4ff',
+                    'Liquidity': '#00ff88',
+                    'Coverage': '#ff9500',
+                    'Trust': '#ff0066'
+                }
+            )
+            fig.update_layout(
+                barmode='stack',
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(30,33,48,0.5)',
+                font=dict(color='#fafafa'),
+                title_font=dict(color='#00d4ff'),
+                xaxis=dict(gridcolor='#2e3440'),
+                yaxis=dict(gridcolor='#2e3440'),
+                legend=dict(
+                    bgcolor='rgba(30,33,48,0.8)',
+                    bordercolor='#2e3440',
+                    borderwidth=1
+                )
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        except Exception as e:
+            st.warning(f"Could not compute dial contribution: {str(e)}")
+
+        st.markdown("---")
+
+        # Section 3: Optimal Weight Recommendations
+        st.markdown("#### ⚖️ Optimal Weight Recommendations")
+        st.markdown("*Analyzes peer group variance to suggest optimal dial weights*")
+
+        try:
+            weight_analysis = recommend_optimal_weights(df_composite, current_weights=current_weights)
+
+            # Display recommendations
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("**Current Weights:**")
+                current_weights_df = pd.DataFrame([
+                    {'Dial': 'Valuation', 'Weight': f"{current_weights['valuation']*100:.1f}%"},
+                    {'Dial': 'Liquidity', 'Weight': f"{current_weights['liquidity']*100:.1f}%"},
+                    {'Dial': 'Coverage', 'Weight': f"{current_weights['coverage']*100:.1f}%"},
+                    {'Dial': 'Trust', 'Weight': f"{current_weights['sentiment']*100:.1f}%"}
+                ])
+                st.dataframe(current_weights_df, use_container_width=True, hide_index=True)
+
+            with col2:
+                st.markdown("**Recommended Weights:**")
+                rec_weights = weight_analysis['recommended_weights']
+                recommended_weights_df = pd.DataFrame([
+                    {'Dial': 'Valuation', 'Weight': f"{rec_weights['valuation']*100:.1f}%"},
+                    {'Dial': 'Liquidity', 'Weight': f"{rec_weights['liquidity']*100:.1f}%"},
+                    {'Dial': 'Coverage', 'Weight': f"{rec_weights['coverage']*100:.1f}%"},
+                    {'Dial': 'Trust', 'Weight': f"{rec_weights['sentiment']*100:.1f}%"}
+                ])
+                st.dataframe(recommended_weights_df, use_container_width=True, hide_index=True)
+
+            # Variance analysis
+            st.markdown("**Variance Analysis (Why these weights?):**")
+            st.caption("Dials with higher variance across peers better differentiate companies and should receive more weight")
+
+            variance_df = pd.DataFrame([
+                {
+                    'Dial': 'Valuation',
+                    'Mean Score': f"{weight_analysis['variance_analysis']['valuation']['mean']:.1f}",
+                    'Std Dev': f"{weight_analysis['variance_analysis']['valuation']['std']:.1f}",
+                    'Coefficient of Variation': f"{weight_analysis['variance_analysis']['valuation']['cv']:.2f}",
+                    'Data Availability': f"{weight_analysis['variance_analysis']['valuation']['availability']*100:.0f}%",
+                    'Discriminating Power': f"{weight_analysis['discriminating_power']['valuation']:.1f}"
+                },
+                {
+                    'Dial': 'Liquidity',
+                    'Mean Score': f"{weight_analysis['variance_analysis']['liquidity']['mean']:.1f}",
+                    'Std Dev': f"{weight_analysis['variance_analysis']['liquidity']['std']:.1f}",
+                    'Coefficient of Variation': f"{weight_analysis['variance_analysis']['liquidity']['cv']:.2f}",
+                    'Data Availability': f"{weight_analysis['variance_analysis']['liquidity']['availability']*100:.0f}%",
+                    'Discriminating Power': f"{weight_analysis['discriminating_power']['liquidity']:.1f}"
+                },
+                {
+                    'Dial': 'Coverage',
+                    'Mean Score': f"{weight_analysis['variance_analysis']['coverage']['mean']:.1f}",
+                    'Std Dev': f"{weight_analysis['variance_analysis']['coverage']['std']:.1f}",
+                    'Coefficient of Variation': f"{weight_analysis['variance_analysis']['coverage']['cv']:.2f}",
+                    'Data Availability': f"{weight_analysis['variance_analysis']['coverage']['availability']*100:.0f}%",
+                    'Discriminating Power': f"{weight_analysis['discriminating_power']['coverage']:.1f}"
+                },
+                {
+                    'Dial': 'Trust',
+                    'Mean Score': f"{weight_analysis['variance_analysis']['sentiment']['mean']:.1f}",
+                    'Std Dev': f"{weight_analysis['variance_analysis']['sentiment']['std']:.1f}",
+                    'Coefficient of Variation': f"{weight_analysis['variance_analysis']['sentiment']['cv']:.2f}",
+                    'Data Availability': f"{weight_analysis['variance_analysis']['sentiment']['availability']*100:.0f}%",
+                    'Discriminating Power': f"{weight_analysis['discriminating_power']['sentiment']:.1f}"
+                }
+            ])
+            st.dataframe(variance_df, use_container_width=True, hide_index=True)
+
+            st.info("💡 **Tip**: Use the sidebar to adjust weights based on these recommendations and re-run the analysis to see the impact.")
+
+        except Exception as e:
+            st.warning(f"Could not compute weight recommendations: {str(e)}")
 
     # Download section
     st.markdown("---")
