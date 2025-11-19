@@ -1855,6 +1855,26 @@ if 'df_composite' in st.session_state:
                 except Exception as e:
                     st.info(f"Note: Could not fetch SEC filings: {e}")
 
+            # Prepare weights dict to pass to timeline
+            current_weights = {
+                'valuation': weight_valuation / 100,
+                'liquidity': weight_liquidity / 100,
+                'coverage': weight_coverage / 100,
+                'sentiment': weight_trust / 100
+            }
+
+            # Get company-specific $/IRCI point for this ticker
+            company_dollar_per_irci_pt = None
+            try:
+                from irci.dial_insights import compute_dollar_value_per_irci_point
+                dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
+                if not dollar_value_df.empty:
+                    ticker_dollar_data = dollar_value_df[dollar_value_df['ticker'] == selected_timeline_ticker]
+                    if not ticker_dollar_data.empty:
+                        company_dollar_per_irci_pt = ticker_dollar_data['company_$/irci_pt'].iloc[0]
+            except Exception as e:
+                st.info(f"Note: Could not calculate $/IRCI point: {e}")
+
             # Aggregate timeline events
             timeline_df = aggregate_timeline_events(
                 ticker=selected_timeline_ticker,
@@ -1866,7 +1886,9 @@ if 'df_composite' in st.session_state:
                 df_liq=df_liq,
                 df_trust=df_trust,
                 news_df=news_df,
-                sec_filings_df=sec_filings_df
+                sec_filings_df=sec_filings_df,
+                weights=current_weights,
+                company_dollar_per_irci_pt=company_dollar_per_irci_pt
             )
 
             # Display impact summary

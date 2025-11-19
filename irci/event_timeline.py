@@ -279,7 +279,9 @@ def calculate_event_irci_impact(
     df_composite: pd.DataFrame,
     df_val: pd.DataFrame,
     ticker: str,
-    sentiment_score: Optional[float] = None
+    sentiment_score: Optional[float] = None,
+    weights: Optional[Dict[str, float]] = None,
+    company_dollar_per_irci_pt: Optional[float] = None
 ) -> Dict[str, float]:
     """
     Estimate the impact of an event on IRCI score and dollar value.
@@ -289,11 +291,30 @@ def calculate_event_irci_impact(
     - For filings: positive impact on coverage dial
     - For EV changes: direct impact on valuation dial
 
+    Args:
+        event_date: Date of the event
+        event_type: Type of event ('news', '8-K', '10-Q', '10-K', etc.)
+        df_composite: Composite scores DataFrame
+        df_val: Valuation DataFrame
+        ticker: Stock ticker
+        sentiment_score: Sentiment score for news (-1 to 1)
+        weights: Dial weights dict with keys: valuation, liquidity, coverage, sentiment
+        company_dollar_per_irci_pt: Company-specific $/IRCI point from regression
+
     Returns:
     - irci_impact: estimated change in IRCI composite score
     - dollar_impact: estimated change in enterprise value
     - confidence: 0-1 scale confidence in the estimate
     """
+    # Default weights if not provided
+    if weights is None:
+        weights = {
+            'valuation': 0.35,
+            'liquidity': 0.35,
+            'coverage': 0.15,
+            'sentiment': 0.15
+        }
+
     impact = {
         'irci_impact': 0.0,
         'dollar_impact': 0.0,
@@ -309,14 +330,14 @@ def calculate_event_irci_impact(
         return impact
 
     current_irci = ticker_composite['irci_composite_pct'].iloc[0]
-    current_ev = ticker_val['enterprise_value'].iloc[0]
+    current_ev = ticker_val['enterprise_value'].iloc[0] if 'enterprise_value' in ticker_val.columns else 0
 
     # Estimate impact based on event type
     if event_type == 'news':
         # News impacts trust dial (sentiment_pct)
         # Assume strong positive news could move trust dial by ~5-10 points
         if sentiment_score is not None:
-            trust_weight = 0.15  # default trust weight
+            trust_weight = weights.get('sentiment', 0.15)  # Use configured trust/sentiment weight
             dial_impact = sentiment_score * 10  # -10 to +10 points on trust dial
             impact['irci_impact'] = dial_impact * trust_weight
             impact['affected_dials'] = ['Trust']
@@ -324,14 +345,14 @@ def calculate_event_irci_impact(
 
     elif event_type in ['8-K', '10-Q', '10-K']:
         # Filings positively impact coverage dial
-        coverage_weight = 0.15
+        coverage_weight = weights.get('coverage', 0.15)  # Use configured coverage weight
         if event_type == '8-K':
             dial_impact = 2.0  # Small positive boost
         else:  # 10-Q or 10-K
             dial_impact = 3.0  # Larger boost for major filings
         impact['irci_impact'] = dial_impact * coverage_weight
         impact['affected_dials'] = ['Coverage']
-        impact['confidence'] = 0.4
+        impact['confidence'] = 0.5
 
     elif event_type == 'ev_change':
         # Direct impact on valuation
@@ -339,12 +360,15 @@ def calculate_event_irci_impact(
         impact['affected_dials'] = ['Valuation']
         # This would need time-series EV data to calculate actual change
 
-    # Calculate dollar impact using $/IRCI point metric
-    # This would come from dial_insights module
-    if impact['irci_impact'] != 0 and current_ev > 0:
-        # Rough estimate: assume linear relationship
-        ev_per_irci_point = current_ev / (current_irci + 1)
-        impact['dollar_impact'] = impact['irci_impact'] * ev_per_irci_point
+    # Calculate dollar impact using company-specific $/IRCI point from regression
+    if impact['irci_impact'] != 0:
+        if company_dollar_per_irci_pt is not None and company_dollar_per_irci_pt > 0:
+            # Use the regression-based estimate (more accurate)
+            impact['dollar_impact'] = impact['irci_impact'] * company_dollar_per_irci_pt
+        elif current_ev > 0:
+            # Fallback: rough estimate using current EV
+            ev_per_irci_point = current_ev / (current_irci + 1)
+            impact['dollar_impact'] = impact['irci_impact'] * ev_per_irci_point
 
     return impact
 
@@ -359,7 +383,9 @@ def aggregate_timeline_events(
     df_liq: pd.DataFrame,
     df_trust: pd.DataFrame,
     news_df: Optional[pd.DataFrame] = None,
-    sec_filings_df: Optional[pd.DataFrame] = None
+    sec_filings_df: Optional[pd.DataFrame] = None,
+    weights: Optional[Dict[str, float]] = None,
+    company_dollar_per_irci_pt: Optional[float] = None
 ) -> pd.DataFrame:
     """
     Aggregate all events for a ticker into a single timeline.
@@ -391,7 +417,9 @@ def aggregate_timeline_events(
                 row['event_type'],
                 df_composite,
                 df_val,
-                ticker
+                ticker,
+                weights=weights,
+                company_dollar_per_irci_pt=company_dollar_per_irci_pt
             )
 
             all_events.append({
@@ -416,7 +444,9 @@ def aggregate_timeline_events(
             df_composite,
             df_val,
             ticker,
-            sentiment_score=row.get('sentiment_score', 0.0)
+            sentiment_score=row.get('sentiment_score', 0.0),
+            weights=weights,
+            company_dollar_per_irci_pt=company_dollar_per_irci_pt
         )
 
         all_events.append({
