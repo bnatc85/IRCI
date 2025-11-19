@@ -1269,31 +1269,39 @@ if 'df_composite' in st.session_state:
             if not timeline_df.empty:
                 # Add color coding for event types
                 def highlight_events(row):
-                    if row['event_type'] == 'news':
-                        if row['sentiment_score'] > 0.2:
+                    # Use original column names since styling is applied before renaming
+                    event_type = row.get('event_type', '')
+                    sentiment = row.get('sentiment_score', 0) if pd.notna(row.get('sentiment_score')) else 0
+
+                    if event_type == 'news':
+                        if sentiment > 0.2:
                             return ['background-color: rgba(0, 255, 136, 0.2)'] * len(row)
-                        elif row['sentiment_score'] < -0.2:
+                        elif sentiment < -0.2:
                             return ['background-color: rgba(255, 0, 102, 0.2)'] * len(row)
-                    elif row['event_type'] in ['10-Q', '10-K', '8-K']:
+                    elif event_type in ['10-Q', '10-K', '8-K']:
                         return ['background-color: rgba(0, 212, 255, 0.2)'] * len(row)
                     return [''] * len(row)
 
+                # Select and style dataframe
+                display_timeline = timeline_df[['date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'impact_confidence', 'affected_dials']].copy()
+
+                styled_df = display_timeline.style.apply(highlight_events, axis=1).format({
+                    'irci_impact': '{:+.2f}',
+                    'dollar_impact': '${:+,.0f}',
+                    'impact_confidence': '{:.0%}'
+                })
+
+                # Rename columns for display
+                styled_df = styled_df.set_table_styles([{
+                    'selector': 'th',
+                    'props': [('text-align', 'left')]
+                }]).hide(axis='index')
+
                 st.dataframe(
-                    timeline_df[['date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'impact_confidence', 'affected_dials']].rename(columns={
-                        'date': 'Date',
-                        'event_type': 'Type',
-                        'description': 'Description',
-                        'irci_impact': 'IRCI Impact',
-                        'dollar_impact': '$ Impact',
-                        'impact_confidence': 'Confidence',
-                        'affected_dials': 'Affected Dials'
-                    }).style.apply(highlight_events, axis=1).format({
-                        'IRCI Impact': '{:+.2f}',
-                        '$ Impact': '${:+,.0f}',
-                        'Confidence': '{:.0%}'
-                    }),
-                    use_container_width=True,
-                    hide_index=True
+                    styled_df.relabel_axis([
+                        'Date', 'Type', 'Description', 'IRCI Impact', '$ Impact', 'Confidence', 'Affected Dials'
+                    ], axis=1),
+                    use_container_width=True
                 )
 
                 st.caption("💡 Green = Positive news | Red = Negative news | Blue = SEC filings")
