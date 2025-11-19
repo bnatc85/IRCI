@@ -68,17 +68,46 @@ def extract_news_events(
     """
     events = []
 
-    if news_df is not None:
+    if news_df is not None and not news_df.empty:
         # Filter news for this ticker and date range
-        ticker_news = news_df[
-            (news_df['ticker'] == ticker) &
-            (news_df['date'] >= start_date) &
-            (news_df['date'] <= end_date)
-        ].copy()
+        # Handle both 'ticker' column (if present) and 'published_at' date column
+        date_col = 'published_at' if 'published_at' in news_df.columns else 'date'
+
+        # Filter by ticker if column exists
+        if 'ticker' in news_df.columns:
+            ticker_news = news_df[news_df['ticker'] == ticker].copy()
+        else:
+            ticker_news = news_df.copy()
+
+        # Filter by date range
+        if date_col in ticker_news.columns:
+            ticker_news[date_col] = pd.to_datetime(ticker_news[date_col])
+
+            # Make start/end dates timezone-aware if needed
+            start_dt = pd.to_datetime(start_date)
+            end_dt = pd.to_datetime(end_date)
+
+            # If news dates are timezone-aware, make comparison dates timezone-aware too
+            if ticker_news[date_col].dt.tz is not None:
+                if start_dt.tz is None:
+                    start_dt = start_dt.tz_localize('UTC')
+                if end_dt.tz is None:
+                    end_dt = end_dt.tz_localize('UTC')
+            else:
+                # If news dates are timezone-naive, make sure comparison dates are too
+                if start_dt.tz is not None:
+                    start_dt = start_dt.tz_localize(None)
+                if end_dt.tz is not None:
+                    end_dt = end_dt.tz_localize(None)
+
+            ticker_news = ticker_news[
+                (ticker_news[date_col] >= start_dt) &
+                (ticker_news[date_col] <= end_dt)
+            ]
 
         for _, row in ticker_news.iterrows():
             events.append({
-                'date': row['date'],
+                'date': row.get(date_col, pd.Timestamp.now()),
                 'event_type': 'news',
                 'headline': row.get('headline', row.get('title', 'News Article')),
                 'sentiment': row.get('sentiment', 'neutral'),
@@ -471,6 +500,9 @@ def aggregate_timeline_events(
     # Create DataFrame and sort by date
     if all_events:
         timeline_df = pd.DataFrame(all_events)
+        # Normalize all dates to timezone-naive to avoid comparison errors
+        # Convert to UTC first (handles both tz-aware and tz-naive), then remove tz
+        timeline_df['date'] = pd.to_datetime(timeline_df['date'], utc=True).dt.tz_localize(None)
         timeline_df = timeline_df.sort_values('date')
         return timeline_df
     else:

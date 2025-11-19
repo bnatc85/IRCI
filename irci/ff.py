@@ -64,7 +64,7 @@ def load_ff_factors_daily(s, *, start=None, end=None, cache=True):
     if path.exists():
         df = pd.read_parquet(path)
     else:
-        df = download_ff_5f_daily()  # whatever you already do
+        df = _download_ff_daily()  # whatever you already do
         try:
             if cache:
                 path.parent.mkdir(parents=True, exist_ok=True)

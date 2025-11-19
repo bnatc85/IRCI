@@ -8,7 +8,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
-import io
 import sys
 from pathlib import Path
 
@@ -375,19 +374,157 @@ with st.sidebar:
     )
 
     # Weights configuration
-    with st.expander("⚙️ Advanced: Dial Weights"):
-        st.markdown("Customize composite score weights:")
-        weight_liquidity = st.slider("Liquidity", 0, 100, 35, 5)
-        weight_valuation = st.slider("Valuation", 0, 100, 35, 5)
-        weight_coverage = st.slider("Coverage", 0, 100, 15, 5)
-        weight_trust = st.slider("Trust", 0, 100, 15, 5)
+    with st.expander("⚙️ Advanced: Dial Weights", expanded=True):
+        st.markdown("**Customize composite score weights:**")
+        st.caption("Type exact percentages or use 🎯 Auto-Optimize")
+
+        # Initialize weights in session state if not present
+        if 'weight_liquidity' not in st.session_state:
+            st.session_state.weight_liquidity = 35.0
+        if 'weight_valuation' not in st.session_state:
+            st.session_state.weight_valuation = 35.0
+        if 'weight_coverage' not in st.session_state:
+            st.session_state.weight_coverage = 15.0
+        if 'weight_trust' not in st.session_state:
+            st.session_state.weight_trust = 15.0
+
+        # Use number inputs for precise control
+        col1, col2 = st.columns(2)
+        with col1:
+            weight_valuation = st.number_input(
+                "💰 Valuation (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.weight_valuation),
+                step=0.1,
+                format="%.1f",
+                key='input_val',
+                help="Weight for EV/EBITDA valuation metrics"
+            )
+            weight_coverage = st.number_input(
+                "📊 Coverage (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.weight_coverage),
+                step=0.1,
+                format="%.1f",
+                key='input_cov',
+                help="Weight for SEC filing and media coverage metrics"
+            )
+
+        with col2:
+            weight_liquidity = st.number_input(
+                "💧 Liquidity (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.weight_liquidity),
+                step=0.1,
+                format="%.1f",
+                key='input_liq',
+                help="Weight for trading liquidity and spread metrics"
+            )
+            weight_trust = st.number_input(
+                "💭 Trust (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.weight_trust),
+                step=0.1,
+                format="%.1f",
+                key='input_trust',
+                help="Weight for sentiment and event calm metrics"
+            )
+
+        # Update session state
+        st.session_state.weight_liquidity = weight_liquidity
+        st.session_state.weight_valuation = weight_valuation
+        st.session_state.weight_coverage = weight_coverage
+        st.session_state.weight_trust = weight_trust
 
         total_weight = weight_liquidity + weight_valuation + weight_coverage + weight_trust
-        if total_weight != 100:
-            st.warning(f"⚠️ Weights sum to {total_weight}%. Will be normalized to 100%.")
+
+        # Show total and warning if needed
+        if abs(total_weight - 100.0) > 0.1:
+            st.warning(f"⚠️ Weights sum to {total_weight:.1f}%. Will be normalized to 100%.")
+        else:
+            st.success(f"✓ Weights sum to {total_weight:.1f}%")
+
+        # Auto-optimize button
+        if st.button("🎯 Auto-Optimize Weights", use_container_width=True, help="Find weights that maximize EV ~ IRCI regression R²"):
+            st.session_state.optimize_weights = True
 
     # Run button
     run_analysis = st.button("🚀 Run Analysis", type="primary", use_container_width=True)
+
+    # Save/Load session
+    st.markdown("---")
+    st.markdown("### 💾 Save/Load Progress")
+
+    # Save session
+    if st.button("💾 Save Session", use_container_width=True, help="Save current analysis results to file"):
+        if 'df_composite' in st.session_state:
+            import pickle
+            from datetime import datetime
+
+            # Prepare session data
+            session_data = {
+                'df_composite': st.session_state.get('df_composite'),
+                'df_trust': st.session_state.get('df_trust'),
+                'df_val': st.session_state.get('df_val'),
+                'df_cov': st.session_state.get('df_cov'),
+                'df_liq': st.session_state.get('df_liq'),
+                'news_df': st.session_state.get('news_df'),
+                'weight_liquidity': st.session_state.get('weight_liquidity'),
+                'weight_valuation': st.session_state.get('weight_valuation'),
+                'weight_coverage': st.session_state.get('weight_coverage'),
+                'weight_trust': st.session_state.get('weight_trust'),
+                'selected_quarter': selected_quarter,
+                'tickers': tickers,
+                'saved_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+
+            # Serialize to bytes
+            session_bytes = pickle.dumps(session_data)
+
+            # Offer download
+            st.download_button(
+                label="📥 Download Session File",
+                data=session_bytes,
+                file_name=f"irci_session_{selected_quarter}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl",
+                mime="application/octet-stream",
+                use_container_width=True
+            )
+        else:
+            st.warning("No analysis results to save. Run an analysis first!")
+
+    # Load session
+    uploaded_session = st.file_uploader(
+        "📤 Load Previous Session",
+        type=["pkl"],
+        help="Upload a previously saved session file"
+    )
+
+    if uploaded_session is not None:
+        try:
+            import pickle
+            session_data = pickle.load(uploaded_session)
+
+            # Restore session state
+            st.session_state['df_composite'] = session_data.get('df_composite')
+            st.session_state['df_trust'] = session_data.get('df_trust')
+            st.session_state['df_val'] = session_data.get('df_val')
+            st.session_state['df_cov'] = session_data.get('df_cov')
+            st.session_state['df_liq'] = session_data.get('df_liq')
+            st.session_state['news_df'] = session_data.get('news_df')
+            st.session_state['weight_liquidity'] = session_data.get('weight_liquidity', 35)
+            st.session_state['weight_valuation'] = session_data.get('weight_valuation', 35)
+            st.session_state['weight_coverage'] = session_data.get('weight_coverage', 15)
+            st.session_state['weight_trust'] = session_data.get('weight_trust', 15)
+            st.session_state['run_time'] = datetime.now()
+
+            st.success(f"✓ Session loaded! Saved on {session_data.get('saved_at', 'unknown date')}")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Failed to load session: {str(e)}")
 
     # Contact information
     st.markdown("""
@@ -399,8 +536,106 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-# Main content area
-if not run_analysis:
+# Auto-optimize weights if requested
+if st.session_state.get('optimize_weights', False):
+    # Only optimize if we have previous results to analyze
+    if 'df_composite' in st.session_state and 'df_val' in st.session_state:
+        try:
+            from irci.dial_insights import recommend_optimal_weights
+
+            # Merge enterprise_value into df_composite for R² optimization
+            df_comp = st.session_state['df_composite'].copy()
+            df_val = st.session_state['df_val']
+            if 'enterprise_value' in df_val.columns:
+                df_comp = df_comp.merge(
+                    df_val[['ticker', 'enterprise_value']],
+                    on='ticker',
+                    how='left'
+                )
+
+            current_weights = {
+                'valuation': weight_valuation / 100,
+                'liquidity': weight_liquidity / 100,
+                'coverage': weight_coverage / 100,
+                'sentiment': weight_trust / 100
+            }
+
+            # Try R² optimization first, fall back to variance if it fails or produces poor results
+            weight_analysis = recommend_optimal_weights(
+                df_comp,
+                current_weights=current_weights,
+                optimize_for='r2'
+            )
+
+            # Validate that optimization actually improved things
+            if 'optimized_r2' in weight_analysis:
+                # Calculate current R² for comparison
+                from scipy import stats
+                current_comp = (
+                    df_comp['valuation_pct'].fillna(0) * current_weights['valuation'] +
+                    df_comp['liquidity_pct'].fillna(0) * current_weights['liquidity'] +
+                    df_comp['coverage_pct'].fillna(0) * current_weights['coverage'] +
+                    df_comp['sentiment_pct'].fillna(0) * current_weights['sentiment']
+                )
+                if 'enterprise_value' in df_comp.columns:
+                    valid_mask = (current_comp > 0) & (df_comp['enterprise_value'] > 0)
+                    if valid_mask.sum() >= 3:
+                        _, _, r_value, _, _ = stats.linregress(
+                            current_comp[valid_mask],
+                            df_comp['enterprise_value'][valid_mask]
+                        )
+                        baseline_r2 = r_value ** 2
+
+                        # If optimization didn't improve, use variance method instead
+                        if weight_analysis['optimized_r2'] <= baseline_r2:
+                            st.warning(f"⚠️ R² optimization didn't improve (baseline: {baseline_r2:.4f}, optimized: {weight_analysis['optimized_r2']:.4f}). Using variance-based method instead.")
+                            weight_analysis = recommend_optimal_weights(
+                                df_comp,
+                                current_weights=current_weights,
+                                optimize_for='variance'
+                            )
+            rec_weights = weight_analysis['recommended_weights']
+
+            # Update session state with optimized weights (round to 1 decimal place)
+            st.session_state.weight_valuation = round(rec_weights['valuation'] * 100, 1)
+            st.session_state.weight_liquidity = round(rec_weights['liquidity'] * 100, 1)
+            st.session_state.weight_coverage = round(rec_weights['coverage'] * 100, 1)
+            st.session_state.weight_trust = round(rec_weights['sentiment'] * 100, 1)
+            st.session_state.optimize_weights = False
+            st.session_state.weights_just_optimized = True  # Flag to show message after rerun
+
+            # Store the optimized R² for display
+            if 'optimized_r2' in weight_analysis:
+                st.session_state.optimized_r2 = weight_analysis['optimized_r2']
+
+            st.rerun()  # Rerun to update sliders with new values
+        except Exception as e:
+            st.error(f"Could not optimize weights: {e}")
+            import traceback
+            st.code(traceback.format_exc())
+            st.session_state.optimize_weights = False
+    else:
+        st.warning("Please run an analysis first before optimizing weights")
+        st.session_state.optimize_weights = False
+
+# Show success message after weights were optimized
+if st.session_state.get('weights_just_optimized', False):
+    msg = "✓ Weights optimized to maximize EV ~ IRCI regression R²!"
+    if 'optimized_r2' in st.session_state:
+        msg += f" Achieved R² = {st.session_state.optimized_r2:.3f}"
+    msg += " Click 'Run Analysis' to see results with optimized weights."
+    st.success(msg)
+    st.session_state.weights_just_optimized = False
+
+# Main content area - show results if they exist in session state
+show_results = 'df_composite' in st.session_state
+
+# Logic:
+# 1. If run_analysis is clicked, we'll run analysis and update session state
+# 2. If results exist in session state but run_analysis is not clicked, just skip to display
+# 3. If no results and no run_analysis, show welcome screen
+
+if not show_results and not run_analysis:
     # Welcome screen
     st.markdown("---")
 
@@ -423,38 +658,359 @@ if not run_analysis:
         st.markdown("EV/EBITDA peer comparison")
 
     st.markdown("---")
+
+    # Important disclaimers - prominent placement
+    st.warning("""
+    ⚠️ **Important Disclaimers**
+
+    - **Fundamentals set value. IR determines how efficiently markets realize it.** IRCI measures the pathway to fair value, not fundamental business performance.
+    - IR's impact on share valuation is limited compared to business fundamentals, macroeconomic conditions, and industry trends.
+    - IRCI is a planning and diagnostic tool—not a guarantee of market outcomes.
+    - Dollar-per-point estimates are derived from historical peer relationships and should be treated as planning ranges, not promises.
+    - This tool is for authorized use only. Views expressed are those of the creators and not official positions of any affiliated organization.
+    """)
+
     st.info("👈 Configure your analysis in the sidebar and click **Run Analysis** to start")
 
-    # Show example
-    with st.expander("📖 How It Works"):
+    # Comprehensive About & Methodology
+    tabs = st.tabs(["📖 How It Works", "🎯 About IRCI", "👥 Team", "🔬 Validation"])
+
+    with tabs[0]:
         st.markdown("""
+        ### How IRCI Works
+
         **IRCI** evaluates companies across four fundamental dimensions:
 
-        1. **Coverage Dial** - How well does the company communicate?
-           - 8-K filing frequency
-           - 10-Q/10-K filing timeliness
-           - Media visibility (automatically from FMP API)
+        #### 📊 Coverage Dial
+        **"How visible and understandable is your company in the public record?"**
 
-        2. **Trust Dial** - How stable is the company?
-           - Market sentiment from news headlines (automatically analyzed)
-           - Event calmness (reactions to SEC filings)
-           - Baseline volatility (Fama-French factor analysis)
+        - **Credible media attention** - Tracks mentions in Wall Street Journal, Bloomberg, Reuters vs. lower-signal press wires
+        - **Filing cadence & timeliness** - SEC 8-K frequency, 10-Q/10-K filing speed relative to deadlines
+        - **Coverage momentum** - Whether disclosure quality is improving or declining
 
-        3. **Liquidity Dial** - How easily can you trade the stock?
-           - Amihud illiquidity measure
-           - Bid-ask spread estimates
-           - Trading volume & turnover
+        💡 High Coverage = investors don't have to hunt for your story. Low Coverage = greater uncertainty.
 
-        4. **Valuation Dial** - Is it fairly priced?
-           - EV/EBITDA multiples
-           - Peer comparison & ranking
-           - Relative valuation gaps
+        #### 💭 Trust Dial
+        **"When you speak, does the market stay calm or freak out?"**
 
-        **Output:** A composite score (0-100%) ranking companies within your peer group.
+        - **Event Calm** - Stock movement within normal bands around earnings/8-Ks (factor-adjusted)
+        - **Baseline Calm** - Control group of ordinary days to see if announcements settle or stir markets
+        - **Media tone** - AI/NLP sentiment analysis across credible news outlets
+
+        💡 If Event Calm > Baseline Calm, your communication settles markets. If lower, you're creating questions.
+
+        #### 💧 Liquidity Dial
+        **"How easy and cheap is it for investors to get in and out?"**
+
+        - **Turnover** - Trading volume relative to market cap
+        - **Amihud illiquidity** - Price impact per dollar traded (lower is better)
+        - **Implied spread (Roll estimate)** - The hidden toll booth every trade pays
+
+        💡 Strong Liquidity = smooth, cheap trading. Weak Liquidity = every big move is costly and disruptive.
+
+        #### 💰 Valuation Dial
+        **"How many dollars is the market willing to pay for each dollar of operating earnings?"**
+
+        - **EV/EBITDA multiple** - Enterprise value divided by EBITDA
+        - **Peer-relative position** - Where you stand vs. industry comparables
+        - **Trend stability** - Whether your multiple is steady or volatile
+
+        💡 When uncertainty and trading friction decrease, investors typically pay more per dollar of earnings.
+
+        ---
+
+        ### The Master Framework
+
+        Think of IRCI like tuning a stereo:
+        - The first three dials (Coverage, Trust, Liquidity) are like bass, treble, and balance—they shape clarity and stability
+        - The Valuation dial is the master volume—how loud and strong the music comes through
+
+        **Fundamentals set the ceiling (the orange line on the chart).** IR and reputation determine how efficiently the market reaches that fair value (the path the blue/green lines take).
+
+        ---
+
+        **Output:** A composite score (0-100%) ranking companies within your peer group, with dollar-per-point estimates for planning.
         """)
 
-else:
-    # Run the analysis
+    with tabs[1]:
+        st.markdown("""
+        ### About IRCI
+
+        #### The Challenge
+
+        Have you ever wondered whether investor relations and reputation really move a company's market value—or if it's all just "nice to have"?
+
+        **Decades of research** reveal 4 major value contributions by IR:
+        1. Fairer pricing
+        2. Better liquidity
+        3. Analyst coverage
+        4. Reputation management
+
+        But experts have always cautioned against claiming that IR contributions **directly** affect value. In fact, one study participant stated that IR's impact on share valuation is **"very, very minimal"** compared to other factors like fundamentals and macro conditions.
+
+        ---
+
+        #### The Solution
+
+        **The industry says IR's impact can't be measured. We disagree.**
+
+        IRCI builds upon **40+ years of academic and practitioner research**, compressing:
+        - Coverage momentum
+        - Trust and credibility
+        - Liquidity and market microstructure
+        - Valuation positioning
+
+        ...into **one peer-relative score + actionable playbooks**.
+
+        ---
+
+        #### How It's Different
+
+        IRCI isn't a PR or brand index—it's **market-plumbing aware**, built on:
+        - Observed trading data
+        - SEC filings and events
+        - Factor-adjusted price reactions
+        - Credible media analysis
+
+        **Not surveys. Not opinions. Objective, repeatable metrics.**
+
+        | Feature | IRCI | Traditional IR Tools | Reputation Scores |
+        |---------|------|---------------------|-------------------|
+        | **Objective data** | ✅ Market data, SEC filings | ⚠️ Mixed | ❌ Surveys |
+        | **Dollar quantification** | ✅ $/IRCI point | ❌ | ⚠️ Annual estimates |
+        | **Actionable playbooks** | ✅ Dial-specific | ⚠️ General advice | ❌ |
+        | **Peer benchmarking** | ✅ Relative ranking | ⚠️ Limited | ✅ |
+        | **Board-grade outputs** | ✅ | ❌ | ⚠️ |
+
+        ---
+
+        #### The Three Channels of IR Impact
+
+        1. **Liquidity and Access**
+           - Deeper trading, tighter spreads
+           - Cheaper for investors to enter/exit
+           - Improves discoverability, reduces friction
+
+        2. **Coverage and Disclosure Momentum**
+           - More (and better) coverage
+           - Clear filings and events
+           - Information travels faster, eases investor concerns
+
+        3. **Trust Around Events**
+           - Credible, consistent communication
+           - Calmer earnings days and headlines
+           - Stock tracks closer to fair value instead of whipping around on rumors
+
+        **We don't pretend IR replaces fundamentals.** We measure how IR and reputation change the path to fair value, how persistent that proximity is, and then we price it in dollars per score point.
+
+        ---
+
+        #### Use Cases
+
+        **For IR Teams:**
+        - "Which dial is weak, and what should we do?"
+        - "What are peer leaders doing well that we can borrow?"
+        - Measure → pick weakest dial → run playbook → re-measure
+
+        **For Boards and CFOs:**
+        - "If 1 IRCI point is worth ~$X, is it worth spending $Y to move the weakest dial by 2-3 points?"
+        - Quantifiable ROI for IR and communications investments
+        - Compare IR efficiency across business units or portfolio companies
+
+        **For Investors:**
+        - Identify companies with IR/reputation inefficiencies
+        - Spot potential mispricings due to poor disclosure or liquidity
+        - Track improvements in company accessibility over time
+        """)
+
+    with tabs[2]:
+        st.markdown("""
+        ### The Team
+
+        #### Bonnie Rushing
+        **PhD Student, University of Colorado Colorado Springs**
+
+        - Master's Degree in Strategic Intelligence
+        - Military service in special operations and signals intelligence
+        - Former instructor of strategic studies at US Air Force Academy
+        - **Core expertise:** Signal detection, data analytics, translating operational tradecraft into market analysis
+
+        *"From the aircraft to the boardroom, my job is the same: make sense of noise and enable decisions."*
+
+        📧 [brushing@uccs.edu](mailto:brushing@uccs.edu)
+        🌐 [www.thebonnierushing.com](https://www.thebonnierushing.com)
+
+        ---
+
+        #### Jim Wilkinson
+        **Senior Advisor & Executive Chairman, TrailRunner International**
+
+        - Led global communications and corporate affairs at Alibaba and PepsiCo
+        - Senior government roles: Treasury, State Department, White House, USCENTCOM
+        - **Core expertise:** Boardroom and global corporate communications strategy
+
+        ---
+
+        #### Our Approach
+
+        We combine:
+        - **Bonnie:** Signal detection and quantitative analysis from intelligence tradecraft
+        - **Jim:** Boardroom experience and strategic communications from Fortune 500 and government
+
+        **Result:** Measurable, repeatable, defensible IR through objective data and rigorous methodology.
+
+        ---
+
+        #### Compliance & Disclaimers
+
+        - Views expressed are those of the creators, **not official positions of any affiliated organization** (including the US Department of Defense)
+        - Work is conducted on personal time and resources
+        - IRCI prioritizes compliance, transparency, and ethical use
+        - This tool is for authorized decision-making and planning—not market manipulation or insider advantage
+        """)
+
+    with tabs[3]:
+        st.markdown("""
+        ### Validation & Methodology
+
+        #### Three Reasons to Trust This Score
+
+        **1. Track Record**
+        - Tested on **5+ years of data** and tens of thousands of observations
+        - Covers multiple market cycles and industry sectors
+
+        **2. Predictive Checks**
+        - When Liquidity rises → spreads tighten ✅
+        - When Trust is higher → event days are calmer ✅
+        - Coverage momentum → Valuation behaves as expected ✅
+        - All relationships are **directionally correct and statistically significant**
+
+        **3. Ablation Testing**
+        - Drop each dial one by one → measure signal loss
+        - Result: **All 4 dials contribute unique information**
+        - Not one magic number—comprehensive framework
+
+        ---
+
+        #### Sanity Checks Performed
+
+        **Test 1: Directional Validation**
+
+        *If a company scores higher on a dial today, do we see the right move next quarter in what that dial should influence?*
+
+        ✅ **CHECK**
+        - Strong Coverage → continued disclosure momentum
+        - High Trust → calmer event days (factor-adjusted)
+        - High Liquidity → tighter spreads
+        - Strong Valuation → better peer-relative EV trend
+
+        **Test 2: Ablation Analysis**
+
+        *If we drop one dial, does prediction worsen?*
+
+        ✅ **CHECK**
+        - Reran composite 4 times, removing one dial each time
+        - Signal weakens every time
+        - **Trust delivers the largest unique lift** in our Big Tech sample, but all dials are necessary
+
+        **Test 3: Dollar Value Calibration**
+
+        *Can we convert IRCI points to enterprise value changes?*
+
+        ✅ **CHECK**
+        - In our Big Tech sample: +1 IRCI point ≈ -0.44% change in next-quarter peer valuation gap
+        - R² ≈ 0.37 (moderate explanatory power—appropriate for a secondary factor after fundamentals)
+        - Translation: On Apple-sized companies, ~$15B per IRCI point
+
+        💡 **Interpretation:** Treat as a **planning range**, not a guarantee. Fundamentals dominate, but IR efficiency matters at the margin.
+
+        ---
+
+        #### Peer Group Selection
+
+        **IRCI only works if the peer set is realistic:**
+        - Same industry and approximate size
+        - Typically 10-15 comparable companies
+        - Pre-built peer groups for 60+ popular tickers
+
+        **Right peers → right insights**
+
+        ---
+
+        #### Data Sources & Processing
+
+        1. **SEC EDGAR** - Filings, events, submission dates
+        2. **Financial Markets API** - Pricing, fundamentals, news
+        3. **Fama-French Factors** - Market and sector adjustments for event calm
+        4. **NLP/AI Sentiment** - Media tone analysis from credible outlets
+
+        **Processing steps:**
+        - Clean and normalize data
+        - Convert to percentiles within peer group
+        - Score each dial 0-100
+        - Weight and combine to composite with peer ranking
+
+        ---
+
+        #### Limitations & Appropriate Use
+
+        **What IRCI Does:**
+        - Measures IR efficiency and market accessibility
+        - Provides dollar-denominated planning ranges
+        - Identifies which dial is weakest for targeted action
+
+        **What IRCI Does NOT Do:**
+        - Replace fundamental analysis
+        - Guarantee stock price movements
+        - Account for M&A, executive changes, or black swan events
+        - Substitute for compliance, legal, or financial advice
+
+        **Appropriate Use Cases:**
+        - IR planning and resource allocation
+        - Quarterly board reporting on IR effectiveness
+        - Benchmarking against peers
+        - Identifying improvement opportunities
+
+        **Inappropriate Use Cases:**
+        - Day trading or market timing
+        - Guaranteeing specific ROI
+        - Ignoring fundamentals or macro trends
+        """)
+
+    # Show example
+    with st.expander("📖 Quick Start Guide"):
+        st.markdown("""
+        ### Quick Start Guide
+
+        1. **Find Peers** (optional but recommended)
+           - Use the "Find Peer Companies" tool in the sidebar
+           - Enter a ticker (e.g., AAPL, TSLA, NVDA)
+           - System will suggest 8-15 comparable companies
+
+        2. **Configure Analysis**
+           - Select your companies (or use found peers)
+           - Choose a quarter to analyze
+           - News data is **automatically fetched** from FMP API
+
+        3. **Run Analysis**
+           - Click "Run Analysis"
+           - System will compute all 4 dials and composite score
+           - Results appear in tabs below
+
+        4. **Interpret Results**
+           - **Composite Ranking** - See who leads the peer group
+           - **Dial Breakdown** - Identify weak spots (radar chart)
+           - **Insights Tab** - View dollar-per-point estimates
+           - **Timeline Tab** - Track events and their impact
+
+        5. **Take Action**
+           - Focus on the weakest dial
+           - Consult dial-specific playbooks (coming soon in app)
+           - Re-measure next quarter to track progress
+        """)
+
+elif run_analysis:
+    # Run the analysis (only when button is clicked)
     st.markdown("---")
     st.markdown("## 🔄 Running Analysis...")
 
@@ -475,40 +1031,89 @@ else:
             # Automatically fetch news for all tickers using API (FMP → Alpha Vantage fallback)
             status_text.text("Fetching news articles...")
             news_list = []
+            news_counts = {}
             q_start = pd.to_datetime(start_date, utc=True)
             q_end = pd.to_datetime(end_date, utc=True)
             news_source = None
 
             for ticker in tickers:
+                ticker_got_news = False
                 try:
                     # Try FMP first
                     ticker_news = fmp_news_media_fetcher(ticker, q_start, q_end, s)
                     if not ticker_news.empty:
                         ticker_news['ticker'] = ticker
                         news_list.append(ticker_news)
+                        news_counts[ticker] = len(ticker_news)
                         news_source = "FMP API"
-                except Exception:
-                    pass  # Silently try fallback
+                        ticker_got_news = True
+                except Exception as e:
+                    print(f"FMP news fetch failed for {ticker}: {e}")
 
                 # If FMP failed or returned no results, try Alpha Vantage
-                if not news_list or news_list[-1].empty if news_list else True:
+                if not ticker_got_news:
                     try:
                         ticker_news = alpha_vantage_news_fetcher(ticker, q_start, q_end, s)
                         if not ticker_news.empty:
-                            if ticker in [n.get('ticker', '') for n in news_list]:
-                                # Remove empty FMP result
-                                news_list = [n for n in news_list if n.get('ticker', '') != ticker]
                             ticker_news['ticker'] = ticker
                             news_list.append(ticker_news)
+                            news_counts[ticker] = len(ticker_news)
                             news_source = "Alpha Vantage API (free tier)"
+                            ticker_got_news = True
                     except Exception as e:
-                        pass  # Silent fallback failure
+                        print(f"Alpha Vantage news fetch failed for {ticker}: {e}")
+
+                if not ticker_got_news:
+                    news_counts[ticker] = 0
+                    print(f"No news found for {ticker} in period {start_date} to {end_date}")
 
             if news_list:
                 news_df = pd.concat(news_list, ignore_index=True)
-                st.success(f"✓ Fetched {len(news_df)} news articles from {news_source} for {len(news_list)} ticker(s)")
+
+                # Add sentiment scores to each article using FinBERT
+                status_text.text("Analyzing sentiment for news articles...")
+                try:
+                    from irci.trust import finbert_score
+                    from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+                    headlines = news_df['headline'].fillna('').astype(str).tolist()
+                    sentiment_scores = []
+
+                    # Try FinBERT first
+                    fb_scores = finbert_score(headlines)
+                    if fb_scores:
+                        sentiment_scores = fb_scores
+                        sentiment_method = "FinBERT"
+                    else:
+                        # Fallback to VADER
+                        sia = SentimentIntensityAnalyzer()
+                        sentiment_scores = [sia.polarity_scores(h)["compound"] for h in headlines]
+                        sentiment_method = "VADER"
+
+                    news_df['sentiment_score'] = sentiment_scores
+
+                    # Add sentiment label
+                    news_df['sentiment'] = news_df['sentiment_score'].apply(
+                        lambda x: 'positive' if x > 0.1 else ('negative' if x < -0.1 else 'neutral')
+                    )
+
+                    print(f"✓ Sentiment analysis complete using {sentiment_method}")
+                except Exception as e:
+                    print(f"Warning: Could not run sentiment analysis: {e}")
+                    news_df['sentiment_score'] = 0.0
+                    news_df['sentiment'] = 'neutral'
+
+                success_tickers = [t for t, c in news_counts.items() if c > 0]
+                failed_tickers = [t for t, c in news_counts.items() if c == 0]
+
+                msg = f"✓ Fetched {len(news_df)} articles from {news_source}"
+                if success_tickers:
+                    msg += f"\n   Success: {', '.join([f'{t} ({news_counts[t]})' for t in success_tickers])}"
+                if failed_tickers:
+                    msg += f"\n   No news: {', '.join(failed_tickers)}"
+                st.success(msg)
             else:
-                st.warning("⚠️ News API access unavailable (FMP requires paid plan, Alpha Vantage rate limited). Analysis will continue without news data.")
+                st.warning("⚠️ No news articles found for any ticker in this date range. Try a more recent quarter (2024Q4 or 2025Q1) for news data.")
 
         # Convert end_date to timezone-naive datetime for consistency
         quarter_end_dt = pd.to_datetime(end_date)
@@ -621,6 +1226,7 @@ else:
         st.session_state['df_val'] = df_val
         st.session_state['df_cov'] = df_cov
         st.session_state['df_liq'] = df_liq
+        st.session_state['news_df'] = news_df  # Store news data for timeline
         st.session_state['run_time'] = datetime.now()
 
     except Exception as e:
@@ -632,6 +1238,13 @@ else:
 if 'df_composite' in st.session_state:
     st.markdown("---")
     st.markdown("## 📊 Analysis Results")
+
+    # Disclaimer banner for results
+    st.info("""
+    💡 **Remember:** These scores measure IR efficiency and market accessibility—not business fundamentals.
+    Dollar estimates are planning ranges based on peer relationships, not guarantees.
+    Focus on identifying the weakest dial and taking targeted action.
+    """)
 
     df_composite = st.session_state['df_composite']
     df_trust = st.session_state['df_trust']
@@ -836,125 +1449,142 @@ if 'df_composite' in st.session_state:
         st.markdown("#### 💵 Dollar Value per IRCI Point")
         st.markdown("*Reveals how much enterprise value corresponds to each IRCI point improvement*")
 
+        st.warning("""
+        ⚠️ **Planning Range, Not a Promise:** Dollar-per-point estimates are derived from regression analysis of peer relationships.
+        R² values indicate explanatory power (0.3-0.5 is typical for secondary factors after fundamentals).
+        These are **planning tools** for evaluating IR investments, not guarantees of market outcomes.
+        """)
+
         try:
             dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
 
-            # Display key metric
-            group_dollars_per_point = dollar_value_df['peer_group_$/irci_pt'].iloc[0]
-            avg_company_dollars_per_point = dollar_value_df['company_$/irci_pt'].mean()
-            r2_score = dollar_value_df['regression_r2'].iloc[0]
+            # Filter out rows with NaN enterprise_value
+            dollar_value_df = dollar_value_df.dropna(subset=['enterprise_value', 'company_$/irci_pt', 'regression_r2'])
 
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric(
-                "Peer Group $/IRCI Point",
-                f"${group_dollars_per_point:,.0f}",
-                help="Dollar value change per 1-point IRCI improvement across peer group (range-based)"
-            )
-            col2.metric(
-                "Avg Company $/IRCI Point",
-                f"${avg_company_dollars_per_point:,.0f}",
-                help="Average company-specific dollar value per IRCI point (regression-based)"
-            )
-            col3.metric(
-                "Regression R²",
-                f"{r2_score:.2f}",
-                help="How well EV correlates with IRCI scores (0-1 scale)"
-            )
-            col4.metric(
-                "Max IRCI Gap",
-                f"{dollar_value_df['irci_gap_to_top'].max():.1f} pts",
-                help="Largest gap between a peer and the top performer"
-            )
+            if dollar_value_df.empty:
+                st.warning("⚠️ No enterprise value data available for dollar value calculations.")
+            else:
+                # Display key metric
+                avg_company_dollars_per_point = dollar_value_df['company_$/irci_pt'].mean()
+                r2_score = dollar_value_df['regression_r2'].iloc[0] if not dollar_value_df['regression_r2'].isna().all() else 0.0
 
-            # Per-Ticker $/IRCI Point Table (Most Important)
-            st.markdown("**Per-Ticker Dollar Value per IRCI Point:**")
-            st.dataframe(
-                dollar_value_df[['ticker', 'irci_composite_pct', 'company_$/irci_pt', 'peer_group_$/irci_pt', 'irci_gap_to_top', 'market_cap_gap_regression']].rename(columns={
-                    'ticker': 'Ticker',
-                    'irci_composite_pct': 'IRCI Score %',
-                    'company_$/irci_pt': '🎯 Company $/IRCI Point',
-                    'peer_group_$/irci_pt': 'Peer Group $/IRCI Point',
-                    'irci_gap_to_top': 'Gap to Top (pts)',
-                    'market_cap_gap_regression': 'Potential $ Upside'
-                }).style.format({
-                    'IRCI Score %': '{:.1f}%',
-                    '🎯 Company $/IRCI Point': '${:,.0f}',
-                    'Peer Group $/IRCI Point': '${:,.0f}',
-                    'Gap to Top (pts)': '{:.1f}',
-                    'Potential $ Upside': '${:,.0f}'
-                }),
-                use_container_width=True,
-                hide_index=True
-            )
-            st.caption("💡 **Company $/IRCI Point** shows how much each ticker's enterprise value could change per 1-point IRCI improvement based on peer group regression")
+                col1, col2, col3 = st.columns(3)
+                col1.metric(
+                    "Avg Company $/IRCI Point",
+                    f"${avg_company_dollars_per_point:,.0f}" if not pd.isna(avg_company_dollars_per_point) else "N/A",
+                    help="Average company-specific dollar value per IRCI point (regression-based). This tells you how much enterprise value typically changes per 1-point IRCI improvement in this peer group."
+                )
+                col2.metric(
+                    "Regression R²",
+                    f"{r2_score:.2f}" if not pd.isna(r2_score) else "N/A",
+                    help="How well EV correlates with IRCI scores (0-1 scale). R² of 0.3-0.5 is typical for secondary factors after fundamentals. Higher = stronger relationship."
+                )
+                col3.metric(
+                    "Max IRCI Gap",
+                    f"{dollar_value_df['irci_gap_to_top'].max():.1f} pts",
+                    help="Largest gap between a peer and the top performer. This shows the maximum improvement opportunity in the peer group."
+                )
 
-            # Additional detailed metrics
-            with st.expander("📊 Additional Enterprise Value Metrics"):
+                # Per-Ticker $/IRCI Point Table (Most Important)
+                st.markdown("**Per-Ticker Dollar Value per IRCI Point:**")
                 st.dataframe(
-                    dollar_value_df[['ticker', 'enterprise_value', 'company_ev_efficiency']].rename(columns={
+                    dollar_value_df[['ticker', 'irci_composite_pct', 'company_$/irci_pt', 'irci_gap_to_top', 'market_cap_gap_regression']].rename(columns={
                         'ticker': 'Ticker',
-                        'enterprise_value': 'Enterprise Value ($)',
-                        'company_ev_efficiency': 'EV Efficiency ($/IRCI)'
+                        'irci_composite_pct': 'IRCI Score %',
+                        'company_$/irci_pt': '🎯 Company $/IRCI Point',
+                        'irci_gap_to_top': 'Gap to Top (pts)',
+                        'market_cap_gap_regression': 'Potential $ Upside'
                     }).style.format({
-                        'Enterprise Value ($)': '${:,.0f}',
-                        'EV Efficiency ($/IRCI)': '${:,.0f}'
+                        'IRCI Score %': '{:.1f}%',
+                        '🎯 Company $/IRCI Point': '${:,.0f}',
+                        'Gap to Top (pts)': '{:.1f}',
+                        'Potential $ Upside': '${:,.0f}'
                     }),
                     use_container_width=True,
                     hide_index=True
                 )
+                st.caption("""
+                📊 **Column Definitions:**
 
-            # Visualization: Scatter plot of EV vs IRCI with regression line
-            fig = px.scatter(
-                dollar_value_df,
-                x='irci_composite_pct',
-                y='enterprise_value',
-                text='ticker',
-                title=f'Enterprise Value vs IRCI Score (R² = {r2_score:.2f})',
-                labels={'irci_composite_pct': 'IRCI Score (%)', 'enterprise_value': 'Enterprise Value ($)'},
-                color='company_$/irci_pt',
-                color_continuous_scale='Viridis',
-                size='enterprise_value',
-                hover_data={
-                    'company_$/irci_pt': ':,.0f',
-                    'irci_composite_pct': ':.1f',
-                    'enterprise_value': ':,.0f',
-                    'market_cap_gap_regression': ':,.0f'
-                }
-            )
-            fig.update_traces(textposition='top center')
+                - IRCI Score %: Current composite IRCI score (0-100, peer-relative)
+                - 🎯 Company $/IRCI Point: How much this company's enterprise value could change per 1-point IRCI improvement (regression-based estimate)
+                - Gap to Top (pts): How many IRCI points behind the top performer this company is
+                - Potential $ Upside: Estimated dollar value if this company reached the top performer's IRCI score (Gap to Top times Company $/IRCI Point)
+                """)
 
-            # Add regression line if R² is reasonable
-            if r2_score > 0.1:
-                from scipy import stats
-                slope, intercept, _, _, _ = stats.linregress(
-                    dollar_value_df['irci_composite_pct'],
-                    dollar_value_df['enterprise_value']
-                )
-                x_range = [dollar_value_df['irci_composite_pct'].min(), dollar_value_df['irci_composite_pct'].max()]
-                y_range = [slope * x + intercept for x in x_range]
-                fig.add_scatter(
-                    x=x_range,
-                    y=y_range,
-                    mode='lines',
-                    name=f'Trend (${abs(slope):,.0f}/pt)',
-                    line=dict(color='#ff0066', width=2, dash='dash')
-                )
+                # Additional detailed metrics
+                with st.expander("📊 Additional Enterprise Value Metrics"):
+                    st.dataframe(
+                        dollar_value_df[['ticker', 'enterprise_value', 'company_ev_efficiency']].rename(columns={
+                            'ticker': 'Ticker',
+                            'enterprise_value': 'Enterprise Value ($)',
+                            'company_ev_efficiency': 'EV Efficiency ($/IRCI)'
+                        }).style.format({
+                            'Enterprise Value ($)': '${:,.0f}',
+                            'EV Efficiency ($/IRCI)': '${:,.0f}'
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    st.caption("""
+                    📊 **Column Definitions:**
 
-            fig.update_layout(
-                height=500,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(30,33,48,0.5)',
-                font=dict(color='#fafafa'),
-                title_font=dict(color='#00d4ff'),
-                xaxis=dict(gridcolor='#2e3440'),
-                yaxis=dict(gridcolor='#2e3440'),
-                legend=dict(
-                    bgcolor='rgba(30,33,48,0.8)',
-                    bordercolor='#2e3440',
-                    borderwidth=1
+                    - Enterprise Value ($): Total enterprise value (market cap + debt - cash) for the company
+                    - EV Efficiency ($/IRCI): Enterprise Value divided by IRCI score. Higher values = larger companies or companies with lower IRCI scores relative to their size
+                    """)
+
+                # Visualization: Scatter plot of EV vs IRCI with regression line
+                fig = px.scatter(
+                    dollar_value_df,
+                    x='irci_composite_pct',
+                    y='enterprise_value',
+                    text='ticker',
+                    title=f'Enterprise Value vs IRCI Score (R² = {r2_score:.2f})',
+                    labels={'irci_composite_pct': 'IRCI Score (%)', 'enterprise_value': 'Enterprise Value ($)'},
+                    color='company_$/irci_pt',
+                    color_continuous_scale='Viridis',
+                    size='enterprise_value',
+                    hover_data={
+                        'company_$/irci_pt': ':,.0f',
+                        'irci_composite_pct': ':.1f',
+                        'enterprise_value': ':,.0f',
+                        'market_cap_gap_regression': ':,.0f'
+                    }
                 )
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                fig.update_traces(textposition='top center')
+
+                # Add regression line if R² is reasonable
+                if r2_score > 0.1:
+                    from scipy import stats
+                    slope, intercept, _, _, _ = stats.linregress(
+                        dollar_value_df['irci_composite_pct'],
+                        dollar_value_df['enterprise_value']
+                    )
+                    x_range = [dollar_value_df['irci_composite_pct'].min(), dollar_value_df['irci_composite_pct'].max()]
+                    y_range = [slope * x + intercept for x in x_range]
+                    fig.add_scatter(
+                        x=x_range,
+                        y=y_range,
+                        mode='lines',
+                        name=f'Trend (${abs(slope):,.0f}/pt)',
+                        line=dict(color='#ff0066', width=2, dash='dash')
+                    )
+
+                fig.update_layout(
+                    height=500,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(30,33,48,0.5)',
+                    font=dict(color='#fafafa'),
+                    title_font=dict(color='#00d4ff'),
+                    xaxis=dict(gridcolor='#2e3440'),
+                    yaxis=dict(gridcolor='#2e3440'),
+                    legend=dict(
+                        bgcolor='rgba(30,33,48,0.8)',
+                        bordercolor='#2e3440',
+                        borderwidth=1
+                    )
+                )
+                st.plotly_chart(fig, use_container_width=True)
 
         except Exception as e:
             st.warning(f"Could not compute dollar value metrics: {str(e)}")
@@ -1082,6 +1712,19 @@ if 'df_composite' in st.session_state:
         st.markdown("*Analyzes peer group variance to suggest optimal dial weights*")
 
         try:
+            # First, compute current R² with current weights
+            from scipy import stats
+            current_composite = df_composite['irci_composite_pct']
+            if 'enterprise_value' in df_composite.columns:
+                valid_mask = (current_composite > 0) & (df_composite['enterprise_value'] > 0)
+                if valid_mask.sum() >= 3:
+                    _, _, r_value, _, _ = stats.linregress(
+                        current_composite[valid_mask],
+                        df_composite['enterprise_value'][valid_mask]
+                    )
+                    current_r2 = r_value ** 2
+                    st.info(f"📊 **Current R² with your weights:** {current_r2:.4f}")
+
             weight_analysis = recommend_optimal_weights(df_composite, current_weights=current_weights)
 
             # Display recommendations
@@ -1107,6 +1750,13 @@ if 'df_composite' in st.session_state:
                     {'Dial': 'Trust', 'Weight': f"{rec_weights['sentiment']*100:.1f}%"}
                 ])
                 st.dataframe(recommended_weights_df, use_container_width=True, hide_index=True)
+
+                # Show optimization method and achieved R² if available
+                if 'optimized_r2' in weight_analysis:
+                    st.success(f"🎯 Optimizer achieved R² = {weight_analysis['optimized_r2']:.4f}")
+                    st.caption(f"Method: {weight_analysis.get('optimization_method', 'unknown')}")
+                else:
+                    st.caption(f"Method: {weight_analysis.get('optimization_method', 'variance-based')}")
 
             # Variance analysis
             st.markdown("**Variance Analysis (Why these weights?):**")
@@ -1184,6 +1834,9 @@ if 'df_composite' in st.session_state:
             s = Settings.load()
             cik = _cik_for_ticker(selected_timeline_ticker, s)
             sec_filings_df = None
+
+            # Get news data from session state (fetched during analysis)
+            news_df = st.session_state.get('news_df', None)
 
             if cik:
                 try:
@@ -1319,7 +1972,24 @@ if 'df_composite' in st.session_state:
                     hide_index=True
                 )
 
-                st.caption("💡 🟢 Positive news | 🔴 Negative news | 🔵 SEC filings | 📰 Neutral news | 💰 Valuation | 💧 Liquidity | 📊 Coverage | 💭 Trust")
+                st.caption("""
+                📊 **Column Definitions:**
+
+                **Confidence (0-100%)**: How reliable is this impact estimate?
+                - **100% (High)**: Direct dial measurements (Valuation, Liquidity, Coverage, Trust scores)
+                  - These are actual observed IRCI components with precise dollar values
+                - **50-70% (Medium)**: SEC filings and events (8-K, 10-Q, 10-K)
+                  - Known to affect Coverage dial, estimated impact on other dials
+                - **20-40% (Low)**: News articles and sentiment
+                  - Indirect impact through Trust dial's media tone component
+                  - Sentiment is measured, but connection to IRCI is statistical/inferred
+
+                **Impact Calculations:**
+                - IRCI Impact: Estimated change in composite IRCI score (in points)
+                - Dollar Impact: IRCI Impact × Company $/IRCI Point (from regression analysis)
+
+                💡 **Event Indicators:** 🟢 Positive news | 🔴 Negative news | 🔵 SEC filings | 📰 Neutral news | 💰 Valuation | 💧 Liquidity | 📊 Coverage | 💭 Trust
+                """)
 
             # User notes section
             st.markdown("---")

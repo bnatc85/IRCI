@@ -203,23 +203,27 @@ def compute_dial_contribution(
 
 def recommend_optimal_weights(
     df_composite: pd.DataFrame,
-    current_weights: Optional[dict[str, float]] = None
+    current_weights: Optional[dict[str, float]] = None,
+    optimize_for: str = 'r2'
 ) -> dict:
     """
     Analyze the peer group to recommend optimal dial weights.
 
-    Strategy: Dials with higher variance across peers should get more weight,
-    as they better differentiate between companies.
+    Strategy:
+    - 'variance': Dials with higher variance across peers get more weight (better differentiation)
+    - 'r2': Find weights that maximize R² of EV ~ IRCI regression (strongest relationship)
 
     Args:
-        df_composite: Composite DataFrame with all dial scores
+        df_composite: Composite DataFrame with all dial scores and enterprise_value
         current_weights: Current weight allocation
+        optimize_for: 'variance' or 'r2' (default: 'r2')
 
     Returns:
         Dictionary with:
         - recommended_weights: Suggested weight allocation
         - variance_analysis: Variance of each dial across peer group
-        - current_vs_recommended: Comparison
+        - optimization_method: Which method was used
+        - regression_r2: R² achieved with recommended weights (if optimize_for='r2')
     """
     if current_weights is None:
         current_weights = {
@@ -243,23 +247,122 @@ def recommend_optimal_weights(
     # Calculate data availability (how many peers have data for each dial)
     availability = df_composite[dial_cols].notna().sum() / len(df_composite)
 
-    # Recommended weights based on variance and availability
-    # Higher variance + high availability = more discriminating = higher weight
-    discriminating_power = variances * availability
-    total_power = discriminating_power.sum()
+    # Optimization strategy selection
+    if optimize_for == 'r2' and 'enterprise_value' in df_composite.columns:
+        # Direct R² optimization: Find weights that maximize EV ~ IRCI regression R²
+        from scipy.optimize import minimize
+        from scipy import stats
 
-    if total_power > 0:
-        recommended_raw = discriminating_power / total_power
+        # Objective function: negative R² (we minimize, so we negate R² to maximize it)
+        def objective(weights):
+            # Ensure weights sum to 1
+            w_val, w_liq, w_cov = weights
+            w_sent = 1.0 - w_val - w_liq - w_cov
+
+            if w_sent < 0 or any(w < 0 for w in weights):
+                return 1.0  # Invalid weights, return high value
+
+            # Compute composite score with these weights
+            composite = (
+                df_composite['valuation_pct'].fillna(0) * w_val +
+                df_composite['liquidity_pct'].fillna(0) * w_liq +
+                df_composite['coverage_pct'].fillna(0) * w_cov +
+                df_composite['sentiment_pct'].fillna(0) * w_sent
+            )
+
+            # Regression EV ~ composite
+            valid_mask = (composite > 0) & (df_composite['enterprise_value'] > 0)
+            if valid_mask.sum() < 3:
+                return 1.0  # Not enough data
+
+            _, _, r_value, _, _ = stats.linregress(
+                composite[valid_mask],
+                df_composite['enterprise_value'][valid_mask]
+            )
+            r2 = r_value ** 2
+
+            # Return negative R² (we minimize, so negate to maximize)
+            return -r2
+
+        # Initial guess: variance-based weights
+        discriminating_power = variances * availability
+        total_power = discriminating_power.sum()
+        if total_power > 0:
+            variance_weights = discriminating_power / total_power
+            initial_guess = [
+                float(variance_weights['valuation_pct']),
+                float(variance_weights['liquidity_pct']),
+                float(variance_weights['coverage_pct'])
+            ]
+        else:
+            initial_guess = [0.33, 0.33, 0.33]
+
+        # Bounds: each weight between 0 and 1
+        bounds = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
+
+        # Constraint: first 3 weights must sum to at most 1.0
+        constraints = {'type': 'ineq', 'fun': lambda w: 1.0 - sum(w)}
+
+        # Optimize
+        result = minimize(objective, initial_guess, method='SLSQP', bounds=bounds, constraints=constraints)
+
+        if result.success:
+            opt_weights = result.x
+            recommended_weights = {
+                'valuation': float(opt_weights[0]),
+                'liquidity': float(opt_weights[1]),
+                'coverage': float(opt_weights[2]),
+                'sentiment': float(1.0 - sum(opt_weights))
+            }
+            optimization_r2 = -result.fun  # Negate back to get positive R²
+
+            # Verify the R² by recalculating with final weights
+            verify_composite = (
+                df_composite['valuation_pct'].fillna(0) * opt_weights[0] +
+                df_composite['liquidity_pct'].fillna(0) * opt_weights[1] +
+                df_composite['coverage_pct'].fillna(0) * opt_weights[2] +
+                df_composite['sentiment_pct'].fillna(0) * (1.0 - sum(opt_weights))
+            )
+            valid_mask = (verify_composite > 0) & (df_composite['enterprise_value'] > 0)
+            if valid_mask.sum() >= 3:
+                from scipy import stats
+                _, _, r_value, _, _ = stats.linregress(
+                    verify_composite[valid_mask],
+                    df_composite['enterprise_value'][valid_mask]
+                )
+                verified_r2 = r_value ** 2
+                # Update with verified R² (should match optimization_r2)
+                optimization_r2 = verified_r2
+        else:
+            # Fallback to variance-based if optimization fails
+            recommended_raw = discriminating_power / (total_power + 1e-10)
+            recommended_weights = {
+                'valuation': float(recommended_raw['valuation_pct']),
+                'liquidity': float(recommended_raw['liquidity_pct']),
+                'coverage': float(recommended_raw['coverage_pct']),
+                'sentiment': float(recommended_raw['sentiment_pct'])
+            }
+            optimization_r2 = None
     else:
-        recommended_raw = pd.Series([0.25, 0.25, 0.25, 0.25], index=dial_cols)
+        # Variance-based optimization (original method)
+        # Recommended weights based on variance and availability
+        # Higher variance + high availability = more discriminating = higher weight
+        discriminating_power = variances * availability
+        total_power = discriminating_power.sum()
 
-    # Convert to dictionary with friendly names
-    recommended_weights = {
-        'valuation': float(recommended_raw['valuation_pct']),
-        'liquidity': float(recommended_raw['liquidity_pct']),
-        'coverage': float(recommended_raw['coverage_pct']),
-        'sentiment': float(recommended_raw['sentiment_pct'])
-    }
+        if total_power > 0:
+            recommended_raw = discriminating_power / total_power
+        else:
+            recommended_raw = pd.Series([0.25, 0.25, 0.25, 0.25], index=dial_cols)
+
+        # Convert to dictionary with friendly names
+        recommended_weights = {
+            'valuation': float(recommended_raw['valuation_pct']),
+            'liquidity': float(recommended_raw['liquidity_pct']),
+            'coverage': float(recommended_raw['coverage_pct']),
+            'sentiment': float(recommended_raw['sentiment_pct'])
+        }
+        optimization_r2 = None
 
     # Variance analysis for reporting
     variance_analysis = {
@@ -293,10 +396,11 @@ def recommend_optimal_weights(
         }
     }
 
-    return {
+    result = {
         'recommended_weights': recommended_weights,
         'current_weights': current_weights,
         'variance_analysis': variance_analysis,
+        'optimization_method': optimize_for,
         'discriminating_power': {
             'valuation': float(discriminating_power['valuation_pct']),
             'liquidity': float(discriminating_power['liquidity_pct']),
@@ -304,3 +408,9 @@ def recommend_optimal_weights(
             'sentiment': float(discriminating_power['sentiment_pct'])
         }
     }
+
+    # Add R² if we did R² optimization
+    if optimization_r2 is not None:
+        result['optimized_r2'] = optimization_r2
+
+    return result

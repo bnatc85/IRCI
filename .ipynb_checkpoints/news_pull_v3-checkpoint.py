@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
+"""news_pull_v3.py
+Pull news headlines from: GDELT, FMP (if plan allows), RSS, Alpha Vantage (NEWS_SENTIMENT).
+Saves to CSV/JSON/SQLite with de-duplication.
+
+Changes vs v2:
+- GDELT: handles non-JSON responses gracefully (rate limits or HTML interstitials).
+- UTC time generation updated (no deprecation warnings).
+- FMP: clearer error for 403/plan restriction.
+- Alpha Vantage: optional alternative to FMP (requires ALPHAVANTAGE_API_KEY).
 """
-news_pull_v2.py
-Pull real news headlines from GDELT, FMP, or RSS and save to CSV/JSON/SQLite.
-This version adds --out/--json/--sqlite to each subcommand so flags can come
-after the subcommand (e.g., `... gdelt ... --out out/gdelt.csv`).
-"""
-import argparse, csv, os, sys, json, sqlite3, datetime as dt
+import argparse, csv, os, sys, json, sqlite3
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
 
 try:
     import requests
@@ -21,7 +26,7 @@ except Exception:
 Row = Dict[str, Any]
 
 def now_iso() -> str:
-    return dt.datetime.utcnow().replace(tzinfo=dt.timezone.utc).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 def ensure_dir(path: str) -> None:
     d = path if os.path.isdir(path) else os.path.dirname(path) or "."
@@ -39,9 +44,16 @@ def fetch_gdelt(query: str, limit: int = 50) -> List[Row]:
         "sort": "DateDesc",
     }
     r = requests.get(base, params=params, timeout=30)
+    ct = r.headers.get("content-type", "")
+    text_preview = (r.text or "")[:300]
     if r.status_code != 200:
-        raise SystemExit(f"GDELT -> HTTP {r.status_code}: {r.text[:300]}")
-    data = r.json()
+        raise SystemExit(f"GDELT -> HTTP {r.status_code}: {text_preview}")
+    try:
+        data = r.json()
+    except Exception:
+        # GDELT sometimes returns HTML or empty body if throttled.
+        print(f"[warn] GDELT returned non-JSON ({ct}). First bytes: {text_preview!r}", file=sys.stderr)
+        return []
     arts = data.get("articles", []) or []
     rows: List[Row] = []
     for a in arts:
@@ -65,6 +77,11 @@ def fetch_fmp(tickers, limit=50, api_key=None) -> List[Row]:
     base = "https://financialmodelingprep.com/api/v3/stock_news"
     params = {"tickers": ",".join(tickers), "limit": str(limit), "apikey": api_key}
     r = requests.get(base, params=params, timeout=30)
+    if r.status_code == 403:
+        raise SystemExit(
+            "FMP -> HTTP 403 (plan restricted). This endpoint may require a paid plan."
+            "Try: rss mode, gdelt mode, or the new 'alphavantage' subcommand (free key)."
+        )
     if r.status_code != 200:
         raise SystemExit(f"FMP -> HTTP {r.status_code}: {r.text[:300]}")
     items = r.json() or []
@@ -78,6 +95,41 @@ def fetch_fmp(tickers, limit=50, api_key=None) -> List[Row]:
             "published_at": it.get("publishedDate") or it.get("date"),
             "source_name": it.get("site") or it.get("source"),
             "language": None,
+            "raw": it,
+            "pulled_at": now_iso(),
+        })
+    return rows
+
+def fetch_alphavantage(tickers, limit=50, api_key=None) -> List[Row]:
+    """Alpha Vantage NEWS_SENTIMENT (free with key, rate-limited).
+    API: https://www.alphavantage.co/documentation/#news-and-sentiment
+    Note: 'limit' is advisory; AV uses 'limit' param but enforces its own caps.
+    """
+    api_key = api_key or os.getenv("ALPHAVANTAGE_API_KEY")
+    if not api_key:
+        raise SystemExit("ALPHAVANTAGE_API_KEY not set. Export it or pass --api-key.")
+    base = "https://www.alphavantage.co/query"
+    params = {
+        "function": "NEWS_SENTIMENT",
+        "tickers": ",".join(tickers),
+        "limit": str(limit),
+        "apikey": api_key,
+    }
+    r = requests.get(base, params=params, timeout=30)
+    if r.status_code != 200:
+        raise SystemExit(f"AlphaVantage -> HTTP {r.status_code}: {r.text[:300]}")
+    data = r.json()
+    feed = data.get("feed", []) or []
+    rows: List[Row] = []
+    for it in feed:
+        rows.append({
+            "source": "alphavantage",
+            "ticker": ",".join(it.get("ticker_sentiment", []) and [t.get("ticker") for t in it["ticker_sentiment"]] or []),
+            "title": it.get("title"),
+            "url": it.get("url"),
+            "published_at": it.get("time_published"),
+            "source_name": it.get("source"),
+            "language": it.get("language"),
             "raw": it,
             "pulled_at": now_iso(),
         })
@@ -134,8 +186,7 @@ def save_json(rows, path):
 def save_sqlite(rows, db_path):
     ensure_dir(db_path)
     conn = sqlite3.connect(db_path); cur = conn.cursor()
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS articles (
+    cur.execute("""    CREATE TABLE IF NOT EXISTS articles (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       source TEXT, ticker TEXT, title TEXT, url TEXT UNIQUE,
       published_at TEXT, source_name TEXT, language TEXT,
@@ -173,13 +224,22 @@ def main():
     ap_gd.add_argument("--sqlite", dest="sqlite_db", help="SQLite DB path")
 
     # FMP subcommand
-    ap_fmp = sub.add_parser("fmp", help="Pull from FMP /v3/stock_news")
+    ap_fmp = sub.add_parser("fmp", help="Pull from FMP /v3/stock_news (may require paid plan)")
     ap_fmp.add_argument("--tickers", required=True, help="Comma-separated tickers")
     ap_fmp.add_argument("--limit", type=int, default=50)
     ap_fmp.add_argument("--api-key", dest="api_key", default=None, help="FMP API key (or env FMP_API_KEY)")
     ap_fmp.add_argument("--out", help="CSV file path")
     ap_fmp.add_argument("--json", dest="json_out", help="JSON file path")
     ap_fmp.add_argument("--sqlite", dest="sqlite_db", help="SQLite DB path")
+
+    # Alpha Vantage subcommand (alternative)
+    ap_av = sub.add_parser("alphavantage", help="Pull from Alpha Vantage NEWS_SENTIMENT (requires ALPHAVANTAGE_API_KEY)")
+    ap_av.add_argument("--tickers", required=True, help="Comma-separated tickers")
+    ap_av.add_argument("--limit", type=int, default=50)
+    ap_av.add_argument("--api-key", dest="api_key", default=None, help="Alpha Vantage API key (or env ALPHAVANTAGE_API_KEY)")
+    ap_av.add_argument("--out", help="CSV file path")
+    ap_av.add_argument("--json", dest="json_out", help="JSON file path")
+    ap_av.add_argument("--sqlite", dest="sqlite_db", help="SQLite DB path")
 
     # RSS subcommand
     ap_rss = sub.add_parser("rss", help="Pull from RSS feeds (feedparser)")
@@ -196,6 +256,9 @@ def main():
     elif args.mode == "fmp":
         tickers = [t.strip().upper() for t in args.tickers.split(",") if t.strip()]
         rows = fetch_fmp(tickers, args.limit, api_key=args.api_key)
+    elif args.mode == "alphavantage":
+        tickers = [t.strip().upper() for t in args.tickers.split(",") if t.strip()]
+        rows = fetch_alphavantage(tickers, args.limit, api_key=args.api_key)
     elif args.mode == "rss":
         feeds = [u.strip() for u in args.feeds.split(",") if u.strip()]
         rows = fetch_rss(feeds, args.limit)

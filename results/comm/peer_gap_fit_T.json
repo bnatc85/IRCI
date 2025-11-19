@@ -1,0 +1,70 @@
+{
+  "beta_pp_per_point": -0.00571346748486591,
+  "r2": 0.0009657752563921873,
+  "n_obs": 77,
+  "tickers": [
+    "CMCSA",
+    "DIS",
+    "NWS",
+    "NWSA",
+    "PARA",
+    "RELX",
+    "SPOT",
+    "T",
+    "TMUS",
+    "VZ",
+    "WBD"
+  ],
+  "usd_per_point_top": [
+    {
+      "ticker": "TMUS",
+      "ev_usd": 145094707928.33,
+      "usd_per_point": 8289938.959746294
+    },
+    {
+      "ticker": "DIS",
+      "ev_usd": 143154475009.63284,
+      "usd_per_point": 8179084.382805868
+    },
+    {
+      "ticker": "T",
+      "ev_usd": 141021245081.1857,
+      "usd_per_point": 8057202.984466612
+    },
+    {
+      "ticker": "CMCSA",
+      "ev_usd": 139094871276.40286,
+      "usd_per_point": 7947140.243493371
+    },
+    {
+      "ticker": "VZ",
+      "ev_usd": 138685161047.10284,
+      "usd_per_point": 7923731.582760144
+    },
+    {
+      "ticker": "PARA",
+      "ev_usd": 61729530855.67857,
+      "usd_per_point": 3526896.6739994646
+    },
+    {
+      "ticker": "SPOT",
+      "ev_usd": 61667594772.6,
+      "usd_per_point": 3523357.976031371
+    },
+    {
+      "ticker": "NWSA",
+      "ev_usd": 60326939960.042854,
+      "usd_per_point": 3446760.0992316282
+    },
+    {
+      "ticker": "RELX",
+      "ev_usd": 59674620370.9,
+      "usd_per_point": 3409490.0316085406
+    },
+    {
+      "ticker": "WBD",
+      "ev_usd": 58971261035.00572,
+      "usd_per_point": 3369303.824650452
+    }
+  ]
+}

@@ -32,8 +32,8 @@ PEER_GROUPS = {
     "GM": ["TSLA", "RIVN", "LCID"],
 
     # Streaming/Entertainment
-    "NFLX": ["DIS", "PARA", "WBD", "CMCSA", "GOOGL", "AAPL"],
-    "DIS": ["NFLX", "PARA", "WBD", "CMCSA", "LYV"],
+    "NFLX": ["DIS", "PSKY", "WBD", "CMCSA", "GOOGL", "AAPL"],
+    "DIS": ["NFLX", "PSKY", "WBD", "CMCSA", "LYV"],
 
     # E-commerce
     "SHOP": ["AMZN", "EBAY", "ETSY", "WMT", "MELI"],

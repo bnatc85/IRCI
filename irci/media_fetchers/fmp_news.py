@@ -31,26 +31,40 @@ def fmp_news_media_fetcher(ticker: str, q_start, q_end, settings) -> pd.DataFram
     from_date = q_start.strftime("%Y-%m-%d")
     to_date = q_end.strftime("%Y-%m-%d")
 
-    # FMP Stock News API endpoint
-    url = f"https://financialmodelingprep.com/api/v3/stock_news"
+    # FMP Stock News API endpoint (new stable endpoint)
+    url = f"https://financialmodelingprep.com/stable/news/stock"
     params = {
-        "tickers": ticker.upper(),
-        "from": from_date,
-        "to": to_date,
-        "limit": 1000,  # Get up to 1000 articles
+        "symbols": ticker.upper(),
         "apikey": api_key
     }
 
     try:
-        response = requests.get(url, params=params, timeout=30)
-        response.raise_for_status()
-        data = response.json()
+        # Fetch multiple pages to get sufficient news coverage
+        all_articles = []
+        max_pages = 10  # Fetch up to 10 pages (typically ~200 articles)
 
-        if not data or not isinstance(data, list):
+        for page in range(max_pages):
+            params_with_page = params.copy()
+            params_with_page["page"] = page
+
+            response = requests.get(url, params=params_with_page, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+
+            if not data or not isinstance(data, list):
+                break  # No more data
+
+            all_articles.extend(data)
+
+            # Stop if we got fewer than 20 articles (last page)
+            if len(data) < 20:
+                break
+
+        if not all_articles:
             return pd.DataFrame(columns=["published_at", "url", "domain", "lang", "headline", "source"])
 
         # Convert to DataFrame
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(all_articles)
 
         # Normalize columns to match expected format
         column_mapping = {
@@ -70,9 +84,13 @@ def fmp_news_media_fetcher(ticker: str, q_start, q_end, settings) -> pd.DataFram
         # Filter by date range (in case API returns extra)
         df = df[(df["published_at"] >= q_start) & (df["published_at"] <= q_end)]
 
-        # Extract domain from URL if not provided
+        # Extract domain from site field or URL
         if "domain" not in df.columns:
-            df["domain"] = df["url"].apply(lambda u: urlparse(str(u)).netloc.lower() if pd.notna(u) else "")
+            # FMP's new API provides "site" field directly (e.g., "fool.com")
+            if "source" in df.columns and df["source"].notna().any():
+                df["domain"] = df["source"].str.lower()
+            else:
+                df["domain"] = df["url"].apply(lambda u: urlparse(str(u)).netloc.lower() if pd.notna(u) else "")
 
         # Default language to English
         if "lang" not in df.columns:
@@ -82,9 +100,9 @@ def fmp_news_media_fetcher(ticker: str, q_start, q_end, settings) -> pd.DataFram
         if "headline" not in df.columns:
             df["headline"] = df.get("title", "")
 
-        # Add source if missing
+        # Add source if missing (use site field from FMP)
         if "source" not in df.columns:
-            df["source"] = df.get("site", df["domain"])
+            df["source"] = df.get("site", df.get("domain", ""))
 
         # Select and order columns
         output_columns = ["published_at", "url", "domain", "lang", "headline", "source"]
