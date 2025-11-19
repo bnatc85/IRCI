@@ -25,12 +25,11 @@ PEER_GROUPS = {
     "AMD": ["NVDA", "INTC", "QCOM", "MU", "AVGO", "MRVL"],
     "INTC": ["AMD", "NVDA", "QCOM", "TXN", "AVGO", "MU"],
 
-    # Auto/EV (US-listed only for data availability)
-    "TSLA": ["GM", "F", "RIVN", "LCID", "TM", "HMC", "STLA"],
-    "RIVN": ["TSLA", "LCID", "F", "GM", "TM"],
-    "LCID": ["RIVN", "TSLA", "F", "GM"],
-    "GM": ["F", "TSLA", "RIVN", "TM", "HMC", "STLA"],
-    "F": ["GM", "TSLA", "TM", "HMC", "STLA", "RIVN"],
+    # Auto/EV (US SEC filers with available data only)
+    "TSLA": ["GM", "RIVN", "LCID"],
+    "RIVN": ["TSLA", "LCID", "GM"],
+    "LCID": ["RIVN", "TSLA", "GM"],
+    "GM": ["TSLA", "RIVN", "LCID"],
 
     # Streaming/Entertainment
     "NFLX": ["DIS", "PARA", "WBD", "CMCSA", "GOOGL", "AAPL"],
