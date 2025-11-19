@@ -1284,6 +1284,14 @@ if 'df_composite' in st.session_state:
                             return '📰'
                     elif event_type in ['10-Q', '10-K', '8-K']:
                         return '🔵'
+                    elif event_type == 'valuation_measurement':
+                        return '💰'
+                    elif event_type == 'liquidity_measurement':
+                        return '💧'
+                    elif event_type == 'coverage_measurement':
+                        return '📊'
+                    elif event_type == 'trust_measurement':
+                        return '💭'
                     return '•'
 
                 display_timeline.insert(0, 'indicator', timeline_df.apply(get_color_indicator, axis=1))
@@ -1311,7 +1319,7 @@ if 'df_composite' in st.session_state:
                     hide_index=True
                 )
 
-                st.caption("💡 🟢 = Positive news | 🔴 = Negative news | 🔵 = SEC filings | 📰 = Neutral news")
+                st.caption("💡 🟢 Positive news | 🔴 Negative news | 🔵 SEC filings | 📰 Neutral news | 💰 Valuation | 💧 Liquidity | 📊 Coverage | 💭 Trust")
 
             # User notes section
             st.markdown("---")

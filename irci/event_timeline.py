@@ -90,38 +90,154 @@ def extract_news_events(
     return pd.DataFrame(events)
 
 
-def calculate_daily_ev_changes(
+def extract_liquidity_events(
+    df_liquidity: pd.DataFrame,
+    ticker: str,
+    start_date: str,
+    end_date: str
+) -> pd.DataFrame:
+    """
+    Extract liquidity measurement events.
+
+    Returns DataFrame with:
+    - date
+    - event_type: 'liquidity_measurement'
+    - description
+    - liquidity_score
+    """
+    events = []
+
+    ticker_liq = df_liquidity[df_liquidity['ticker'] == ticker]
+
+    for _, row in ticker_liq.iterrows():
+        if pd.notna(row.get('liquidity_pct')):
+            # Create description based on available metrics
+            desc_parts = [f"Liquidity Score: {row['liquidity_pct']:.1f}%"]
+            if pd.notna(row.get('q_turnover')):
+                desc_parts.append(f"Turnover: {row['q_turnover']:.4f}")
+            if pd.notna(row.get('q_amihud_e6')):
+                desc_parts.append(f"Amihud: {row['q_amihud_e6']:.2f}×10⁶")
+
+            events.append({
+                'date': row['quarter_end'],
+                'event_type': 'liquidity_measurement',
+                'description': ', '.join(desc_parts),
+                'liquidity_pct': row['liquidity_pct'],
+                'ticker': ticker
+            })
+
+    return pd.DataFrame(events)
+
+
+def extract_valuation_events(
     df_valuation: pd.DataFrame,
     ticker: str,
     start_date: str,
     end_date: str
 ) -> pd.DataFrame:
     """
-    Calculate daily EV changes (if we had daily data).
-
-    For now, we'll work with quarterly snapshots.
+    Extract valuation measurement events.
 
     Returns DataFrame with:
     - date
-    - event_type: 'ev_change'
-    - ev_change_pct
-    - ev_change_dollars
+    - event_type: 'valuation_measurement'
     - description
+    - valuation_score
     """
     events = []
 
-    # This would need daily EV data which we typically don't have
-    # We can mark the quarter-end date when EV was measured
     ticker_val = df_valuation[df_valuation['ticker'] == ticker]
 
     for _, row in ticker_val.iterrows():
         if pd.notna(row.get('enterprise_value')):
+            desc_parts = [f"Valuation Score: {row['valuation_pct']:.1f}%"]
+            if pd.notna(row.get('enterprise_value')):
+                desc_parts.append(f"EV: ${row['enterprise_value']/1e9:.1f}B")
+            if pd.notna(row.get('ev_to_ebitda')):
+                desc_parts.append(f"EV/EBITDA: {row['ev_to_ebitda']:.1f}x")
+
             events.append({
                 'date': row['as_of'],
-                'event_type': 'ev_measurement',
+                'event_type': 'valuation_measurement',
+                'description': ', '.join(desc_parts),
                 'enterprise_value': row['enterprise_value'],
-                'ev_to_ebitda': row.get('ev_to_ebitda', np.nan),
-                'description': f"Enterprise Value: ${row['enterprise_value']:,.0f}",
+                'valuation_pct': row.get('valuation_pct', np.nan),
+                'ticker': ticker
+            })
+
+    return pd.DataFrame(events)
+
+
+def extract_trust_events(
+    df_trust: pd.DataFrame,
+    ticker: str,
+    start_date: str,
+    end_date: str
+) -> pd.DataFrame:
+    """
+    Extract trust/sentiment measurement events.
+
+    Returns DataFrame with:
+    - date
+    - event_type: 'trust_measurement'
+    - description
+    - trust_score
+    """
+    events = []
+
+    ticker_trust = df_trust[df_trust['ticker'] == ticker]
+
+    for _, row in ticker_trust.iterrows():
+        if pd.notna(row.get('trust_pct')):
+            desc_parts = [f"Trust Score: {row['trust_pct']:.1f}%"]
+            if pd.notna(row.get('media_tone_n')) and row.get('media_tone_n', 0) > 0:
+                desc_parts.append(f"{int(row['media_tone_n'])} articles analyzed")
+            if pd.notna(row.get('event_count')) and row.get('event_count', 0) > 0:
+                desc_parts.append(f"{int(row['event_count'])} events")
+
+            events.append({
+                'date': row['quarter_end'],
+                'event_type': 'trust_measurement',
+                'description': ', '.join(desc_parts),
+                'trust_pct': row['trust_pct'],
+                'ticker': ticker
+            })
+
+    return pd.DataFrame(events)
+
+
+def extract_coverage_events(
+    df_coverage: pd.DataFrame,
+    ticker: str,
+    start_date: str,
+    end_date: str
+) -> pd.DataFrame:
+    """
+    Extract coverage measurement events.
+
+    Returns DataFrame with:
+    - date
+    - event_type: 'coverage_measurement'
+    - description
+    - coverage_score
+    """
+    events = []
+
+    ticker_cov = df_coverage[df_coverage['ticker'] == ticker]
+
+    for _, row in ticker_cov.iterrows():
+        if pd.notna(row.get('coverage_pct')):
+            desc_parts = [f"Coverage Score: {row['coverage_pct']:.1f}%"]
+            if pd.notna(row.get('q_8k_count')):
+                desc_parts.append(f"{int(row['q_8k_count'])} 8-K filings")
+            if pd.notna(row.get('q_days_to_10q')):
+                desc_parts.append(f"10-Q filed in {int(row['q_days_to_10q'])} days")
+
+            events.append({
+                'date': row['as_of'],
+                'event_type': 'coverage_measurement',
+                'description': ', '.join(desc_parts),
+                'coverage_pct': row['coverage_pct'],
                 'ticker': ticker
             })
 
@@ -286,6 +402,70 @@ def aggregate_timeline_events(
             'affected_dials': ', '.join(impact['affected_dials']),
             'ticker': ticker,
             'source': row.get('source', 'Unknown')
+        })
+
+    # Extract liquidity events
+    liquidity_events = extract_liquidity_events(df_liq, ticker, start_date, end_date)
+    for _, row in liquidity_events.iterrows():
+        all_events.append({
+            'date': pd.to_datetime(row['date']),
+            'event_type': 'liquidity_measurement',
+            'description': row['description'],
+            'headline': '',
+            'sentiment_score': None,
+            'irci_impact': 0.0,  # These are measurements, not events with impact
+            'dollar_impact': 0.0,
+            'impact_confidence': 0.0,
+            'affected_dials': 'Liquidity',
+            'ticker': ticker
+        })
+
+    # Extract valuation events
+    valuation_events = extract_valuation_events(df_val, ticker, start_date, end_date)
+    for _, row in valuation_events.iterrows():
+        all_events.append({
+            'date': pd.to_datetime(row['date']),
+            'event_type': 'valuation_measurement',
+            'description': row['description'],
+            'headline': '',
+            'sentiment_score': None,
+            'irci_impact': 0.0,
+            'dollar_impact': 0.0,
+            'impact_confidence': 0.0,
+            'affected_dials': 'Valuation',
+            'ticker': ticker
+        })
+
+    # Extract trust events
+    trust_events = extract_trust_events(df_trust, ticker, start_date, end_date)
+    for _, row in trust_events.iterrows():
+        all_events.append({
+            'date': pd.to_datetime(row['date']),
+            'event_type': 'trust_measurement',
+            'description': row['description'],
+            'headline': '',
+            'sentiment_score': None,
+            'irci_impact': 0.0,
+            'dollar_impact': 0.0,
+            'impact_confidence': 0.0,
+            'affected_dials': 'Trust',
+            'ticker': ticker
+        })
+
+    # Extract coverage events
+    coverage_events = extract_coverage_events(df_cov, ticker, start_date, end_date)
+    for _, row in coverage_events.iterrows():
+        all_events.append({
+            'date': pd.to_datetime(row['date']),
+            'event_type': 'coverage_measurement',
+            'description': row['description'],
+            'headline': '',
+            'sentiment_score': None,
+            'irci_impact': 0.0,
+            'dollar_impact': 0.0,
+            'impact_confidence': 0.0,
+            'affected_dials': 'Coverage',
+            'ticker': ticker
         })
 
     # Create DataFrame and sort by date
