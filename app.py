@@ -688,7 +688,7 @@ if 'df_composite' in st.session_state:
     # Visualizations
     st.markdown("### 📈 Visualizations")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Composite Scores", "Dial Breakdown", "Detailed Metrics", "📊 Insights"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Composite Scores", "Dial Breakdown", "Detailed Metrics", "📊 Insights", "📅 Timeline"])
 
     with tab1:
         # Bar chart of composite scores
@@ -1152,6 +1152,210 @@ if 'df_composite' in st.session_state:
 
         except Exception as e:
             st.warning(f"Could not compute weight recommendations: {str(e)}")
+
+    with tab5:
+        # Event Timeline / Calendar View
+        from irci.event_timeline import (
+            aggregate_timeline_events,
+            create_calendar_view,
+            UserNotesManager,
+            create_impact_summary
+        )
+        from irci.coverage import _company_submissions, _lookup_cik
+
+        st.markdown("#### 📅 Event Timeline & Calendar")
+        st.markdown("*Track events, filings, news, and their impact on IRCI scores*")
+
+        # Company selector for timeline
+        selected_timeline_ticker = st.selectbox(
+            "Select company for timeline:",
+            display_df['ticker'].tolist(),
+            key='timeline_ticker'
+        )
+
+        try:
+            # Initialize notes manager
+            if 'notes_manager' not in st.session_state:
+                st.session_state['notes_manager'] = UserNotesManager()
+
+            notes_mgr = st.session_state['notes_manager']
+
+            # Get SEC filings data for this ticker
+            s = Settings.load()
+            cik = _lookup_cik(selected_timeline_ticker, s)
+            sec_filings_df = None
+
+            if cik:
+                try:
+                    subs = _company_submissions(cik, s)
+                    if not subs.empty and 'filingDate' in subs.columns:
+                        # Convert to our timeline format
+                        sec_filings_df = pd.DataFrame({
+                            'ticker': selected_timeline_ticker,
+                            'date': pd.to_datetime(subs['filingDate']),
+                            'event_type': subs['form'],
+                            'description': subs['form'] + ' Filing',
+                            'accession_number': subs.get('accessionNumber', '')
+                        })
+                        # Filter for date range
+                        sec_filings_df = sec_filings_df[
+                            (sec_filings_df['date'] >= start_date) &
+                            (sec_filings_df['date'] <= end_date)
+                        ]
+                except Exception as e:
+                    st.info(f"Note: Could not fetch SEC filings: {e}")
+
+            # Aggregate timeline events
+            timeline_df = aggregate_timeline_events(
+                ticker=selected_timeline_ticker,
+                start_date=start_date,
+                end_date=end_date,
+                df_composite=df_composite,
+                df_val=df_val,
+                df_cov=df_cov,
+                df_liq=df_liq,
+                df_trust=df_trust,
+                news_df=news_df,
+                sec_filings_df=sec_filings_df
+            )
+
+            # Display impact summary
+            st.markdown("**📊 Event Impact Summary**")
+            impact_summary = create_impact_summary(timeline_df, selected_timeline_ticker)
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total Events", impact_summary['total_events'])
+            col2.metric(
+                "Total IRCI Impact",
+                f"{impact_summary['total_irci_impact']:+.2f} pts",
+                help="Estimated cumulative impact on IRCI score from all events"
+            )
+            col3.metric(
+                "Total $ Impact",
+                f"${impact_summary['total_dollar_impact']:+,.0f}",
+                help="Estimated cumulative dollar value impact from all events"
+            )
+
+            # Calendar view
+            st.markdown("---")
+            st.markdown("**📅 Calendar View**")
+
+            if not timeline_df.empty:
+                calendar_df = create_calendar_view(timeline_df, start_date, end_date)
+
+                # Display calendar as interactive table
+                st.dataframe(
+                    calendar_df[['date', 'num_events', 'event_types', 'total_irci_impact', 'total_dollar_impact', 'headlines']].rename(columns={
+                        'date': 'Date',
+                        'num_events': '# Events',
+                        'event_types': 'Event Types',
+                        'total_irci_impact': 'IRCI Impact (pts)',
+                        'total_dollar_impact': '$ Impact',
+                        'headlines': 'Top Headlines'
+                    }).style.format({
+                        'IRCI Impact (pts)': '{:+.2f}',
+                        '$ Impact': '${:+,.0f}'
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("No events found for this period. Try uploading news data or check the date range.")
+
+            # Detailed event timeline
+            st.markdown("---")
+            st.markdown("**🔍 Detailed Event Timeline**")
+
+            if not timeline_df.empty:
+                # Add color coding for event types
+                def highlight_events(row):
+                    if row['event_type'] == 'news':
+                        if row['sentiment_score'] > 0.2:
+                            return ['background-color: rgba(0, 255, 136, 0.2)'] * len(row)
+                        elif row['sentiment_score'] < -0.2:
+                            return ['background-color: rgba(255, 0, 102, 0.2)'] * len(row)
+                    elif row['event_type'] in ['10-Q', '10-K', '8-K']:
+                        return ['background-color: rgba(0, 212, 255, 0.2)'] * len(row)
+                    return [''] * len(row)
+
+                st.dataframe(
+                    timeline_df[['date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'impact_confidence', 'affected_dials']].rename(columns={
+                        'date': 'Date',
+                        'event_type': 'Type',
+                        'description': 'Description',
+                        'irci_impact': 'IRCI Impact',
+                        'dollar_impact': '$ Impact',
+                        'impact_confidence': 'Confidence',
+                        'affected_dials': 'Affected Dials'
+                    }).style.apply(highlight_events, axis=1).format({
+                        'IRCI Impact': '{:+.2f}',
+                        '$ Impact': '${:+,.0f}',
+                        'Confidence': '{:.0%}'
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                st.caption("💡 Green = Positive news | Red = Negative news | Blue = SEC filings")
+
+            # User notes section
+            st.markdown("---")
+            st.markdown("**📝 Private Notes**")
+            st.caption("Add non-publicly available information, insights, or reminders")
+
+            # Add new note
+            with st.expander("➕ Add New Note"):
+                note_date = st.date_input(
+                    "Date",
+                    value=pd.to_datetime(end_date).date(),
+                    min_value=pd.to_datetime(start_date).date(),
+                    max_value=pd.to_datetime(end_date).date(),
+                    key='new_note_date'
+                )
+                note_category = st.selectbox(
+                    "Category",
+                    ["General", "Private Info", "Analysis", "Follow-up", "Meeting Notes"],
+                    key='new_note_category'
+                )
+                note_text = st.text_area(
+                    "Note",
+                    placeholder="Enter your private note here...",
+                    key='new_note_text'
+                )
+
+                if st.button("Save Note"):
+                    if note_text.strip():
+                        notes_mgr.add_note(
+                            ticker=selected_timeline_ticker,
+                            date=str(note_date),
+                            note=note_text,
+                            category=note_category
+                        )
+                        st.success("✓ Note saved!")
+                        st.rerun()
+                    else:
+                        st.warning("Please enter a note before saving")
+
+            # Display existing notes
+            st.markdown("**Existing Notes:**")
+            ticker_notes = notes_mgr.get_notes(selected_timeline_ticker)
+
+            if ticker_notes:
+                for i, note in enumerate(ticker_notes):
+                    with st.container():
+                        col1, col2, col3 = st.columns([2, 4, 1])
+                        col1.markdown(f"**{note['date']}**")
+                        col2.markdown(f"*{note['category']}*")
+                        col3.markdown(f"*{pd.to_datetime(note['timestamp']).strftime('%H:%M')}*")
+                        st.markdown(note['note'])
+                        st.markdown("---")
+            else:
+                st.info("No notes yet. Add your first note above!")
+
+        except Exception as e:
+            st.error(f"Error loading timeline: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
 
     # Download section
     st.markdown("---")
