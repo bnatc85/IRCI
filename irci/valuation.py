@@ -244,19 +244,31 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
                 ev_date = ev_df.index[-1]
                 ev_val = float(ev_df.iloc[-1]["enterpriseValue"])
             else:
-                ev_hist = _filter_on_or_before(ev_df, as_of_ts)
-                if ev_hist.empty:
-                    ev_date = ev_df.index[-1]
-                    ev_val = float(ev_df.iloc[-1]["enterpriseValue"])
-                else:
-                    ev_date = ev_hist.index[-1]
-                    ev_val = float(ev_hist.iloc[-1]["enterpriseValue"])
-        except (HTTPError, ValueError) as e:
-            if isinstance(e, HTTPError):
-                log.warning(f"enterprise-values HTTP {e.response.status_code} for {sym}; estimating EV from components")
+                # nearest-on-or-before as_of_ts
+                ev_df2 = ev_df[ev_df.index <= as_of_ts]
+                if ev_df2.empty:
+                    raise ValueError("No enterprise values on/before as_of")
+                ev_date = ev_df2.index[-1]
+                ev_val  = float(ev_df2.iloc[-1]["enterpriseValue"])
+        except Exception as e:
+    # HTTP 403 or no data → estimate from components
+            if isinstance(e, requests.HTTPError):
+                try:
+                    code = e.response.status_code
+                except Exception:
+                    code = "?"
+                log.warning(f"enterprise-values HTTP {code} for {sym}; estimating EV from components")
             else:
-                log.warning(f"enterprise-values unavailable for {sym}; estimating EV from components")
-            ev_date, ev_val = estimate_ev_from_components(sym, s.fmp_api_key, as_of_ts or pd.Timestamp.utcnow(tz="UTC"), s)
+                log.warning(f"enterprise-values unavailable for {sym}; estimating EV from components: {e}")
+
+            asof = as_of_ts or pd.Timestamp.now(tz="UTC")
+            try:
+                # IMPORTANT: pass s=... here
+                ev_date, ev_val = estimate_ev_from_components(sym, s.fmp_api_key, asof, s=s)
+            except Exception as ee:
+                log.error(f"EV estimation failed for {sym}: {ee}")
+                # Guard against unbound locals later
+                ev_date, ev_val = asof, np.nan
 
         # 2) EBITDA (SEC TTM) as of ev_date
         sec = ttm_ebitda_from_sec(sym, as_of=ev_date, s=s)
