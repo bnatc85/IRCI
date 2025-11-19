@@ -1161,7 +1161,7 @@ if 'df_composite' in st.session_state:
             UserNotesManager,
             create_impact_summary
         )
-        from irci.coverage import _company_submissions, _lookup_cik
+        from irci.coverage import _company_submissions, _cik_for_ticker
 
         st.markdown("#### 📅 Event Timeline & Calendar")
         st.markdown("*Track events, filings, news, and their impact on IRCI scores*")
@@ -1182,7 +1182,7 @@ if 'df_composite' in st.session_state:
 
             # Get SEC filings data for this ticker
             s = Settings.load()
-            cik = _lookup_cik(selected_timeline_ticker, s)
+            cik = _cik_for_ticker(selected_timeline_ticker, s)
             sec_filings_df = None
 
             if cik:
