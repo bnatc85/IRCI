@@ -1,13 +1,11 @@
 from __future__ import annotations
-
 import subprocess, shlex
 from pathlib import Path
 from typing import Optional, List, Dict
-
+from .validate import run_validation
 import pandas as pd
 import numpy as np
 import typer
-
 from .config import Settings
 from .logging import get_logger
 from .market import fetch_prices_fmp
@@ -17,7 +15,6 @@ from .liquidity import (
     add_liquidity_percentile,
 )
 from .coverage import coverage_snapshot
-from .trust import trust_snapshot
 
 try:
     import tomllib  # py311+
@@ -94,11 +91,11 @@ def run_cmd(
 
     # 2) Valuation
     val_out = out_dir / f"valuation_{q.lower()}.csv"
-    _sh(f'irci valuation --symbols "{syms}" --start {start} --end {end} --out-csv {val_out}')
+    _sh(f'irci valuation --symbols "{syms}" --as-of {end} --out-csv {val_out}')
 
     # 3) Coverage
     cov_out = out_dir / f"coverage_{q.lower()}.csv"
-    _sh(f'irci coverage --symbols "{syms}" --start {start} --end {end} --out-csv {cov_out}')
+    _sh(f'irci coverage --symbols "{syms}" --as-of {end} --out-csv {cov_out}')
 
     # 3.5) Liquidity  ← ADD THIS BLOCK
     liq_out = out_dir / "liquidity.csv"
@@ -162,6 +159,7 @@ def trust_cmd(
     news_csv: Optional[Path] = typer.Option(None, help="Optional CSV: date,ticker,title|text"),
     out_csv: Path = typer.Option(Path("./outputs/trust.csv"), help="Output CSV"),
 ):
+    from .trust import trust_snapshot
     s = Settings.load()
     syms = [t.strip().upper() for t in symbols.split(",") if t.strip()]
     if not syms:
@@ -459,6 +457,23 @@ def composite_cmd(
     typer.echo(f"\n== IRCI composite @ {pd.to_datetime(last_bucket).date()} ==")
     typer.echo(snap[["ticker", "irci_composite_pct", "valuation_pct", "liquidity_pct", "coverage_pct", "rank_in_peer"]]
                .to_string(index=False, float_format=lambda x: f"{x: .1f}"))
+
+import typer
+
+@app.command("validate")
+def validate_cmd(
+    quarter: Optional[str] = typer.Option(None, "--quarter", help="Quarter like 2025Q2; if omitted, use all data"),
+    out_txt: Path = typer.Option(Path("outputs/validation_report.txt"), "--out-txt", help="Report path"),
+    out_csv: Path = typer.Option(Path("outputs/validation_panel.csv"), "--out-csv", help="Panel CSV path"),
+    min_obs: int = typer.Option(30, "--min-obs", help="Min rows required to evaluate"),
+):
+    """
+    Validate IRCI's proximal impact: ICs, panel OLS (if statsmodels installed), and ablation.
+    Auto-picks quarter-specific files (e.g., valuation_2025q2.csv) if present.
+    """
+    rep = run_validation(quarter=quarter, out_txt=out_txt, out_csv=out_csv, min_obs=min_obs)
+    typer.secho(rep, fg=typer.colors.GREEN)
+
 
 @app.command("export-bridge")
 def export_bridge_cmd(

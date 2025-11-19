@@ -11,14 +11,31 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import requests
 import json
+from pathlib import Path
+from typing import Optional, Sequence
 from urllib.parse import urlencode
-
+from pandas.tseries.offsets import QuarterEnd
 from .config import Settings
 from .logging import get_logger
 from .market import fetch_prices_fmp
 from .valuation import median_anchored_pct
+from .ff import load_ff_factors_daily
 
 log = get_logger("irci.trust")
+# --- HTTP session helper (SEC requires a UA; reuse across calls) ---
+_requests_session_singleton = None
+
+def _requests_session(s=None):
+    """
+    Return a singleton requests.Session with the proper User-Agent.
+    """
+    global _requests_session_singleton
+    if _requests_session_singleton is None:
+        import requests
+        _requests_session_singleton = requests.Session()
+        ua = (s.user_agent if s else Settings.load().user_agent)
+        _requests_session_singleton.headers.update({"User-Agent": ua})
+    return _requests_session_singleton
 
 # --------------------------------------------------------------------------------------
 # Kenneth French Daily Factors (via irci.ff)
@@ -115,7 +132,7 @@ def _ticker_map(s: Settings) -> pd.DataFrame:
     """Try SEC’s company_tickers.json; on failure, return a minimal built-in map."""
     url = "https://www.sec.gov/files/company_tickers.json"
     try:
-        r = requests.get(url, headers=_sec_headers(s), timeout=60)
+        r = _requests_session(s).get(url, timeout=60)
         r.raise_for_status()
         js = r.json()
         rows = [{"cik": int(v["cik_str"]), "ticker": v["ticker"].upper(), "name": v["title"]}
@@ -178,6 +195,75 @@ def _company_submissions(cik: str, s: Settings) -> pd.DataFrame:
     df["form"] = df["form"].astype(str)
     return df[["filingDate", "reportDate", "form"]]
 
+def _events_from_fmp(symbol: str, start: pd.Timestamp, end: pd.Timestamp, apikey: str, s=None) -> list[pd.Timestamp]:
+    events = []
+    page = 0
+    while True:
+        url = (
+            f"https://financialmodelingprep.com/api/v3/sec_filings/"
+            f"{symbol}?from={start.date()}&to={end.date()}&page={page}&apikey={apikey}"
+        )
+        r = _requests_session(s).get(url, timeout=60)
+        r.raise_for_status()
+        js = r.json()
+        if not js:
+            break
+        for it in js:
+            ftype = (it.get("type") or "").upper()
+            if ftype in {"10-Q", "10-K", "8-K"}:
+                d = (it.get("acceptedDate")
+                     or it.get("fillingDate")
+                     or it.get("date"))
+                dt = pd.to_datetime(d, utc=True, errors="coerce")
+                if dt is not None and start <= dt <= end:
+                    events.append(dt)
+        page += 1
+        if page > 8:  # hard stop to avoid infinite loops
+            break
+    return sorted(set(events))
+
+def _events_between(symbol, start, end, apikey, s=None) -> list[pd.Timestamp]:
+    # 1) Try SEC submissions JSON (fast, rich)
+    try:
+        cik = _get_cik_for_symbol(symbol, s=s)  # your existing helper
+        url = f"https://data.sec.gov/submissions/CIK{int(cik):010d}.json"
+        r = _requests_session(s).get(url, timeout=60)
+        r.raise_for_status()
+        js = r.json()
+        dates = pd.to_datetime(js["filings"]["recent"]["filingDate"], utc=True, errors="coerce")
+        forms = js["filings"]["recent"]["form"]
+        ev = [d for d, f in zip(dates, forms) if f in {"10-Q","10-K","8-K"} and (d is not None and start <= d <= end)]
+        if ev:
+            return ev
+    except Exception as e:
+        log.warning("SEC event fetch failed for %s (%s). Falling back to FMP.", symbol, e)
+
+    # 2) Fallback: FMP
+    try:
+        return _events_from_fmp(symbol, start, end, apikey, s=s)
+    except Exception as e:
+        log.warning("FMP fallback failed for %s: %s", symbol, e)
+        return []
+
+_SEC_TICKER_MAP = None
+
+def _sec_ticker_map(s=None) -> dict[str, int]:
+    global _SEC_TICKER_MAP
+    if _SEC_TICKER_MAP is not None:
+        return _SEC_TICKER_MAP
+    try:
+        url = "https://www.sec.gov/files/company_tickers.json"
+        r = _requests_session(s).get(url, timeout=60)
+        r.raise_for_status()
+        data = r.json()
+        mp = {row["ticker"].upper(): int(row["cik_str"]) for row in data.values()}
+        _SEC_TICKER_MAP = mp
+        return mp
+    except Exception as e:
+        log.warning("SEC ticker map unavailable (%s). Using built-in minimal map.", e)
+        _SEC_TICKER_MAP = _BUILTIN_CIK  # you already have this
+        return _SEC_TICKER_MAP
+
 def _fmp_event_dates_for_quarter(symbol: str, q_start: pd.Timestamp, q_end: pd.Timestamp, apikey: str) -> List[pd.Timestamp]:
     """Fallback: use FMP's sec_filings endpoint to collect event dates for 8-K/10-Q/K."""
     base = "https://financialmodelingprep.com/api/v3/sec_filings"
@@ -189,7 +275,7 @@ def _fmp_event_dates_for_quarter(symbol: str, q_start: pd.Timestamp, q_end: pd.T
     }
     url = f"{base}/{symbol}?{urlencode(params)}"
     log.info("GET %s", url.replace(apikey, "***"))
-    r = requests.get(url, timeout=60)
+    r = _requests_session(s).get(url, timeout=60)
     r.raise_for_status()
     data = r.json() or []
     forms = {"8-K", "8-K/A", "10-Q", "10-Q/A", "10-K", "10-K/A"}
@@ -286,29 +372,42 @@ def _sum_abs_resid_window(resid: pd.Series, center_date: pd.Timestamp, window: i
     hi = min(len(idx), loc + window + 1)
     return float(np.abs(resid.iloc[lo:hi]).sum())
 
+# --- keep your imports as-is above this line ---
+
+from dataclasses import dataclass
+
 @dataclass
 class TrustWeights:
     w_event_calm: float = 0.50
     w_baseline_calm: float = 0.20
     w_media_tone: float = 0.30
 
+def _coerce_weights(weights):
+    if isinstance(weights, dict):
+        return TrustWeights(
+            w_event_calm=float(weights.get("w_event_calm", 0.50)),
+            w_baseline_calm=float(weights.get("w_baseline_calm", 0.20)),
+            w_media_tone=float(weights.get("w_media_tone", 0.30)),
+        )
+    return TrustWeights()
+
 def trust_quarter_for_symbol(
     symbol: str,
-    q_start: pd.Timestamp,
-    q_end: pd.Timestamp,
-    ff: pd.DataFrame,
-    news_df: Optional[pd.DataFrame],
-    s: Optional[Settings] = None,
-    weights: Optional[TrustWeights] = None,
-    apikey: Optional[str] = None,
-) -> Dict[str, float]:
+    q_start,                 # pandas Timestamp (quarter start)
+    q_end,                   # pandas Timestamp (quarter end)
+    ff,                      # Fama-French daily factors DataFrame for [q_start, q_end]
+    news_df=None,            # Optional preloaded news DataFrame
+    apikey: str | None = None,
+    s=None,                  # Settings (optional)
+    weights: dict[str, float] | None = None,
+) -> dict:
     """
     Compute raw sub-signals for one symbol × quarter.
-    Returns dict with keys: event_calm_raw, baseline_calm_raw, media_tone_raw, media_tone_src, event_count
-    (higher raw is "better"; normalization to 0..100 happens across peers later).
+    Returns ONLY raw fields; percentiles & final trust_pct are computed in trust_snapshot.
+    Keys returned:
+      event_calm_raw, baseline_calm_raw, media_tone_raw, media_tone_src, media_tone_n, event_count
     """
     s = s or Settings.load()
-    W = weights or TrustWeights()
     apikey = apikey or s.fmp_api_key
 
     # 1) Prices and residuals
@@ -317,12 +416,10 @@ def trust_quarter_for_symbol(
         (q_start - pd.Timedelta(days=400)).date().isoformat(),
         q_end.date().isoformat(),
         apikey
-    )
-    df_px = df_px.sort_index()
-    # Ensure tz-aware UTC (some backends are already UTC; this is idempotent)
+    ).sort_index()
     df_px.index = pd.to_datetime(df_px.index, utc=True)
 
-    # Try FF residuals, but be robust if FF is empty
+    # Residuals: prefer FF5, fall back to CAPM(SPY), then raw returns
     resid_df = pd.DataFrame(index=df_px.index, columns=["resid"], data=np.nan)
     try:
         if ff is not None and not getattr(ff, "empty", True):
@@ -330,36 +427,29 @@ def trust_quarter_for_symbol(
     except Exception as e:
         log.warning("FF residuals failed for %s: %s", symbol, e)
 
-    # Quarter slice (ALWAYS build mask from resid_df.index)
-    idx = resid_df.index
-    resid_q = resid_df.loc[(idx >= q_start) & (idx <= q_end)].copy()
+    mask = (resid_df.index >= q_start) & (resid_df.index <= q_end)
+    resid_q = resid_df.loc[mask].copy()
 
-    # If no residuals in the quarter (e.g., FF stops at 2025-06-30), fall back to CAPM(SPY)
     if resid_q["resid"].dropna().empty:
         try:
             resid_df = _residuals_capm_yf(df_px, q_start, q_end)
-            idx2 = resid_df.index
-            resid_q = resid_df.loc[(idx2 >= q_start) & (idx2 <= q_end)].copy()
+            resid_q = resid_df.loc[(resid_df.index >= q_start) & (resid_df.index <= q_end)].copy()
         except Exception as e:
             log.warning("CAPM fallback failed for %s: %s", symbol, e)
-            idx_q = df_px.loc[(df_px.index >= q_start) & (df_px.index <= q_end)].index
-            resid_q = pd.DataFrame(index=idx_q, columns=["resid"], data=np.nan)
+            resid_q = pd.DataFrame(index=df_px.loc[(df_px.index >= q_start) & (df_px.index <= q_end)].index,
+                                   columns=["resid"], data=np.nan)
 
-
-    # Baseline calmness: negative of residual std (lower std => higher calmness)
+    # Baseline calmness (negative volatility = calmer = better)
     baseline_calm_raw = -float(resid_q["resid"].std(ddof=0)) if resid_q["resid"].notna().any() else np.nan
-    if not np.isfinite(baseline_calm_raw):  # fallback to raw returns if residuals were still NaN
+    if not np.isfinite(baseline_calm_raw):
         ret_q = df_px.loc[(df_px.index >= q_start) & (df_px.index <= q_end), "adj_close"].pct_change()
         baseline_calm_raw = -float(ret_q.std(ddof=0)) if ret_q.notna().any() else np.nan
 
-
-        # 2) Event calmness: 8-K / 10-Q/K windows (SEC with FMP fallback)
+    # 2) Event calmness from 8-K / 10-Q/K windows
     ev_dates = _sec_event_dates_for_quarter(symbol, q_start, q_end, s, apikey=apikey)
-
-    # (Optional) merge user-provided extra events from data/events_extra.csv
+    # Optional extra events from data/events_extra.csv
     try:
-        import pathlib
-        p = pathlib.Path("data/events_extra.csv")
+        p = Path("data/events_extra.csv")
         if p.exists():
             extra = pd.read_csv(p)
             extra["date"] = pd.to_datetime(extra["date"], utc=True, errors="coerce")
@@ -372,65 +462,51 @@ def trust_quarter_for_symbol(
 
     event_count = len(ev_dates)
     event_calm_raw = np.nan
-
-    # --- MEDIA TONE DEFAULTS (define up-front so we never crash) ---
-    media_tone_raw: float | float("nan") = np.nan
-    media_tone_src: str | float("nan") = np.nan
-    media_tone_n: int = 0
-
-    # Compute event calmness from residuals (fallback to raw returns)
     if event_count:
         sums = [_sum_abs_resid_window(resid_df["resid"], d, window=3) for d in ev_dates]
         med = np.nanmedian(sums)
         if np.isfinite(med):
             event_calm_raw = -float(med)
         else:
+            # fallback to raw returns in the window
             ret_series = df_px["adj_close"].pct_change()
             sums = [_sum_abs_resid_window(ret_series, d, window=3) for d in ev_dates]
             med = np.nanmedian(sums)
             if np.isfinite(med):
                 event_calm_raw = -float(med)
 
-        # 3) Media tone — compute regardless of event_count
-        texts: list[str] = []
-        if news_df is not None and not getattr(news_df, "empty", True):
-            nd = news_df.copy()
-            # unify date column
-            if "date" in nd.columns:
-                nd["date"] = pd.to_datetime(nd["date"], utc=True, errors="coerce")
-            elif "published_at" in nd.columns:
-                nd["date"] = pd.to_datetime(nd["published_at"], utc=True, errors="coerce")
-            else:
-                nd["date"] = pd.NaT
+    # 3) Media tone (FinBERT if available; VADER fallback; reliability shrink)
+    media_tone_raw = np.nan
+    media_tone_src = np.nan
+    media_tone_n   = 0
 
-            # unify headline/title
-            if "headline" not in nd.columns and "title" in nd.columns:
-                nd["headline"] = nd["title"].astype(str)
+    texts = []
+    if news_df is not None and not getattr(news_df, "empty", True):
+        nd = news_df.copy()
+        if "date" in nd.columns:
+            nd["date"] = pd.to_datetime(nd["date"], utc=True, errors="coerce")
+        elif "published_at" in nd.columns:
+            nd["date"] = pd.to_datetime(nd["published_at"], utc=True, errors="coerce")
+        else:
+            nd["date"] = pd.NaT
+        if "headline" not in nd.columns and "title" in nd.columns:
+            nd["headline"] = nd["title"].astype(str)
+        m_ticker = nd["ticker"].astype(str).str.upper().eq(symbol.upper()) if "ticker" in nd.columns else True
+        m_win = (nd["date"] >= q_start) & (nd["date"] <= q_end)
+        texts = nd.loc[m_ticker & m_win, "headline"].dropna().astype(str).tolist()
 
-            # ticker filter if present
-            if "ticker" in nd.columns:
-                m_ticker = nd["ticker"].astype(str).str.upper() == symbol.upper()
-            else:
-                m_ticker = True
-
-            m_win = (nd["date"] >= q_start) & (nd["date"] <= q_end)
-            texts = nd.loc[m_ticker & m_win, "headline"].dropna().astype(str).tolist()
-
+    if texts:
         scores = None
-        if texts:
-            try:
-                scores = finbert_score(texts)  # list[float] in [-1, 1]
-            except Exception:
-                scores = None
-
+        try:
+            scores = finbert_score(texts)
+        except Exception:
+            scores = None
         if scores:
             raw = float(np.mean(scores))
-            # shrink & clamp for FinBERT
             media_tone_raw = float(np.clip(raw * 0.6, -0.5, 0.5))
             media_tone_src = "ProsusAI/finbert"
             media_tone_n   = int(len(scores))
-        elif texts:
-            # VADER fallback
+        else:
             try:
                 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
                 sia = SentimentIntensityAnalyzer()
@@ -443,121 +519,138 @@ def trust_quarter_for_symbol(
             except Exception:
                 pass
 
-        # Reliability shrink (pull toward 0 if few articles) and final clamp
-        if np.isfinite(media_tone_raw):
-            k = 4.0
-            shrink = media_tone_n / (media_tone_n + k) if media_tone_n > 0 else 0.0
-            media_tone_raw = float(np.clip(media_tone_raw * shrink, -0.6, 0.6))
+    if np.isfinite(media_tone_raw):
+        k = 4.0  # reliability shrink
+        shrink = media_tone_n / (media_tone_n + k) if media_tone_n > 0 else 0.0
+        media_tone_raw = float(np.clip(media_tone_raw * shrink, -0.6, 0.6))
 
-        # --- Return a dict of raw metrics (higher is better) ---
-        return {
-            "event_calm_raw": event_calm_raw,
-            "baseline_calm_raw": baseline_calm_raw,
-            "media_tone_raw": media_tone_raw,
-            "media_tone_src": media_tone_src,
-            "media_tone_n": media_tone_n,
-            "event_count": event_count,
-        }
-    q_ends = px.resample(quarter_freq).last().index
-    for q_end in q_ends:
-        prev_q_end = q_end - pd.offsets.QuarterEnd()
-        # q_end should be tz-aware; if not, localize to UTC
-        q_end_utc = q_end if q_end.tzinfo is not None else q_end.tz_localize("UTC")
-        q_start = (prev_q_end + pd.Timedelta(days=1))
-        q_start = q_start if q_start.tzinfo is not None else q_start.tz_localize("UTC")
+    return {
+        "event_calm_raw": event_calm_raw,
+        "baseline_calm_raw": baseline_calm_raw,
+        "media_tone_raw": media_tone_raw,
+        "media_tone_src": media_tone_src,
+        "media_tone_n": media_tone_n,
+        "event_count": event_count,
+    }
 
-        res = trust_quarter_for_symbol(
-            sym, q_start, q_end_utc, ff, news_df, s=s, weights=weights, apikey=apikey
-        )
-        res.update({"ticker": sym, "quarter_end": pd.Timestamp(q_end_utc)})
-        rows.append(res)
+def trust_snapshot(
+    symbols,
+    start: str | None = None,
+    end: str | None = None,
+    news_df=None,
+    as_of=None,  # unused here; kept for CLI symmetry
+    apikey: str | None = None,
+    s=None,
+    weights: dict[str, float] | None = None,
+) -> pd.DataFrame:
+    """
+    Build a per-ticker Trust snapshot for [start, end].
+    Output columns:
+      ticker, quarter_end, trust_pct(=sentiment_pct), p_event_calm, p_baseline_calm, p_media_tone, event_count
+      + the raw diagnostics
+    """
+    if start is None or end is None:
+        raise ValueError("trust_snapshot requires start and end (e.g., 2025-04-01 and 2025-06-30).")
+
+    q_start = pd.to_datetime(start, utc=True)
+    q_end   = pd.to_datetime(end, utc=True)
+
+        # Robust FF import (prefer get_ff_factors_daily; fall back to load_ff_factors_daily)
+    _ff_loader = None
+    try:
+        from .ff import get_ff_factors_daily as _ff_loader  # preferred
+    except Exception:
+        try:
+            from .ff import load_ff_factors_daily as _ff_loader  # fallback
+        except Exception:
+            _ff_loader = None
+    if _ff_loader is None:
+        raise ImportError("Could not import Fama–French factor loader from irci.ff")
+
+    # Some loaders expect (s, ...), others only keyword args. Try both.
+    _s = s or Settings.load()
+    try:
+        ff = _ff_loader(_s, start=q_start, end=q_end, cache=True)
+    except TypeError:
+        ff = _ff_loader(start=q_start, end=q_end, cache=True)
+
+
+    s = s or Settings.load()
+    if isinstance(symbols, str):
+        syms = [t.strip().upper() for t in symbols.split(",") if t.strip()]
+    else:
+        syms = [str(t).strip().upper() for t in symbols if str(t).strip()]
+    if not syms:
+        return pd.DataFrame(columns=["ticker","trust_pct","sentiment_pct",
+                                     "p_event_calm","p_baseline_calm","p_media_tone",
+                                     "event_count","quarter_end"])
+
+    rows = []
+    for sym in syms:
+        rec = trust_quarter_for_symbol(sym, q_start, q_end, ff, news_df=news_df, apikey=apikey, s=s, weights=weights)
+        rec["ticker"] = sym
+        rows.append(rec)
 
     df = pd.DataFrame(rows)
 
-    # ensure quarter_end is a column (defensive)
-    if "quarter_end" not in df.columns:
-        if getattr(df.index, "name", None) == "quarter_end":
-            df = df.reset_index()
-        else:
-            idx = pd.to_datetime(df.index, utc=True, errors="coerce")
-            df = df.copy()
-            df["quarter_end"] = idx.to_period("Q").end_time.tz_localize("UTC")
+    # Percentile ranks across peers (median-anchored 0..100, higher is better)
+    df["p_event_calm"]    = median_anchored_pct(df["event_calm_raw"],   lower_is_better=False)
+    df["p_baseline_calm"] = median_anchored_pct(df["baseline_calm_raw"], lower_is_better=False)
+    df["p_media_tone"]    = median_anchored_pct(df["media_tone_raw"],    lower_is_better=False)
+    # Weighted blend (renormalize if some sub-dials are NaN)
+    W = _coerce_weights(weights)
+    w_event, w_base, w_media = W.w_event_calm, W.w_baseline_calm, W.w_media_tone
 
-    # Percentile ranks within each quarter (median-anchored, higher better)
-    df["p_event_calm"] = df.groupby("quarter_end", group_keys=False)["event_calm_raw"] \
-                           .apply(lambda s: median_anchored_pct(s, lower_is_better=False))
-    df["p_baseline_calm"] = df.groupby("quarter_end", group_keys=False)["baseline_calm_raw"] \
-                             .apply(lambda s: median_anchored_pct(s, lower_is_better=False))
-    df["p_media_tone"] = df.groupby("quarter_end", group_keys=False)["media_tone_raw"] \
-                           .apply(lambda s: median_anchored_pct(s, lower_is_better=False))
+    def _wavg_trust(row):
+        vals, wts = [], []
+        if pd.notna(row.get("p_event_calm")):
+            vals.append(row["p_event_calm"]); wts.append(w_event)
+        if pd.notna(row.get("p_baseline_calm")):
+            vals.append(row["p_baseline_calm"]); wts.append(w_base)
+        if pd.notna(row.get("p_media_tone")):
+            vals.append(row["p_media_tone"]); wts.append(w_media)
+        if not wts:
+            return np.nan
+        return float(np.average(vals, weights=wts))
 
-    # Weighted blend (renormalize if sub-dials missing)
-    W = weights or TrustWeights()
-    def _blend_trust_row(r):
-        num = 0.0; den = 0.0
-        if pd.notna(r.get("p_event_calm")):     num += W.w_event_calm     * float(r["p_event_calm"]);     den += W.w_event_calm
-        if pd.notna(r.get("p_baseline_calm")):  num += W.w_baseline_calm  * float(r["p_baseline_calm"]);  den += W.w_baseline_calm
-        if pd.notna(r.get("p_media_tone")):     num += W.w_media_tone     * float(r["p_media_tone"]);     den += W.w_media_tone
-        return (num / den) if den > 0 else np.nan
-
-    df["trust_pct"] = df.apply(_blend_trust_row, axis=1)
+    df["trust_pct"] = df.apply(_wavg_trust, axis=1)
     df["sentiment_pct"] = df["trust_pct"]
+    df["quarter_end"] = q_end
 
     keep = ["ticker","quarter_end","trust_pct","sentiment_pct",
             "p_event_calm","p_baseline_calm","p_media_tone",
             "event_calm_raw","baseline_calm_raw","media_tone_raw",
             "media_tone_src","media_tone_n","event_count"]
-    return df[keep].sort_values(["quarter_end","ticker"]).reset_index(drop=True)
+    return df[keep].sort_values(["ticker"]).reset_index(drop=True)
 
-from irci.media_store import load_news
-from irci.config import Settings
-import pandas as pd
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-def _requests_session():
-    sess = requests.Session()
-    retry = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
-    sess.mount("https://", HTTPAdapter(max_retries=retry))
-    return sess
 
-s = Settings.load()
-as_of = "2025-09-30"
-ts = pd.to_datetime(as_of, utc=True)
-p = ts.tz_convert("UTC").tz_localize(None).to_period("Q")
-q_start, q_end = p.start_time.tz_localize("UTC"), p.end_time.tz_localize("UTC")
-
-# build one combined news_df for multiple tickers
-news_list = []
-for t in ["AAPL","MSFT"]:
-    raw = load_news(t, q_start, q_end, s.data_root)  # columns: published_at, url, domain, lang, headline
-    if raw is not None and not raw.empty:
-        tmp = raw.rename(columns={"published_at":"date", "headline":"title"}).copy()
-        tmp["ticker"] = t
-        news_list.append(tmp)
-news_df = pd.concat(news_list, ignore_index=True) if news_list else None
-
-if __name__ == "__main__":
-    from irci.media_store import load_news
-
-    s = Settings.load()
-    as_of = "2025-09-30"
-    ts = pd.to_datetime(as_of, utc=True)
-    p = ts.tz_convert("UTC").tz_localize(None).to_period("Q")
-    q_start, q_end = p.start_time.tz_localize("UTC"), p.end_time.tz_localize("UTC")
-
-    # Build combined news_df (published_at→date, headline→title)
-    news_list = []
-    for t in ["AAPL", "MSFT"]:
-        raw = load_news(t, q_start, q_end, s.data_root)  # published_at, url, domain, lang, headline
-        if raw is not None and not raw.empty:
-            tmp = raw.rename(columns={"published_at": "date", "headline": "title"}).copy()
-            tmp["ticker"] = t
-            news_list.append(tmp)
-    news_df = pd.concat(news_list, ignore_index=True) if news_list else None
-
-    df_trust = trust_snapshot(["AAPL", "MSFT"], as_of=as_of, news_df=news_df)
-    print(df_trust[[
-        "ticker","quarter_end","trust_pct","p_event_calm","p_baseline_calm","p_media_tone",
-        "event_calm_raw","baseline_calm_raw","media_tone_raw","media_tone_src","media_tone_n","event_count"
-    ]].tail().to_string(index=False))
+# DISABLE_DEMO: # build one combined news_df for multiple tickers
+# DISABLE_DEMO: news_list = []
+# DISABLE_DEMO: for t in ["AAPL","MSFT"]:
+# DISABLE_DEMO:     raw = load_news(t, q_start, q_end, s.data_root)  # columns: published_at, url, domain, lang, headline
+# DISABLE_DEMO:     if raw is not None and not raw.empty:
+# DISABLE_DEMO:         tmp = raw.rename(columns={"published_at":"date", "headline":"title"}).copy()
+# DISABLE_DEMO:         tmp["ticker"] = t
+# DISABLE_DEMO:         news_list.append(tmp)
+# DISABLE_DEMO: news_df = pd.concat(news_list, ignore_index=True) if news_list else None
+# DISABLE_DEMO: 
+# DISABLE_DEMO: if __name__ == "__main__":
+# DISABLE_DEMO:     from irci.media_store import load_news
+# DISABLE_DEMO: 
+# DISABLE_DEMO: 
+# DISABLE_DEMO:     # Build combined news_df (published_at→date, headline→title)
+# DISABLE_DEMO:     news_list = []
+# DISABLE_DEMO:     for t in ["AAPL", "MSFT"]:
+# DISABLE_DEMO:         raw = load_news(t, q_start, q_end, s.data_root)  # published_at, url, domain, lang, headline
+# DISABLE_DEMO:         if raw is not None and not raw.empty:
+# DISABLE_DEMO:             tmp = raw.rename(columns={"published_at": "date", "headline": "title"}).copy()
+# DISABLE_DEMO:             tmp["ticker"] = t
+# DISABLE_DEMO:             news_list.append(tmp)
+# DISABLE_DEMO:     news_df = pd.concat(news_list, ignore_index=True) if news_list else None
+# DISABLE_DEMO: 
+# DISABLE_DEMO:     df_trust = trust_snapshot(["AAPL", "MSFT"], as_of=as_of, news_df=news_df)
+# DISABLE_DEMO:     print(df_trust[[
+# DISABLE_DEMO:         "ticker","quarter_end","trust_pct","p_event_calm","p_baseline_calm","p_media_tone",
+# DISABLE_DEMO:         "event_calm_raw","baseline_calm_raw","media_tone_raw","media_tone_src","media_tone_n","event_count"
+# DISABLE_DEMO:     ]].tail().to_string(index=False))

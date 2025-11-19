@@ -14,7 +14,6 @@ log = get_logger("irci.coverage")
 # --------------------------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------------------------
-
 def _headers(s: Settings) -> dict:
     return {"User-Agent": s.user_agent, "Accept-Encoding": "gzip"}
 
@@ -108,7 +107,6 @@ def _pct_rank(series: pd.Series, *, higher_is_better: bool, neutral: float = 50.
     return out.fillna(neutral)
 
 # ---------- Media visibility helpers (optional input to Coverage) ----------
-
 def _domain_weights(s: Settings) -> Dict[str, float]:
     """
     Map of domain -> credibility/reach weight in [0.25, 1.0].
@@ -194,7 +192,6 @@ def _media_visibility(
 # --------------------------------------------------------------------------------------
 # Public API
 # --------------------------------------------------------------------------------------
-
 def coverage_snapshot(
     symbols: List[str],
     as_of: str | None = None,
@@ -271,7 +268,6 @@ def coverage_snapshot(
         media_metrics = _media_visibility(sym, q_start, q_end, s,
     media_fetcher=media_fetcher, persist_media=persist_media)
 
-
         row = {
             "ticker": sym,
             "as_of": q_end,               # use quarter end as the as_of for this dial
@@ -325,7 +321,6 @@ def coverage_snapshot(
 
     cov = cov[base_cols + media_cols + debug_cols].sort_values(["as_of_bucket", "ticker"]).reset_index(drop=True)
     return cov
-
 
 if __name__ == "__main__":
     from irci.media_fetchers.github_csv import github_csv_media_fetcher

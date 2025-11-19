@@ -56,21 +56,33 @@ def _download_ff_daily() -> pd.DataFrame:
 
     return df[["Mkt_RF", "SMB", "HML", "RMW", "CMA", "RF"]]
 
-def load_ff_factors_daily(start: str | None = None, end: str | None = None, cache: bool = True) -> pd.DataFrame:
-    """Load daily Fama-French 5 factors; caches under data/ff_5f_daily.parquet."""
-    s = Settings.load()
-    path = s.data_dir / "ff_5f_daily.parquet"
-    if cache and path.exists():
+# irci/ff.py
+
+def load_ff_factors_daily(s, *, start=None, end=None, cache=True):
+    s = s or Settings.load()
+    path = s.data_root / "ff_5f_daily.parquet"
+    if path.exists():
         df = pd.read_parquet(path)
     else:
-        df = _download_ff_daily()
+        df = download_ff_5f_daily()  # whatever you already do
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            df.to_parquet(path)
+            if cache:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                df.to_parquet(path)
         except Exception as e:
             log.warning("Could not cache FF factors: %s", e)
-    if start:
-        df = df[df.index >= pd.Timestamp(start, tz="UTC")]
-    if end:
-        df = df[df.index <= pd.Timestamp(end, tz="UTC")]
+
+    # --- SAFE TZ COERCION ---
+    def _to_utc(ts):
+        t = pd.Timestamp(ts)
+        return t.tz_localize("UTC") if t.tzinfo is None else t.tz_convert("UTC")
+
+    if start is not None:
+        s_utc = _to_utc(start)
+        df = df[df.index >= s_utc]
+    if end is not None:
+        e_utc = _to_utc(end)
+        df = df[df.index <= e_utc]
+
     return df
+
