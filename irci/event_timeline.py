@@ -336,28 +336,31 @@ def calculate_event_irci_impact(
     if event_type == 'news':
         # News impacts trust dial (sentiment_pct)
         # Individual articles have VERY small impact - aggregate quarterly sentiment matters more
-        # A single article might contribute 0.1-0.5% to the trust dial
+        # A single article might contribute 0.01-0.1% to the trust dial (not 0.5%)
+        # The trust dial aggregates 50-100+ articles per quarter, so each article is ~1-2% of the total
         if sentiment_score is not None:
             trust_weight = weights.get('sentiment', 0.15)  # Use configured trust/sentiment weight
-            # Conservative: single article contributes ~0.5% max to trust dial
-            # sentiment_score ranges -1 to +1, so scale to max 0.5 dial points
-            dial_impact = sentiment_score * 0.5  # -0.5 to +0.5 points on trust dial
+            # VERY Conservative: single article contributes ~0.05% max to trust dial
+            # sentiment_score ranges -1 to +1, scale to 0.0005 dial points (0.05%)
+            # This reflects that a single article is ~1/100th of quarterly coverage
+            dial_impact = sentiment_score * 0.0005  # -0.0005 to +0.0005 points on trust dial
             impact['irci_impact'] = dial_impact * trust_weight
             impact['affected_dials'] = ['Trust']
-            impact['confidence'] = 0.1  # Very low confidence - individual news is weak signal
+            impact['confidence'] = 0.05  # Very low confidence - individual news is weak signal
 
     elif event_type in ['8-K', '10-Q', '10-K']:
         # Filings positively impact coverage dial
         # Individual filings contribute to quarterly coverage metrics
-        # A single filing might contribute 0.5-1% to coverage dial
+        # A single filing might contribute 0.01-0.1% to coverage dial
+        # Coverage is measured by aggregate filing activity, not individual filings
         coverage_weight = weights.get('coverage', 0.15)  # Use configured coverage weight
         if event_type == '8-K':
-            dial_impact = 0.3  # Small positive contribution
+            dial_impact = 0.001  # Small positive contribution (0.1%)
         else:  # 10-Q or 10-K
-            dial_impact = 0.8  # Larger contribution for major filings
+            dial_impact = 0.003  # Larger contribution for major filings (0.3%)
         impact['irci_impact'] = dial_impact * coverage_weight
         impact['affected_dials'] = ['Coverage']
-        impact['confidence'] = 0.3  # Moderate confidence - filings are measured in aggregate
+        impact['confidence'] = 0.1  # Low confidence - filings are measured in aggregate
 
     elif event_type == 'ev_change':
         # Direct impact on valuation
