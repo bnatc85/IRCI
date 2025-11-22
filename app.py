@@ -2179,8 +2179,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 st.dataframe(
                     display_timeline.style.format({
                         'IRCI Impact': '{:+.2f}',
-                        '$ Impact': '${:+,.0f}',
-                        'Confidence': '{:.0%}'
+                        '$ Impact': '${:+,.0f}'
                     }),
                     use_container_width=True,
                     hide_index=True
@@ -2252,14 +2251,18 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                                 actual_trust_score = ticker_trust['trust_pct'].iloc[0] if 'trust_pct' in ticker_trust.columns else None
                                 media_tone = ticker_trust['media_tone'].iloc[0] if 'media_tone' in ticker_trust.columns else None
 
+                                # Format values, handling None
+                                trust_score_str = f"{actual_trust_score:.1f}%" if actual_trust_score is not None else "N/A"
+                                media_tone_str = f"{media_tone:.1f}%" if media_tone is not None else "N/A"
+
                                 st.markdown(f"""
                                 **Actual Data for {selected_timeline_ticker} This Quarter:**
 
                                 - **Total News Articles**: {total_news}
                                 - **Average Sentiment**: {avg_sentiment:+.2f}
                                 - **Sum of Individual Impacts**: {total_individual_impact:+.2f} IRCI points
-                                - **Actual Trust Dial Score**: {actual_trust_score:.1f}% (measured from all factors)
-                                - **Media Tone Component**: {media_tone:.1f}% (one of several Trust inputs)
+                                - **Actual Trust Dial Score**: {trust_score_str} (measured from all factors)
+                                - **Media Tone Component**: {media_tone_str} (one of several Trust inputs)
 
                                 **📌 Key Insight:**
                                 The Trust dial is NOT just the sum of individual news impacts. It's computed from:
