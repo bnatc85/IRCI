@@ -253,12 +253,16 @@ def generate_pdf_report(
     pdf.body_text(
         f"Liquidity Percentile: {liquidity_score:.1f}% (within peer group)"
     )
+
+    pdf.body_text("\nLiquidity Dial Components:")
     if avg_volume:
-        pdf.body_text(f"Average Daily Volume: {avg_volume:,.0f} shares")
+        pdf.body_text(f"* Average Daily Volume: {avg_volume:,.0f} shares\n  (Higher volume = easier to trade large blocks)")
     if avg_spread:
-        pdf.body_text(f"Average Bid-Ask Spread: {avg_spread:.3f}%")
+        pdf.body_text(f"* Average Bid-Ask Spread: {avg_spread:.3f}%\n  (Narrower spreads = lower transaction costs)")
     if avg_volatility:
-        pdf.body_text(f"Average Volatility: {avg_volatility:.2f}%")
+        pdf.body_text(f"* Average Volatility: {avg_volatility:.2f}%\n  (Lower volatility = more predictable pricing)")
+
+    pdf.body_text("\nThese metrics are combined and percentile-ranked against peers to create the Liquidity dial score.")
 
     # Coverage
     pdf.section_title('Coverage Dial ({:.1f}%)'.format(coverage_score))
@@ -271,12 +275,16 @@ def generate_pdf_report(
     pdf.body_text(
         f"Coverage Percentile: {coverage_score:.1f}% (within peer group)"
     )
+
+    pdf.body_text("\nCoverage Dial Components:")
     if total_weighted:
-        pdf.body_text(f"Weighted Media Coverage: {total_weighted:.1f} articles")
+        pdf.body_text(f"* Weighted Media Coverage: {total_weighted:.1f} articles\n  (Quality sources like WSJ/Bloomberg weighted higher)")
     if total_filings:
-        pdf.body_text(f"SEC Filings This Quarter: {int(total_filings)}")
+        pdf.body_text(f"* SEC Filings This Quarter: {int(total_filings)}\n  (8-Ks, 10-Qs, 10-Ks demonstrate transparency)")
     if media_score:
-        pdf.body_text(f"Media Score: {media_score:.1f}")
+        pdf.body_text(f"* Media Score: {media_score:.1f}\n  (Combined metric of article count and source quality)")
+
+    pdf.body_text("\nThe Coverage dial rewards both quantity and quality of media attention, plus regulatory disclosure frequency.")
 
     # Trust
     pdf.section_title('Trust Dial ({:.1f}%)'.format(trust_score))
@@ -295,8 +303,22 @@ def generate_pdf_report(
     pdf.body_text(
         f"Trust Percentile: {trust_score:.1f}% (within peer group)"
     )
+
+    pdf.body_text("\nTrust Dial Components:")
     if media_tone is not None:
-        pdf.body_text(f"Media Tone Score: {media_tone:.1f}%\nSentiment: {sentiment_label}")
+        pdf.body_text(
+            f"* Media Tone Score: {media_tone:.1f}%\n"
+            f"  Sentiment Classification: {sentiment_label}\n"
+            f"  (Aggregate sentiment from all news articles using FinBERT AI)"
+        )
+
+    pdf.body_text(
+        f"* Sentiment Consistency: Measures volatility in media tone over time\n"
+        f"* Source Credibility: Weighted by reputation of news outlets\n"
+        f"* Disclosure Quality: Timeliness and clarity of SEC filings"
+    )
+
+    pdf.body_text("\nThe Trust dial reflects market perception of management credibility and transparency based on media sentiment and disclosure patterns.")
 
     # MEDIA SENTIMENT ANALYSIS (NEW SECTION)
     if news_df is not None and not news_df.empty and 'sentiment_score' in news_df.columns:
@@ -346,7 +368,7 @@ def generate_pdf_report(
                     pdf.safe_multi_cell(0, 5, f"[{date_str}] {headline}")
                     pdf.set_font('Arial', 'I', 8)
                     pdf.safe_multi_cell(0, 4, f"Source: {source}")
-                    pdf.cell(0, 4, f"Sentiment: +{sentiment:.3f}", 0, 1)
+                    pdf.safe_multi_cell(0, 4, f"Sentiment: +{sentiment:.3f}")
                     pdf.ln(2)
             else:
                 pdf.body_text("No strongly positive news articles found in this period.")
@@ -374,7 +396,7 @@ def generate_pdf_report(
                     pdf.safe_multi_cell(0, 5, f"[{date_str}] {headline}")
                     pdf.set_font('Arial', 'I', 8)
                     pdf.safe_multi_cell(0, 4, f"Source: {source}")
-                    pdf.cell(0, 4, f"Sentiment: {sentiment:.3f}", 0, 1)
+                    pdf.safe_multi_cell(0, 4, f"Sentiment: {sentiment:.3f}")
                     pdf.ln(2)
             else:
                 pdf.body_text("No strongly negative news articles found in this period.")
@@ -445,6 +467,13 @@ def generate_pdf_report(
     high_priority = [r for r in playbook['recommendations'] if r['priority'] == 'high']
     if high_priority:
         pdf.section_title('High Priority Actions')
+        pdf.body_text(
+            "HIGH PRIORITY actions address critical weaknesses or opportunities with significant impact. "
+            "These should be actioned immediately with dedicated resources and executive sponsorship. "
+            "Expect to see measurable improvements within 1-2 quarters."
+        )
+        pdf.ln(2)
+
         for i, rec in enumerate(high_priority, 1):
             pdf.set_font('Arial', 'B', 10)
             # Use safe_multi_cell for wrapping long titles
@@ -461,6 +490,13 @@ def generate_pdf_report(
     if medium_priority:
         pdf.add_page()
         pdf.section_title('Medium Priority Actions')
+        pdf.body_text(
+            "MEDIUM PRIORITY actions improve performance in areas where you're meeting baseline standards "
+            "but have room for optimization. These should be planned into your quarterly IR roadmap. "
+            "Focus here after addressing high-priority items."
+        )
+        pdf.ln(2)
+
         for i, rec in enumerate(medium_priority, 1):
             pdf.set_font('Arial', 'B', 10)
             # Use safe_multi_cell for wrapping long titles
@@ -476,6 +512,13 @@ def generate_pdf_report(
     if playbook['quick_wins']:
         pdf.add_page()
         pdf.section_title('Quick Wins Summary')
+        pdf.body_text(
+            f"QUICK WINS are actions that can be implemented quickly (within 1-2 weeks) with minimal resources "
+            f"but deliver immediate visible impact. These are ideal for building momentum and demonstrating progress "
+            f"while longer-term initiatives are underway."
+        )
+        pdf.ln(2)
+
         pdf.body_text(f"Identified {len(playbook['quick_wins'])} quick win opportunities:")
         pdf.ln(2)
 
