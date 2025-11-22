@@ -17,6 +17,7 @@ plotly>=6.5.0
 
 # Market data and analysis
 yfinance>=0.2.0
+alpha-vantage>=2.3.1
 
 # Sentiment analysis
 transformers>=4.30.0
