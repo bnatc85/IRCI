@@ -1653,6 +1653,224 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             else:
                 st.info("Need at least 2 quarters of data per company to show QoQ changes.")
 
+            # Dial-level trend charts
+            st.markdown("---")
+            st.markdown("#### 📊 Individual Dial Trends")
+            st.caption("Track performance trends for each of the four IRCI dials")
+
+            # Check which dial columns exist
+            dial_columns = {
+                'Valuation': 'valuation_pct',
+                'Liquidity': 'liquidity_pct',
+                'Coverage': 'coverage_pct',
+                'Trust': 'sentiment_pct'
+            }
+
+            # Create 2x2 grid for the four dials
+            col1, col2 = st.columns(2)
+
+            dial_items = list(dial_columns.items())
+            for idx, (dial_name, dial_col) in enumerate(dial_items):
+                if dial_col in trend_df.columns:
+                    # Use col1 for first and third dials, col2 for second and fourth
+                    with (col1 if idx % 2 == 0 else col2):
+                        fig_dial = px.line(
+                            trend_df,
+                            x='quarter',
+                            y=dial_col,
+                            color='ticker',
+                            markers=True,
+                            title=f'{dial_name} Dial Trends',
+                            labels={dial_col: f'{dial_name} Score (%)', 'quarter': 'Quarter', 'ticker': 'Company'}
+                        )
+                        fig_dial.update_layout(
+                            height=350,
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(30,33,48,0.5)',
+                            font=dict(color='#fafafa', size=10),
+                            title_font=dict(color='#00d4ff', size=14),
+                            xaxis=dict(gridcolor='#2e3440'),
+                            yaxis=dict(gridcolor='#2e3440'),
+                            legend=dict(font=dict(size=9)),
+                            margin=dict(l=40, r=40, t=40, b=40)
+                        )
+                        st.plotly_chart(fig_dial, use_container_width=True)
+
+            # Trend forecasting
+            st.markdown("---")
+            st.markdown("#### 🔮 Trend Forecasting")
+            st.caption("Predict next quarter IRCI scores based on historical trends using linear regression")
+
+            # Only forecast if we have at least 2 quarters
+            if len(trend_df['quarter'].unique()) >= 2:
+                from sklearn.linear_model import LinearRegression
+                import numpy as np
+
+                forecast_data = []
+
+                # Get unique quarters sorted
+                quarters_sorted = sorted(trend_df['quarter'].unique())
+
+                # Create numeric quarter index (0, 1, 2, ...)
+                quarter_to_idx = {q: i for i, q in enumerate(quarters_sorted)}
+
+                # Generate next quarter name (simple increment)
+                last_quarter = quarters_sorted[-1]
+                # Parse YYYYQX format
+                year = int(last_quarter[:4])
+                q_num = int(last_quarter[-1])
+                if q_num == 4:
+                    next_quarter = f"{year+1}Q1"
+                else:
+                    next_quarter = f"{year}Q{q_num+1}"
+
+                # Forecast for each company
+                for ticker in trend_df['ticker'].unique():
+                    ticker_data = trend_df[trend_df['ticker'] == ticker].sort_values('quarter')
+
+                    if len(ticker_data) >= 2:
+                        # Prepare X (quarter indices) and y (IRCI scores)
+                        X = np.array([quarter_to_idx[q] for q in ticker_data['quarter']]).reshape(-1, 1)
+                        y = ticker_data['irci_composite_pct'].values
+
+                        # Fit linear regression
+                        model = LinearRegression()
+                        model.fit(X, y)
+
+                        # Predict next quarter (index = len(quarters_sorted))
+                        next_quarter_idx = len(quarters_sorted)
+                        predicted_score = model.predict([[next_quarter_idx]])[0]
+
+                        # Calculate confidence metrics
+                        current_score = ticker_data['irci_composite_pct'].iloc[-1]
+                        trend_direction = "📈 Improving" if model.coef_[0] > 0.5 else "📉 Declining" if model.coef_[0] < -0.5 else "➡️ Stable"
+                        trend_slope = model.coef_[0]
+
+                        # Calculate R² (goodness of fit)
+                        y_pred = model.predict(X)
+                        ss_res = np.sum((y - y_pred) ** 2)
+                        ss_tot = np.sum((y - np.mean(y)) ** 2)
+                        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+
+                        forecast_data.append({
+                            'Ticker': ticker,
+                            'Current IRCI': round(current_score, 1),
+                            f'Predicted {next_quarter}': round(predicted_score, 1),
+                            'Expected Change': round(predicted_score - current_score, 1),
+                            'Trend': trend_direction,
+                            'Trend Slope': round(trend_slope, 2),
+                            'Confidence (R²)': round(r_squared, 2)
+                        })
+
+                if forecast_data:
+                    forecast_df = pd.DataFrame(forecast_data)
+
+                    # Sort by predicted score
+                    forecast_df = forecast_df.sort_values(f'Predicted {next_quarter}', ascending=False)
+
+                    # Display forecast table
+                    st.markdown(f"##### Predicted IRCI Scores for **{next_quarter}**")
+                    st.dataframe(
+                        forecast_df.style.background_gradient(
+                            subset=[f'Predicted {next_quarter}'],
+                            cmap='RdYlGn',
+                            vmin=0,
+                            vmax=100
+                        ).background_gradient(
+                            subset=['Expected Change'],
+                            cmap='RdYlGn',
+                            vmin=-10,
+                            vmax=10
+                        ),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+
+                    # Visualization: Forecast chart
+                    st.markdown("##### Forecast Visualization")
+
+                    # Create extended data with forecasts
+                    forecast_plot_data = []
+                    for ticker in trend_df['ticker'].unique():
+                        ticker_historical = trend_df[trend_df['ticker'] == ticker].sort_values('quarter')
+
+                        # Add historical data
+                        for _, row in ticker_historical.iterrows():
+                            forecast_plot_data.append({
+                                'ticker': ticker,
+                                'quarter': row['quarter'],
+                                'score': row['irci_composite_pct'],
+                                'type': 'Historical'
+                            })
+
+                        # Add forecast
+                        ticker_forecast = forecast_df[forecast_df['Ticker'] == ticker]
+                        if not ticker_forecast.empty:
+                            forecast_plot_data.append({
+                                'ticker': ticker,
+                                'quarter': next_quarter,
+                                'score': ticker_forecast.iloc[0][f'Predicted {next_quarter}'],
+                                'type': 'Forecast'
+                            })
+
+                    forecast_plot_df = pd.DataFrame(forecast_plot_data)
+
+                    # Create line chart with historical and forecast
+                    fig_forecast = px.line(
+                        forecast_plot_df,
+                        x='quarter',
+                        y='score',
+                        color='ticker',
+                        line_dash='type',
+                        markers=True,
+                        title=f'IRCI Trends with {next_quarter} Forecast',
+                        labels={'score': 'IRCI Score (%)', 'quarter': 'Quarter', 'ticker': 'Company'}
+                    )
+                    fig_forecast.update_layout(
+                        height=500,
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(30,33,48,0.5)',
+                        font=dict(color='#fafafa'),
+                        title_font=dict(color='#00d4ff'),
+                        xaxis=dict(gridcolor='#2e3440'),
+                        yaxis=dict(gridcolor='#2e3440'),
+                        hovermode='x unified'
+                    )
+                    st.plotly_chart(fig_forecast, use_container_width=True)
+
+                    # Methodology explanation
+                    with st.expander("ℹ️ How Forecasting Works"):
+                        st.markdown("""
+                        **Forecasting Methodology:**
+
+                        1. **Linear Regression:** Fits a straight line through historical IRCI scores
+                        2. **Trend Slope:** Points per quarter change (positive = improving, negative = declining)
+                        3. **R² Confidence:** How well the trend line fits historical data
+                           - R² > 0.7: High confidence forecast
+                           - R² 0.4-0.7: Moderate confidence
+                           - R² < 0.4: Low confidence (data is noisy)
+
+                        **Interpretation:**
+                        - **Predicted Score:** Expected IRCI for next quarter if current trend continues
+                        - **Expected Change:** Difference from most recent quarter
+                        - **Trend Direction:** Overall trajectory based on slope
+
+                        **Limitations:**
+                        - Assumes linear trends (may not capture sudden changes)
+                        - Requires at least 2 quarters of data
+                        - Past performance doesn't guarantee future results
+                        - External factors (market changes, new IR initiatives) not included
+
+                        **Best Used For:**
+                        - Identifying companies on strong upward/downward trajectories
+                        - Setting realistic IR improvement targets
+                        - Planning quarterly IR initiatives
+                        """)
+                else:
+                    st.info("Unable to generate forecasts. Need at least 2 quarters of data per company.")
+            else:
+                st.info("Need at least 2 quarters of data to generate forecasts. Select more quarters and re-run analysis.")
+
     with tab1:
         # Bar chart of composite scores
         fig = px.bar(
