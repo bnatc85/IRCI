@@ -361,14 +361,17 @@ def calculate_event_irci_impact(
         # This would need time-series EV data to calculate actual change
 
     # Calculate dollar impact using company-specific $/IRCI point from regression
+    # NOTE: company_dollar_per_irci_pt should already be R²-scaled from dial_insights.py
+    # This ensures dollar estimates reflect that IR is only one factor affecting enterprise value
     if impact['irci_impact'] != 0:
         if company_dollar_per_irci_pt is not None and company_dollar_per_irci_pt > 0:
-            # Use the regression-based estimate (more accurate)
+            # Use the regression-based estimate (more accurate and R²-scaled)
             impact['dollar_impact'] = impact['irci_impact'] * company_dollar_per_irci_pt
         elif current_ev > 0:
-            # Fallback: rough estimate using current EV
+            # Fallback: rough estimate using current EV (no R² scaling available)
+            # Apply conservative 10% scaling to account for IR being one of many factors
             ev_per_irci_point = current_ev / (current_irci + 1)
-            impact['dollar_impact'] = impact['irci_impact'] * ev_per_irci_point
+            impact['dollar_impact'] = impact['irci_impact'] * ev_per_irci_point * 0.1
 
     return impact
 

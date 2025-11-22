@@ -1479,8 +1479,10 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         st.markdown("*Reveals how much enterprise value corresponds to each IRCI point improvement*")
 
         st.warning("""
-        ⚠️ **Planning Range, Not a Promise:** Dollar-per-point estimates are derived from regression analysis of peer relationships.
-        R² values indicate explanatory power (0.3-0.5 is typical for secondary factors after fundamentals).
+        ⚠️ **Planning Range, Not a Promise:** Dollar-per-point estimates are derived from regression analysis of peer relationships
+        and **automatically scaled by R²** to reflect that IR is one of many factors affecting enterprise value.
+        R² values of 0.3-0.5 are typical for secondary factors (after fundamentals). If R²=0.3, dollar estimates are reduced by 70%
+        to reflect that IR explains only 30% of enterprise value variance.
         These are **planning tools** for evaluating IR investments, not guarantees of market outcomes.
         """)
 
@@ -1498,7 +1500,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 col1.metric(
                     "Avg Company $/IRCI Point",
                     f"${avg_company_dollars_per_point:,.0f}" if not pd.isna(avg_company_dollars_per_point) else "N/A",
-                    help="Average company-specific dollar value per IRCI point (regression-based). This tells you how much enterprise value typically changes per 1-point IRCI improvement in this peer group."
+                    help="Average company-specific dollar value per IRCI point (R²-scaled). This reflects how much enterprise value typically changes per 1-point IRCI improvement, accounting for the fact that IR is one of many factors."
                 )
                 col2.metric(
                     "Regression R²",
@@ -1533,9 +1535,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 📊 **Column Definitions:**
 
                 - IRCI Score %: Current composite IRCI score (0-100, peer-relative)
-                - 🎯 Company $/IRCI Point: How much this company's enterprise value could change per 1-point IRCI improvement (regression-based estimate)
+                - 🎯 Company $/IRCI Point: **R²-scaled** estimate of enterprise value change per 1-point IRCI improvement (accounts for IR being one of many factors)
                 - Gap to Top (pts): How many IRCI points behind the top performer this company is
-                - Potential $ Upside: Estimated dollar value if this company reached the top performer's IRCI score (Gap to Top times Company $/IRCI Point)
+                - Potential $ Upside: **R²-scaled** dollar value if this company reached the top performer's IRCI score (Gap × $/Point)
                 """)
 
                 # Additional detailed metrics
@@ -1969,7 +1971,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
             if not timeline_df.empty:
                 # Create a simpler display without complex styling that causes issues
-                display_timeline = timeline_df[['date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'impact_confidence', 'affected_dials']].copy()
+                display_timeline = timeline_df[['date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'affected_dials']].copy()
 
                 # Add a color indicator column instead of row styling
                 def get_color_indicator(row):
@@ -2005,7 +2007,6 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     'description': 'Description',
                     'irci_impact': 'IRCI Impact',
                     'dollar_impact': '$ Impact',
-                    'impact_confidence': 'Confidence',
                     'affected_dials': 'Affected Dials'
                 })
 

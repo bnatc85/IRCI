@@ -83,14 +83,15 @@ def compute_dollar_value_per_irci_point(
     # Method 1: Group-level metric using spread of EV vs IRCI across peers
     # If IRCI ranges 40-80 (40 points) and EV ranges $10B-$50B ($40B)
     # Then ~$1B per IRCI point
+    # This will be scaled by R² later to reflect actual explanatory power
 
     irci_range = df['irci_composite_pct'].max() - df['irci_composite_pct'].min()
     ev_range = df['enterprise_value'].max() - df['enterprise_value'].min()
 
     if irci_range > 1.0:  # Avoid division by very small numbers
-        group_dollars_per_point = ev_range / irci_range
+        group_dollars_per_point_raw = ev_range / irci_range
     else:
-        group_dollars_per_point = 0.0
+        group_dollars_per_point_raw = 0.0
 
     # Method 2: Company-specific $/IRCI point
     # Each company gets a unique value based on their EV and position
@@ -104,7 +105,12 @@ def compute_dollar_value_per_irci_point(
         )
         # The peer group regression slope (used for reference)
         peer_regression_slope = abs(slope)
-        df['regression_r2'] = r_value ** 2
+        r_squared = r_value ** 2
+        df['regression_r2'] = r_squared
+
+        # Apply R² scaling to group dollars per point
+        # This reflects that IR is only one factor affecting enterprise value
+        group_dollars_per_point = group_dollars_per_point_raw * r_squared
 
         # Company-specific $/IRCI point calculation
         # Approach: Scale the regression slope by company's EV relative to predicted EV
@@ -119,13 +125,16 @@ def compute_dollar_value_per_irci_point(
         if irci_std > 0:
             # Sensitivity: how much EV changes per IRCI point for this company
             # Based on company's EV and the peer group's IRCI volatility
-            df['company_$/irci_pt'] = df['enterprise_value'] * (peer_regression_slope / peer_mean_ev)
+            # CRITICAL: Scale by R² to reflect actual explanatory power
+            # If R²=0.2, only 20% of EV variance is explained by IRCI
+            df['company_$/irci_pt'] = df['enterprise_value'] * (peer_regression_slope / peer_mean_ev) * r_squared
         else:
-            df['company_$/irci_pt'] = peer_regression_slope
+            df['company_$/irci_pt'] = peer_regression_slope * r_squared
 
     else:
-        # Fallback: proportional to company EV
+        # Fallback: proportional to company EV (no R² scaling available without regression)
         df['regression_r2'] = 0.0
+        group_dollars_per_point = group_dollars_per_point_raw * 0.1  # Apply conservative 10% scaling when no R² available
         # Each company's $/IRCI point proportional to their EV
         if peer_mean_ev > 0:
             df['company_$/irci_pt'] = df['enterprise_value'] * (group_dollars_per_point / peer_mean_ev)
