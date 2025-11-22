@@ -2359,16 +2359,68 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         )
 
         st.markdown("#### 📊 Coverage Details")
+
+        # Calculate high-quality article counts
+        df_cov_display = df_cov.copy()
+        news_df = st.session_state.get('news_df', None)
+
+        if news_df is not None and not news_df.empty and 'domain' in news_df.columns:
+            from irci.config import Settings
+
+            # Load domain weights
+            s = Settings.load()
+            domain_weights = s.domain_weights or {}
+
+            # Define high-quality threshold (0.8 = top tier sources)
+            HIGH_QUALITY_THRESHOLD = 0.8
+
+            # Filter news for current quarter if multi-quarter mode
+            news_for_quarter = news_df.copy()
+            if is_multi_quarter and 'quarter' in news_df.columns:
+                news_for_quarter = news_df[news_df['quarter'] == selected_quarter]
+
+            # Count high-quality articles per ticker
+            high_quality_counts = []
+            for ticker in df_cov_display['ticker']:
+                ticker_news = news_for_quarter[news_for_quarter.get('ticker', '') == ticker] if 'ticker' in news_for_quarter.columns else news_for_quarter
+
+                if not ticker_news.empty:
+                    # Normalize domains
+                    domains = ticker_news['domain'].astype(str).str.lower().str.removeprefix("www.")
+
+                    # Count articles from high-quality domains
+                    high_qual_count = sum(
+                        domain_weights.get(dom, 0.5) >= HIGH_QUALITY_THRESHOLD
+                        for dom in domains
+                    )
+                else:
+                    high_qual_count = 0
+
+                high_quality_counts.append(high_qual_count)
+
+            df_cov_display['high_quality_articles'] = high_quality_counts
+
+        # Display coverage details with high-quality article count if available
+        coverage_cols = ['ticker', 'coverage_pct', 'q_8k_count', 'q_days_to_10q']
+        coverage_rename = {
+            'ticker': 'Ticker',
+            'coverage_pct': 'Score %',
+            'q_8k_count': '8-K Count',
+            'q_days_to_10q': 'Days to 10-Q/K'
+        }
+
+        if 'high_quality_articles' in df_cov_display.columns:
+            coverage_cols.append('high_quality_articles')
+            coverage_rename['high_quality_articles'] = 'High-Quality Articles'
+
         st.dataframe(
-            df_cov[['ticker', 'coverage_pct', 'q_8k_count', 'q_days_to_10q']].rename(columns={
-                'ticker': 'Ticker',
-                'coverage_pct': 'Score %',
-                'q_8k_count': '8-K Count',
-                'q_days_to_10q': 'Days to 10-Q/K'
-            }),
+            df_cov_display[coverage_cols].rename(columns=coverage_rename),
             use_container_width=True,
             hide_index=True
         )
+
+        if 'high_quality_articles' in df_cov_display.columns:
+            st.caption("💡 **High-Quality Articles** = Articles from top-tier sources (WSJ, Bloomberg, Reuters, etc. with domain weight ≥ 0.8). These sources have higher credibility and reach.")
 
         st.markdown("#### 💭 Trust Details")
         st.dataframe(
