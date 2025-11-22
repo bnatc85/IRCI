@@ -2071,6 +2071,32 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             except Exception as e:
                 st.info(f"Note: Could not calculate $/IRCI point: {e}")
 
+            # Display the company's $/IRCI point value for transparency with example calculation
+            if company_dollar_per_irci_pt is not None:
+                # Calculate example impact for a typical positive news article
+                example_sentiment = 0.6  # Moderately positive news
+                example_dial_impact = example_sentiment * 0.5  # 0.3 Trust dial points
+                example_irci_impact = example_dial_impact * current_weights['sentiment']  # ~0.045 IRCI points
+                example_dollar_impact = example_irci_impact * company_dollar_per_irci_pt
+
+                st.info(f"""
+                💰 **{selected_timeline_ticker} Impact Calculation Parameters (R²-scaled)**:
+                - Company $/IRCI Point: **${company_dollar_per_irci_pt:,.0f}**
+                - Example: Positive news (sentiment +0.6) → +{example_irci_impact:.3f} IRCI pts → **${example_dollar_impact:,.0f}** impact
+                - Multiple events on same day will sum together in calendar view
+                """)
+
+                # Add reality check for very large values
+                if company_dollar_per_irci_pt > 500_000_000:  # $500M+
+                    st.warning(f"""
+                    ⚠️ **Large Company Note**: {selected_timeline_ticker} has a high $/IRCI point value because it's a large company.
+                    Even with R² scaling, large companies show large dollar impacts. This is mathematically correct:
+                    - Larger enterprise value → larger $/IRCI point
+                    - Many events on one day → impacts sum up
+                    - Focus on IRCI point impacts (which are always small: ~0.05-0.15 per event)
+                    - Dollar values are planning ranges - actual IR impact is one of many factors
+                    """)
+
             # Aggregate timeline events
             timeline_df = aggregate_timeline_events(
                 ticker=selected_timeline_ticker,
@@ -2127,6 +2153,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     use_container_width=True,
                     hide_index=True
                 )
+
+                st.caption("""
+                📊 **Calendar Note**: Each row shows the SUM of all events on that day.
+                - If 20 news articles occur on one day, their impacts are added together
+                - Individual events have small impacts (~0.05-0.15 IRCI points each)
+                - For large companies, multiple events × large $/IRCI point = large daily total
+                - This is mathematically correct but shows why aggregate quarterly analysis matters more
+                """)
             else:
                 st.info("No events found for this period. Try uploading news data or check the date range.")
 
