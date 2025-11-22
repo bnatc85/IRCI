@@ -345,7 +345,8 @@ def generate_pdf_report(
                     pdf.set_font('Arial', 'B', 9)
                     pdf.safe_multi_cell(0, 5, f"[{date_str}] {headline}")
                     pdf.set_font('Arial', 'I', 8)
-                    pdf.cell(0, 4, f"Source: {source} | Sentiment: +{sentiment:.3f}", 0, 1)
+                    pdf.safe_multi_cell(0, 4, f"Source: {source}")
+                    pdf.cell(0, 4, f"Sentiment: +{sentiment:.3f}", 0, 1)
                     pdf.ln(2)
             else:
                 pdf.body_text("No strongly positive news articles found in this period.")
@@ -372,7 +373,8 @@ def generate_pdf_report(
                     pdf.set_font('Arial', 'B', 9)
                     pdf.safe_multi_cell(0, 5, f"[{date_str}] {headline}")
                     pdf.set_font('Arial', 'I', 8)
-                    pdf.cell(0, 4, f"Source: {source} | Sentiment: {sentiment:.3f}", 0, 1)
+                    pdf.safe_multi_cell(0, 4, f"Source: {source}")
+                    pdf.cell(0, 4, f"Sentiment: {sentiment:.3f}", 0, 1)
                     pdf.ln(2)
             else:
                 pdf.body_text("No strongly negative news articles found in this period.")
@@ -387,7 +389,7 @@ def generate_pdf_report(
                         count = int(row['count'])
                         avg_sent = row['mean']
                         pdf.set_font('Arial', '', 9)
-                        pdf.cell(0, 5, f"{source}: {count} articles, avg sentiment {avg_sent:+.3f}", 0, 1)
+                        pdf.safe_multi_cell(0, 5, f"{source}: {count} articles, avg sentiment {avg_sent:+.3f}")
 
     pdf.add_page()
 
@@ -451,7 +453,7 @@ def generate_pdf_report(
             pdf.safe_multi_cell(0, 5, rec['description'])
             if rec.get('quick_win'):
                 pdf.set_font('Arial', 'I', 8)
-                pdf.cell(0, 4, '   Quick Win', 0, 1)
+                pdf.safe_multi_cell(0, 4, '[Quick Win]')
             pdf.ln(2)
 
     # Medium priority recommendations
@@ -467,7 +469,7 @@ def generate_pdf_report(
             pdf.safe_multi_cell(0, 5, rec['description'])
             if rec.get('quick_win'):
                 pdf.set_font('Arial', 'I', 8)
-                pdf.cell(0, 4, '   Quick Win', 0, 1)
+                pdf.safe_multi_cell(0, 4, '[Quick Win]')
             pdf.ln(2)
 
     # Quick Wins summary
