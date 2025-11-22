@@ -28,6 +28,7 @@ from irci.media_fetchers.fmp_news import fmp_news_media_fetcher
 from irci.media_fetchers.alpha_vantage_news import alpha_vantage_news_fetcher
 from irci.media_fetchers.worldnews_api import worldnews_api_fetcher
 from irci.media_fetchers.newsapi_fetcher import newsapi_fetcher
+from irci.media_fetchers.finnhub_fetcher import finnhub_fetcher
 from irci.peers import find_peers_simple
 from irci.playbook import generate_playbook
 from irci.chatbot import chat_with_context, get_suggested_questions
@@ -1211,6 +1212,25 @@ elif run_analysis:
                         error_msg = f"NewsAPI.org: {str(e)}"
                         ticker_errors.append(error_msg)
                         print(f"NewsAPI.org news fetch failed for {ticker}: {e}")
+
+                # If all previous sources failed, try Finnhub.io
+                if not ticker_got_news:
+                    try:
+                        status_text.text(f"Fetching news for {ticker} from Finnhub.io...")
+                        ticker_news = finnhub_fetcher(ticker, q_start, q_end, s)
+                        if not ticker_news.empty:
+                            ticker_news['ticker'] = ticker
+                            news_list.append(ticker_news)
+                            news_counts[ticker] = len(ticker_news)
+                            news_sources_used[ticker] = "Finnhub.io"
+                            ticker_got_news = True
+                            print(f"✓ Finnhub.io returned {len(ticker_news)} articles for {ticker}")
+                        else:
+                            ticker_errors.append("Finnhub.io: No articles found")
+                    except Exception as e:
+                        error_msg = f"Finnhub.io: {str(e)}"
+                        ticker_errors.append(error_msg)
+                        print(f"Finnhub.io news fetch failed for {ticker}: {e}")
 
                 if not ticker_got_news:
                     news_counts[ticker] = 0
