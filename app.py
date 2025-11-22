@@ -1677,18 +1677,19 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         **Adjust the factor based on your judgment:**
                         """)
 
-                        quarterly_impact_factor = st.slider(
+                        quarterly_impact_factor_pct = st.slider(
                             "Quarterly Impact Factor",
-                            min_value=0.01,
-                            max_value=1.0,
-                            value=0.10,
-                            step=0.01,
-                            format="%.0f%%",
+                            min_value=1,
+                            max_value=100,
+                            value=10,
+                            step=1,
+                            format="%d%%",
                             help="What percentage of the structural $/IRCI value applies to quarterly changes? Default 10% is conservative."
                         )
+                        quarterly_impact_factor = quarterly_impact_factor_pct / 100.0
 
                         st.caption(f"""
-                        **Current setting: {quarterly_impact_factor:.0%}**
+                        **Current setting: {quarterly_impact_factor_pct}%**
                         - 1-5%: Very conservative (assumes minimal quarterly impact)
                         - 10%: Default/conservative (literature-backed)
                         - 15-25%: Moderate (assumes stronger quarterly effects)
@@ -1728,6 +1729,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     ticker = row['ticker']
                     irci_score = row['irci_composite_pct']
                     dollar_per_pt = row['company_$/irci_pt']
+                    enterprise_value = row['enterprise_value']
 
                     if has_prev_data:
                         # Use quarter-over-quarter change
@@ -1752,6 +1754,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                                 'irci_change': irci_change,
                                 'dollar_per_pt': dollar_per_pt,
                                 'ir_value_contribution': ir_value_contribution,
+                                'enterprise_value': enterprise_value,
                                 'comparison_type': 'qoq'
                             })
                         else:
@@ -1766,6 +1769,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                                 'irci_gap_from_avg': irci_gap_from_avg,
                                 'dollar_per_pt': dollar_per_pt,
                                 'ir_value_contribution': ir_value_contribution,
+                                'enterprise_value': enterprise_value,
                                 'comparison_type': 'peer_avg'
                             })
                     else:
@@ -1780,6 +1784,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                             'irci_gap_from_avg': irci_gap_from_avg,
                             'dollar_per_pt': dollar_per_pt,
                             'ir_value_contribution': ir_value_contribution,
+                            'enterprise_value': enterprise_value,
                             'comparison_type': 'peer_avg'
                         })
 
@@ -1793,16 +1798,26 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         delta_color = "normal" if company['ir_value_contribution'] >= 0 else "inverse"
 
                         # Create delta text and help based on comparison type
+                        pct_of_ev = abs(company['ir_value_contribution'] / company['enterprise_value'] * 100) if company['enterprise_value'] > 0 else 0
+
                         if company.get('comparison_type') == 'qoq':
                             delta_text = f"{company['irci_change']:+.1f} pts vs {previous_quarter}"
-                            help_text = f"Change: {company['irci_change']:+.1f} pts ({company['prev_irci_score']:.1f}→{company['irci_score']:.1f}) × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f}"
+                            help_text = f"Change: {company['irci_change']:+.1f} pts ({company['prev_irci_score']:.1f}→{company['irci_score']:.1f}) × $/IRCI: ${company['dollar_per_pt']:,.0f} × {quarterly_impact_factor_pct}% factor = ${company['ir_value_contribution']:,.0f} ({pct_of_ev:.2f}% of EV)"
                         else:
                             delta_text = f"{company['irci_gap_from_avg']:+.1f} pts vs avg"
-                            help_text = f"Gap from avg: {company['irci_gap_from_avg']:+.1f} pts × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f}"
+                            help_text = f"**Structural positioning gap** (not quarterly contribution): {company['irci_gap_from_avg']:+.1f} pts × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f} ({pct_of_ev:.2f}% of EV)\n\nThis shows your IR position relative to peers, capped at realistic percentages."
+
+                        # Create metric label with percentage for "vs avg" case
+                        if company.get('comparison_type') == 'peer_avg':
+                            metric_label = f"{company['ticker']} IR Position Gap"
+                            metric_value = f"${company['ir_value_contribution']:,.0f}\n({pct_of_ev:.2f}% of EV)"
+                        else:
+                            metric_label = f"{company['ticker']} IR Contribution"
+                            metric_value = f"${company['ir_value_contribution']:,.0f}"
 
                         st.metric(
-                            f"{company['ticker']} IR Contribution",
-                            f"${company['ir_value_contribution']:,.0f}",
+                            metric_label,
+                            metric_value,
                             delta=delta_text,
                             delta_color=delta_color,
                             help=help_text
@@ -1837,13 +1852,18 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     st.caption(f"""
                     📊 **Peer Average IRCI:** {peer_avg_irci:.1f} points
 
-                    💡 **To see quarterly improvement:** Run analysis for {previous_quarter if previous_quarter else 'previous quarter'} first,
-                    then run for {selected_quarter}. The system will then show quarter-over-quarter change.
+                    ⚠️ **IMPORTANT:** These values show **structural positioning gaps** relative to peers, NOT quarterly contributions.
+                    - Values are capped at **max 1% of EV per IRCI point** (scaled by R²) based on academic research
+                    - Example: $43B gap for $3.9T company MSFT = 1.1% of EV (realistic structural positioning difference)
+                    - This represents long-term IR quality differences built over years, not quarterly achievements
 
-                    **Current view (vs peer average):**
-                    - If you scored 65 IRCI and peer average is 50 → You're +15 points above average
-                    - +15 points × $150M/point = **+$2.25B** (your IR outperformed peers)
-                    - This shows positioning, not quarterly improvement
+                    💡 **To see quarterly contributions:** Run analysis for {previous_quarter if previous_quarter else 'previous quarter'} first,
+                    then run for {selected_quarter}. The system will automatically calculate quarter-over-quarter changes.
+
+                    **Understanding these numbers:**
+                    - **Positive values:** Your IR positioning is above peer average (structural advantage)
+                    - **Negative values:** Your IR positioning is below peer average (improvement opportunity)
+                    - **As % of EV:** Shows the gap is capped at realistic academic bounds (5-15% of firm value over long term)
                     """)
 
                 # Academic methodology and references
