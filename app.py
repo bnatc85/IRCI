@@ -615,11 +615,41 @@ if st.session_state.get('optimize_weights', False):
                             )
             rec_weights = weight_analysis['recommended_weights']
 
+            # Debug: show what recommend_optimal_weights returned
+            print(f"DEBUG: Recommended weights from optimizer:")
+            print(f"  valuation: {rec_weights['valuation']:.4f} ({rec_weights['valuation']*100:.1f}%)")
+            print(f"  liquidity: {rec_weights['liquidity']:.4f} ({rec_weights['liquidity']*100:.1f}%)")
+            print(f"  coverage: {rec_weights['coverage']:.4f} ({rec_weights['coverage']*100:.1f}%)")
+            print(f"  sentiment: {rec_weights['sentiment']:.4f} ({rec_weights['sentiment']*100:.1f}%)")
+            print(f"  sum: {sum(rec_weights.values()):.4f}")
+
+            # Convert to percentages and ensure they sum to exactly 100
+            val_pct = rec_weights['valuation'] * 100
+            liq_pct = rec_weights['liquidity'] * 100
+            cov_pct = rec_weights['coverage'] * 100
+            tru_pct = rec_weights['sentiment'] * 100
+
+            # Check if they sum to 100, if not normalize
+            total = val_pct + liq_pct + cov_pct + tru_pct
+            if abs(total - 100.0) > 0.1:
+                print(f"DEBUG: Weights don't sum to 100 ({total:.2f}), normalizing...")
+                val_pct = (val_pct / total) * 100
+                liq_pct = (liq_pct / total) * 100
+                cov_pct = (cov_pct / total) * 100
+                tru_pct = (tru_pct / total) * 100
+
             # Update session state with optimized weights (round to 1 decimal place)
-            st.session_state.weight_valuation = round(rec_weights['valuation'] * 100, 1)
-            st.session_state.weight_liquidity = round(rec_weights['liquidity'] * 100, 1)
-            st.session_state.weight_coverage = round(rec_weights['coverage'] * 100, 1)
-            st.session_state.weight_trust = round(rec_weights['sentiment'] * 100, 1)
+            st.session_state.weight_valuation = round(val_pct, 1)
+            st.session_state.weight_liquidity = round(liq_pct, 1)
+            st.session_state.weight_coverage = round(cov_pct, 1)
+            st.session_state.weight_trust = round(tru_pct, 1)
+
+            print(f"DEBUG: Set session state weights:")
+            print(f"  weight_valuation: {st.session_state.weight_valuation}")
+            print(f"  weight_liquidity: {st.session_state.weight_liquidity}")
+            print(f"  weight_coverage: {st.session_state.weight_coverage}")
+            print(f"  weight_trust: {st.session_state.weight_trust}")
+
             st.session_state.optimize_weights = False
             st.session_state.weights_just_optimized = True  # Flag to show message after rerun
 
@@ -639,15 +669,24 @@ if st.session_state.get('optimize_weights', False):
 
 # Show success message after weights were optimized
 if st.session_state.get('weights_just_optimized', False):
-    msg = "✓ **Weights Auto-Optimized!** The sliders above have been updated to maximize EV ~ IRCI correlation.\n\n"
-    msg += f"**New Weights:** Valuation {st.session_state.weight_valuation:.1f}%, "
-    msg += f"Liquidity {st.session_state.weight_liquidity:.1f}%, "
-    msg += f"Coverage {st.session_state.weight_coverage:.1f}%, "
-    msg += f"Trust {st.session_state.weight_trust:.1f}%"
+    # Verify weights sum to 100
+    total = st.session_state.weight_valuation + st.session_state.weight_liquidity + st.session_state.weight_coverage + st.session_state.weight_trust
+
+    msg = "✓ **Weights Auto-Optimized!** The input fields above have been updated to maximize EV ~ IRCI correlation.\n\n"
+    msg += f"**New Weights (sum = {total:.1f}%):**\n"
+    msg += f"- Valuation: {st.session_state.weight_valuation:.1f}%\n"
+    msg += f"- Liquidity: {st.session_state.weight_liquidity:.1f}%\n"
+    msg += f"- Coverage: {st.session_state.weight_coverage:.1f}%\n"
+    msg += f"- Trust: {st.session_state.weight_trust:.1f}%"
     if 'optimized_r2' in st.session_state:
         msg += f"\n\n**Achieved R²:** {st.session_state.optimized_r2:.3f}"
     msg += "\n\n📊 Click **'Run Analysis'** below to see results with these optimized weights."
-    st.success(msg)
+
+    if abs(total - 100.0) > 0.5:
+        st.warning(f"⚠️ {msg}\n\n**Note:** Weights sum to {total:.1f}% (not 100%). They will be normalized when running analysis.")
+    else:
+        st.success(msg)
+
     st.session_state.weights_just_optimized = False
 
 # Main content area - show results if they exist in session state
