@@ -26,6 +26,7 @@ from irci.market import fetch_prices_fmp
 from irci.composite import irci_composite
 from irci.media_fetchers.fmp_news import fmp_news_media_fetcher
 from irci.media_fetchers.alpha_vantage_news import alpha_vantage_news_fetcher
+from irci.media_fetchers.worldnews_api import worldnews_api_fetcher
 from irci.peers import find_peers_simple
 
 # Page config
@@ -1047,13 +1048,13 @@ elif run_analysis:
             news_df = pd.read_csv(uploaded_news)
             st.success(f"✓ Loaded {len(news_df)} news articles from upload")
         else:
-            # Automatically fetch news for all tickers using API (FMP → Alpha Vantage fallback)
+            # Automatically fetch news for all tickers using API (FMP → World News → Alpha Vantage fallback)
             status_text.text("Fetching news articles...")
             news_list = []
             news_counts = {}
+            news_sources_used = {}  # Track which source was used for each ticker
             q_start = pd.to_datetime(start_date, utc=True)
             q_end = pd.to_datetime(end_date, utc=True)
-            news_source = None
 
             for ticker in tickers:
                 ticker_got_news = False
@@ -1064,12 +1065,25 @@ elif run_analysis:
                         ticker_news['ticker'] = ticker
                         news_list.append(ticker_news)
                         news_counts[ticker] = len(ticker_news)
-                        news_source = "FMP API"
+                        news_sources_used[ticker] = "FMP"
                         ticker_got_news = True
                 except Exception as e:
                     print(f"FMP news fetch failed for {ticker}: {e}")
 
-                # If FMP failed or returned no results, try Alpha Vantage
+                # If FMP failed or returned no results, try World News API
+                if not ticker_got_news:
+                    try:
+                        ticker_news = worldnews_api_fetcher(ticker, q_start, q_end, s)
+                        if not ticker_news.empty:
+                            ticker_news['ticker'] = ticker
+                            news_list.append(ticker_news)
+                            news_counts[ticker] = len(ticker_news)
+                            news_sources_used[ticker] = "World News API"
+                            ticker_got_news = True
+                    except Exception as e:
+                        print(f"World News API fetch failed for {ticker}: {e}")
+
+                # If both FMP and World News failed, try Alpha Vantage
                 if not ticker_got_news:
                     try:
                         ticker_news = alpha_vantage_news_fetcher(ticker, q_start, q_end, s)
@@ -1077,7 +1091,7 @@ elif run_analysis:
                             ticker_news['ticker'] = ticker
                             news_list.append(ticker_news)
                             news_counts[ticker] = len(ticker_news)
-                            news_source = "Alpha Vantage API (free tier)"
+                            news_sources_used[ticker] = "Alpha Vantage"
                             ticker_got_news = True
                     except Exception as e:
                         print(f"Alpha Vantage news fetch failed for {ticker}: {e}")
@@ -1125,9 +1139,15 @@ elif run_analysis:
                 success_tickers = [t for t, c in news_counts.items() if c > 0]
                 failed_tickers = [t for t, c in news_counts.items() if c == 0]
 
-                msg = f"✓ Fetched {len(news_df)} articles from {news_source}"
+                # Determine which sources were used
+                sources_used = list(set(news_sources_used.values()))
+                sources_str = ", ".join(sources_used) if sources_used else "API"
+
+                msg = f"✓ Fetched {len(news_df)} articles from {sources_str}"
                 if success_tickers:
-                    msg += f"\n   Success: {', '.join([f'{t} ({news_counts[t]})' for t in success_tickers])}"
+                    # Show each ticker with count and source
+                    ticker_details = [f'{t} ({news_counts[t]} from {news_sources_used.get(t, "API")})' for t in success_tickers]
+                    msg += f"\n   Success: {', '.join(ticker_details)}"
                 if failed_tickers:
                     msg += f"\n   No news: {', '.join(failed_tickers)}"
                 st.success(msg)
