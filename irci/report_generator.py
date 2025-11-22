@@ -125,7 +125,8 @@ def generate_pdf_report(
     df_coverage: pd.DataFrame,
     df_trust: pd.DataFrame,
     playbook: Dict,
-    timeline_df: Optional[pd.DataFrame] = None
+    timeline_df: Optional[pd.DataFrame] = None,
+    news_df: Optional[pd.DataFrame] = None
 ) -> bytes:
     """
     Generate a comprehensive PDF report of IRCI analysis
@@ -175,12 +176,41 @@ def generate_pdf_report(
     coverage_score = company_data.get('coverage_pct', 0)
     trust_score = company_data.get('sentiment_pct', 0)
 
+    # Calculate averages for comparison
+    avg_valuation = df_composite['valuation_pct'].mean()
+    avg_liquidity = df_composite['liquidity_pct'].mean()
+    avg_coverage = df_composite['coverage_pct'].mean()
+    avg_trust = df_composite['sentiment_pct'].mean()
+
     pdf.body_text(
-        f"Valuation:  {valuation_score:.1f}% ({classify_score(valuation_score)})\n"
-        f"Liquidity:  {liquidity_score:.1f}% ({classify_score(liquidity_score)})\n"
-        f"Coverage:   {coverage_score:.1f}% ({classify_score(coverage_score)})\n"
-        f"Trust:      {trust_score:.1f}% ({classify_score(trust_score)})"
+        f"Valuation:  {valuation_score:.1f}% ({classify_score(valuation_score)}) - Peer Avg: {avg_valuation:.1f}% ({valuation_score - avg_valuation:+.1f})\n"
+        f"Liquidity:  {liquidity_score:.1f}% ({classify_score(liquidity_score)}) - Peer Avg: {avg_liquidity:.1f}% ({liquidity_score - avg_liquidity:+.1f})\n"
+        f"Coverage:   {coverage_score:.1f}% ({classify_score(coverage_score)}) - Peer Avg: {avg_coverage:.1f}% ({coverage_score - avg_coverage:+.1f})\n"
+        f"Trust:      {trust_score:.1f}% ({classify_score(trust_score)}) - Peer Avg: {avg_trust:.1f}% ({trust_score - avg_trust:+.1f})"
     )
+
+    # Identify strengths and weaknesses
+    pdf.section_title('Key Strengths and Weaknesses')
+    dials = {
+        'Valuation': (valuation_score, avg_valuation),
+        'Liquidity': (liquidity_score, avg_liquidity),
+        'Coverage': (coverage_score, avg_coverage),
+        'Trust': (trust_score, avg_trust)
+    }
+
+    strengths = [(name, score, avg) for name, (score, avg) in dials.items() if score > avg + 10]
+    weaknesses = [(name, score, avg) for name, (score, avg) in dials.items() if score < avg - 10]
+
+    if strengths:
+        strength_text = "Strengths:\n" + "\n".join([f"* {name}: {score:.1f}% (vs peer avg {avg:.1f}%)" for name, score, avg in strengths])
+        pdf.body_text(strength_text)
+
+    if weaknesses:
+        weakness_text = "Weaknesses:\n" + "\n".join([f"* {name}: {score:.1f}% (vs peer avg {avg:.1f}%)" for name, score, avg in weaknesses])
+        pdf.body_text(weakness_text)
+
+    if not strengths and not weaknesses:
+        pdf.body_text("Performance is balanced across all dials, closely aligned with peer averages.")
 
     # Playbook summary
     pdf.section_title('Key Recommendations')
@@ -267,6 +297,97 @@ def generate_pdf_report(
     )
     if media_tone is not None:
         pdf.body_text(f"Media Tone Score: {media_tone:.1f}%\nSentiment: {sentiment_label}")
+
+    # MEDIA SENTIMENT ANALYSIS (NEW SECTION)
+    if news_df is not None and not news_df.empty and 'sentiment_score' in news_df.columns:
+        pdf.add_page()
+        pdf.chapter_title('2a. Media Sentiment Analysis')
+
+        # Filter news for this ticker
+        ticker_news = news_df[news_df['ticker'] == ticker].copy()
+
+        if not ticker_news.empty and 'sentiment_score' in ticker_news.columns:
+            # Overall sentiment stats
+            pdf.section_title('Sentiment Overview')
+            total_articles = len(ticker_news)
+            avg_sentiment = ticker_news['sentiment_score'].mean()
+            positive_count = len(ticker_news[ticker_news['sentiment_score'] > 0.1])
+            negative_count = len(ticker_news[ticker_news['sentiment_score'] < -0.1])
+            neutral_count = total_articles - positive_count - negative_count
+
+            pdf.body_text(
+                f"Total News Articles Analyzed: {total_articles}\n"
+                f"Average Sentiment Score: {avg_sentiment:+.3f}\n"
+                f"Positive Articles: {positive_count} ({positive_count/total_articles*100:.1f}%)\n"
+                f"Neutral Articles: {neutral_count} ({neutral_count/total_articles*100:.1f}%)\n"
+                f"Negative Articles: {negative_count} ({negative_count/total_articles*100:.1f}%)"
+            )
+
+            # Most Positive News
+            pdf.section_title('Most Positive News (Top 5)')
+            positive_news = ticker_news[ticker_news['sentiment_score'] > 0].sort_values(
+                'sentiment_score', ascending=False
+            ).head(5)
+
+            if not positive_news.empty:
+                for idx, article in positive_news.iterrows():
+                    headline = article.get('headline', 'No headline')[:150]
+                    sentiment = article.get('sentiment_score', 0)
+                    date = article.get('published_at', '')
+                    source = article.get('source', 'Unknown')
+
+                    # Format date if it's a timestamp
+                    if isinstance(date, pd.Timestamp):
+                        date_str = date.strftime('%Y-%m-%d')
+                    else:
+                        date_str = str(date)[:10] if date else 'N/A'
+
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.safe_multi_cell(0, 5, f"[{date_str}] {headline}")
+                    pdf.set_font('Arial', 'I', 8)
+                    pdf.cell(0, 4, f"Source: {source} | Sentiment: +{sentiment:.3f}", 0, 1)
+                    pdf.ln(2)
+            else:
+                pdf.body_text("No strongly positive news articles found in this period.")
+
+            # Most Negative News
+            pdf.section_title('Most Negative News (Top 5)')
+            negative_news = ticker_news[ticker_news['sentiment_score'] < 0].sort_values(
+                'sentiment_score', ascending=True
+            ).head(5)
+
+            if not negative_news.empty:
+                for idx, article in negative_news.iterrows():
+                    headline = article.get('headline', 'No headline')[:150]
+                    sentiment = article.get('sentiment_score', 0)
+                    date = article.get('published_at', '')
+                    source = article.get('source', 'Unknown')
+
+                    # Format date if it's a timestamp
+                    if isinstance(date, pd.Timestamp):
+                        date_str = date.strftime('%Y-%m-%d')
+                    else:
+                        date_str = str(date)[:10] if date else 'N/A'
+
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.safe_multi_cell(0, 5, f"[{date_str}] {headline}")
+                    pdf.set_font('Arial', 'I', 8)
+                    pdf.cell(0, 4, f"Source: {source} | Sentiment: {sentiment:.3f}", 0, 1)
+                    pdf.ln(2)
+            else:
+                pdf.body_text("No strongly negative news articles found in this period.")
+
+            # Sentiment by Source
+            if 'source' in ticker_news.columns:
+                pdf.section_title('Sentiment by News Source')
+                source_sentiment = ticker_news.groupby('source')['sentiment_score'].agg(['count', 'mean']).sort_values('count', ascending=False).head(10)
+
+                if not source_sentiment.empty:
+                    for source, row in source_sentiment.iterrows():
+                        count = int(row['count'])
+                        avg_sent = row['mean']
+                        pdf.set_font('Arial', '', 9)
+                        pdf.cell(0, 5, f"{source}: {count} articles, avg sentiment {avg_sent:+.3f}", 0, 1)
 
     pdf.add_page()
 
@@ -386,9 +507,88 @@ def generate_pdf_report(
             pdf.cell(0, 4, f"IRCI Impact: {irci_impact:+.3f} points", 0, 1)
             pdf.ln(2)
 
-    # 6. METHODOLOGY
+    # 6. DETAILED METRICS BREAKDOWN
     pdf.add_page()
-    pdf.chapter_title('6. Methodology & Calculations')
+    pdf.chapter_title('6. Detailed Metrics & Statistics')
+
+    # Enterprise Value and Financial Metrics
+    pdf.section_title('Financial Metrics')
+    if 'enterprise_value' in company_data.index and pd.notna(company_data['enterprise_value']):
+        ev = company_data['enterprise_value']
+        pdf.body_text(f"Enterprise Value: ${ev/1e9:.2f} billion")
+
+        # Show percentile within peer group
+        ev_percentile = (df_composite['enterprise_value'] < ev).sum() / len(df_composite) * 100
+        pdf.body_text(f"EV Percentile: {ev_percentile:.1f}% (larger than {ev_percentile:.0f}% of peers)")
+
+    # Company vs Peer Averages - Detailed
+    pdf.section_title('Peer Group Positioning')
+
+    peer_metrics = []
+    peer_metrics.append(f"IRCI Composite: {ticker} {irci_score:.1f}% vs Avg {peer_avg:.1f}%")
+    peer_metrics.append(f"Valuation Dial: {ticker} {valuation_score:.1f}% vs Avg {avg_valuation:.1f}%")
+    peer_metrics.append(f"Liquidity Dial: {ticker} {liquidity_score:.1f}% vs Avg {avg_liquidity:.1f}%")
+    peer_metrics.append(f"Coverage Dial: {ticker} {coverage_score:.1f}% vs Avg {avg_coverage:.1f}%")
+    peer_metrics.append(f"Trust Dial: {ticker} {trust_score:.1f}% vs Avg {avg_trust:.1f}%")
+
+    pdf.body_text("\n".join(peer_metrics))
+
+    # Dial Score Distribution
+    pdf.section_title('Score Distribution Analysis')
+
+    dial_stats = []
+    for dial_name, dial_col in [
+        ('Valuation', 'valuation_pct'),
+        ('Liquidity', 'liquidity_pct'),
+        ('Coverage', 'coverage_pct'),
+        ('Trust', 'sentiment_pct')
+    ]:
+        if dial_col in df_composite.columns:
+            dial_data = df_composite[dial_col]
+            dial_min = dial_data.min()
+            dial_max = dial_data.max()
+            dial_median = dial_data.median()
+            company_score = company_data.get(dial_col, 0)
+
+            dial_stats.append(
+                f"{dial_name}: Range {dial_min:.1f}%-{dial_max:.1f}%, "
+                f"Median {dial_median:.1f}%, "
+                f"{ticker} {company_score:.1f}%"
+            )
+
+    pdf.body_text("\n".join(dial_stats))
+
+    # Recommendations Priority Matrix
+    if playbook['recommendations']:
+        pdf.section_title('Action Items Priority Matrix')
+
+        total_recs = len(playbook['recommendations'])
+        high_pct = playbook['priority_counts']['high'] / total_recs * 100
+        med_pct = playbook['priority_counts']['medium'] / total_recs * 100
+        low_pct = playbook['priority_counts']['low'] / total_recs * 100
+
+        pdf.body_text(
+            f"Total Recommendations: {total_recs}\n"
+            f"High Priority: {playbook['priority_counts']['high']} ({high_pct:.0f}%)\n"
+            f"Medium Priority: {playbook['priority_counts']['medium']} ({med_pct:.0f}%)\n"
+            f"Low Priority: {playbook['priority_counts']['low']} ({low_pct:.0f}%)\n"
+            f"Quick Wins Available: {len(playbook['quick_wins'])}"
+        )
+
+        # Recommendations by category
+        category_counts = {}
+        for rec in playbook['recommendations']:
+            cat = rec['category']
+            category_counts[cat] = category_counts.get(cat, 0) + 1
+
+        if category_counts:
+            pdf.body_text("\nRecommendations by Focus Area:")
+            for cat, count in sorted(category_counts.items(), key=lambda x: x[1], reverse=True):
+                pdf.body_text(f"  {cat}: {count} action items")
+
+    # 7. METHODOLOGY
+    pdf.add_page()
+    pdf.chapter_title('7. Methodology & Calculations')
 
     pdf.section_title('IRCI Framework')
     pdf.body_text(

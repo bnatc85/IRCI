@@ -2885,6 +2885,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     except:
                         timeline_data = None
 
+                    # Get news data for sentiment analysis
+                    pdf_news_df = st.session_state.get('news_df', None)
+
                     # Generate PDF
                     pdf_bytes = generate_pdf_report(
                         ticker=pdf_ticker,
@@ -2895,7 +2898,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         df_coverage=df_cov,
                         df_trust=df_trust,
                         playbook=pdf_playbook,
-                        timeline_df=timeline_data
+                        timeline_df=timeline_data,
+                        news_df=pdf_news_df
                     )
 
                     # Store in session state for download
