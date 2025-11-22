@@ -1610,11 +1610,15 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                 if has_prev_data:
                     st.info("""
-                    **What this shows:** How much dollar value your IR team added THIS quarter by improving IRCI score
-                    from the previous quarter. Calculated as: (Current Quarter IRCI - Previous Quarter IRCI) × $/IRCI point (R²-scaled).
+                    **What this shows:** Estimated dollar value of your IR team's quarterly performance change.
 
-                    - **Positive value** = IRCI improved, IR team added enterprise value
-                    - **Negative value** = IRCI declined, IR team lost value
+                    **Calculation:** (Current IRCI - Previous IRCI) × $/IRCI point × **10% quarterly factor**
+
+                    The 10% factor accounts for the fact that quarterly changes are marginal improvements,
+                    not structural differences. This prevents overstating short-term IR impact.
+
+                    - **Positive value** = IRCI improved, IR added value this quarter
+                    - **Negative value** = IRCI declined, IR lost value this quarter
                     - **Zero** = No change from last quarter
                     """)
                 else:
@@ -1647,7 +1651,13 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         if not prev_row.empty:
                             prev_irci_score = prev_row['irci_composite_pct'].iloc[0]
                             irci_change = irci_score - prev_irci_score
-                            ir_value_contribution = irci_change * dollar_per_pt
+
+                            # Apply quarterly impact factor (0.10 = 10%)
+                            # Quarterly changes have much smaller immediate impact than structural peer differences
+                            # A 1-point QoQ change ≠ the same value as 1-point peer gap
+                            # This factor reflects that quarterly IR work is marginal, not structural
+                            quarterly_impact_factor = 0.10
+                            ir_value_contribution = irci_change * dollar_per_pt * quarterly_impact_factor
 
                             ir_contribution_data.append({
                                 'ticker': ticker,
@@ -1717,12 +1727,20 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     st.caption(f"""
                     📊 **Comparison:** {selected_quarter} vs {previous_quarter}
 
-                    💡 **How to interpret:** This shows how much value your IR team added THIS quarter by improving IRCI.
-                    - **Q2 IRCI:** 55 points → **Q3 IRCI:** 62 points = **+7 point improvement**
-                    - +7 points × $150M/point = **+$1.05B** (IR improved score, added value)
-                    - If IRCI declined: -3 points × $150M/point = **-$450M** (IR lost ground)
+                    💡 **How to interpret:** This shows the estimated value of your IR team's quarterly performance change.
 
-                    This answers: **"How much did our IR team contribute this quarter?"** by showing quarter-over-quarter improvement.
+                    **Calculation includes 10% quarterly impact factor:**
+                    - Quarterly IR changes have smaller immediate impact than structural peer differences
+                    - Example: +7 IRCI point improvement × $150M/point × 10% = **+$105M**
+                    - The 10% factor reflects that 3 months of IR work is marginal, not structural
+
+                    **Why the 10% factor?**
+                    - The $/IRCI point is based on cross-company comparisons (Company A vs Company B)
+                    - Those measure long-term structural differences in IR quality
+                    - Quarter-over-quarter changes are short-term marginal improvements
+                    - A 1-point QoQ change has ~10% of the impact of a structural 1-point gap
+
+                    This gives a realistic estimate of quarterly IR contribution while avoiding overstated values.
                     """)
                 else:
                     st.caption(f"""
