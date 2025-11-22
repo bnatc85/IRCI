@@ -11,6 +11,7 @@ class Settings:
     fmp_api_key: str = os.getenv("FMP_API_KEY", "")
     worldnews_api_key: str = os.getenv("WORLDNEWS_API_KEY", "")
     alpha_vantage_api_key: str = os.getenv("ALPHA_VANTAGE_API_KEY", "")
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     data_dir: Path = Path(os.getenv("IRCI_DATA_DIR", "./data"))
     out_dir: Path = Path(os.getenv("IRCI_OUTPUT_DIR", "./outputs"))
     # SEC user-agent used by coverage.py for SEC requests

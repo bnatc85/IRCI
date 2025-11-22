@@ -7,5 +7,14 @@
       "ticker": "AAPL",
       "date": "2025-09-30"
     }
+  ],
+  "AMD_2025-09-30": [
+    {
+      "note": "test",
+      "category": "General",
+      "timestamp": "2025-11-22T18:32:01.303908",
+      "ticker": "AMD",
+      "date": "2025-09-30"
+    }
   ]
 }

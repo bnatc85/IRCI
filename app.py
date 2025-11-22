@@ -28,6 +28,8 @@ from irci.media_fetchers.fmp_news import fmp_news_media_fetcher
 from irci.media_fetchers.alpha_vantage_news import alpha_vantage_news_fetcher
 from irci.media_fetchers.worldnews_api import worldnews_api_fetcher
 from irci.peers import find_peers_simple
+from irci.playbook import generate_playbook
+from irci.chatbot import chat_with_context, get_suggested_questions
 
 # Page config
 st.set_page_config(
@@ -1397,7 +1399,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     # Visualizations
     st.markdown("### 📈 Visualizations")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Composite Scores", "Dial Breakdown", "Detailed Metrics", "📊 Insights", "📅 Timeline"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Composite Scores", "Dial Breakdown", "Detailed Metrics", "📊 Insights", "📅 Timeline", "📋 Playbook", "💬 AI Assistant"])
 
     with tab1:
         # Bar chart of composite scores
@@ -2450,6 +2452,335 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             st.error(f"Error loading timeline: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
+
+    with tab6:
+        # IR Playbook - Action recommendations based on dial scores
+        st.markdown("#### 📋 IR Action Playbook")
+        st.markdown("*Get specific action recommendations based on your IRCI dial performance*")
+
+        st.info("""
+        📚 **How This Works**: The playbook analyzes your dial scores and provides prioritized action items.
+        - **High Priority**: Critical areas requiring immediate attention
+        - **Medium Priority**: Important improvements for strategic focus
+        - **Low Priority**: Optimization opportunities
+        - **Quick Wins**: Actions you can implement quickly for immediate impact
+        """)
+
+        try:
+            # Company selector for playbook
+            playbook_ticker = st.selectbox(
+                "Select company for IR playbook:",
+                df_composite['ticker'].unique(),
+                key="playbook_ticker_select"
+            )
+
+            # Get dial scores for selected company
+            company_row = df_composite[df_composite['ticker'] == playbook_ticker].iloc[0]
+
+            dial_scores = {
+                'valuation': company_row.get('valuation_pct', 50),
+                'liquidity': company_row.get('liquidity_pct', 50),
+                'coverage': company_row.get('coverage_pct', 50),
+                'trust': company_row.get('sentiment_pct', 50)
+            }
+
+            # Generate playbook
+            playbook = generate_playbook(dial_scores, df_composite, playbook_ticker)
+
+            # Display summary
+            st.markdown("---")
+            st.markdown("### 📊 Executive Summary")
+            st.markdown(playbook['summary'])
+
+            # Show dial classifications
+            st.markdown("#### Dial Performance Overview")
+            col1, col2, col3, col4 = st.columns(4)
+
+            classification_colors = {
+                'critical': '🔴',
+                'low': '🟠',
+                'medium': '🟡',
+                'high': '🟢'
+            }
+
+            with col1:
+                val_cls = playbook['dial_classifications']['valuation']
+                st.metric(
+                    "💰 Valuation",
+                    f"{dial_scores['valuation']:.1f}%",
+                    delta=f"{classification_colors[val_cls]} {val_cls.capitalize()}"
+                )
+
+            with col2:
+                liq_cls = playbook['dial_classifications']['liquidity']
+                st.metric(
+                    "💧 Liquidity",
+                    f"{dial_scores['liquidity']:.1f}%",
+                    delta=f"{classification_colors[liq_cls]} {liq_cls.capitalize()}"
+                )
+
+            with col3:
+                cov_cls = playbook['dial_classifications']['coverage']
+                st.metric(
+                    "📰 Coverage",
+                    f"{dial_scores['coverage']:.1f}%",
+                    delta=f"{classification_colors[cov_cls]} {cov_cls.capitalize()}"
+                )
+
+            with col4:
+                trust_cls = playbook['dial_classifications']['trust']
+                st.metric(
+                    "🤝 Trust",
+                    f"{dial_scores['trust']:.1f}%",
+                    delta=f"{classification_colors[trust_cls]} {trust_cls.capitalize()}"
+                )
+
+            # Quick Wins section
+            if playbook['quick_wins']:
+                st.markdown("---")
+                st.markdown("### ⚡ Quick Wins")
+                st.markdown("*Actions you can implement quickly for immediate impact*")
+
+                for rec in playbook['quick_wins'][:5]:  # Show top 5 quick wins
+                    with st.expander(f"**{rec['action']}** ({rec['category']})", expanded=False):
+                        st.markdown(rec['description'])
+                        st.caption(f"Priority: {rec['priority'].upper()}")
+
+            # All Recommendations by priority
+            st.markdown("---")
+            st.markdown("### 📋 All Recommendations")
+
+            priority_tabs = st.tabs([
+                f"🔴 High Priority ({playbook['priority_counts']['high']})",
+                f"🟡 Medium Priority ({playbook['priority_counts']['medium']})",
+                f"🟢 Low Priority ({playbook['priority_counts']['low']})"
+            ])
+
+            with priority_tabs[0]:
+                high_priority = [r for r in playbook['recommendations'] if r['priority'] == 'high']
+                if high_priority:
+                    for rec in high_priority:
+                        with st.container():
+                            st.markdown(f"**{rec['action']}**")
+                            st.markdown(f"*Category: {rec['category']}*")
+                            st.markdown(rec['description'])
+                            if rec.get('quick_win'):
+                                st.caption("⚡ Quick Win")
+                            st.markdown("---")
+                else:
+                    st.success("No high-priority action items. Great job!")
+
+            with priority_tabs[1]:
+                medium_priority = [r for r in playbook['recommendations'] if r['priority'] == 'medium']
+                if medium_priority:
+                    for rec in medium_priority:
+                        with st.container():
+                            st.markdown(f"**{rec['action']}**")
+                            st.markdown(f"*Category: {rec['category']}*")
+                            st.markdown(rec['description'])
+                            if rec.get('quick_win'):
+                                st.caption("⚡ Quick Win")
+                            st.markdown("---")
+                else:
+                    st.info("No medium-priority items.")
+
+            with priority_tabs[2]:
+                low_priority = [r for r in playbook['recommendations'] if r['priority'] == 'low']
+                if low_priority:
+                    for rec in low_priority:
+                        with st.container():
+                            st.markdown(f"**{rec['action']}**")
+                            st.markdown(f"*Category: {rec['category']}*")
+                            st.markdown(rec['description'])
+                            if rec.get('quick_win'):
+                                st.caption("⚡ Quick Win")
+                            st.markdown("---")
+                else:
+                    st.info("No low-priority items.")
+
+            # Category breakdown
+            st.markdown("---")
+            st.markdown("### 📂 Recommendations by Dial")
+
+            category_tabs = st.tabs(["💰 Valuation", "💧 Liquidity", "📰 Coverage", "🤝 Trust"])
+
+            for i, category in enumerate(['Valuation', 'Liquidity', 'Coverage', 'Trust']):
+                with category_tabs[i]:
+                    category_recs = [r for r in playbook['recommendations'] if r['category'] == category]
+                    if category_recs:
+                        for rec in category_recs:
+                            priority_emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
+                            with st.container():
+                                st.markdown(f"{priority_emoji[rec['priority']]} **{rec['action']}**")
+                                st.markdown(rec['description'])
+                                if rec.get('quick_win'):
+                                    st.caption("⚡ Quick Win")
+                                st.markdown("---")
+                    else:
+                        st.success(f"Your {category} dial is performing well. No specific actions needed.")
+
+        except Exception as e:
+            st.error(f"Error generating playbook: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
+
+    with tab7:
+        # AI Chatbot Assistant
+        st.markdown("#### 💬 AI Assistant")
+        st.markdown("*Ask questions about your IRCI results and get IR recommendations*")
+
+        # Check for OpenAI API key
+        s = Settings.load()
+        if not s.openai_api_key:
+            st.warning("""
+            ⚠️ **OpenAI API Key Required**
+
+            To use the AI Assistant, please add your OpenAI API key:
+            1. Add `OPENAI_API_KEY=your-key-here` to your `.env` file
+            2. Or set the `OPENAI_API_KEY` environment variable
+            3. Reload the app
+
+            Get your API key at: https://platform.openai.com/api-keys
+            """)
+        else:
+            try:
+                # Initialize chat history in session state
+                if 'chat_history' not in st.session_state:
+                    st.session_state.chat_history = []
+
+                # Company selector for chatbot
+                chatbot_ticker = st.selectbox(
+                    "Select company to discuss:",
+                    df_composite['ticker'].unique(),
+                    key="chatbot_ticker_select"
+                )
+
+                # Display suggested questions
+                st.markdown("---")
+                st.markdown("**💡 Suggested Questions:**")
+
+                suggestions = get_suggested_questions(chatbot_ticker, df_composite)
+
+                # Create columns for suggested questions (2 per row)
+                for i in range(0, len(suggestions), 2):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if i < len(suggestions):
+                            if st.button(suggestions[i], key=f"suggestion_{i}", use_container_width=True):
+                                # Add question to chat
+                                st.session_state.chat_history.append({
+                                    "role": "user",
+                                    "content": suggestions[i]
+                                })
+                                # Get response
+                                response = chat_with_context(
+                                    suggestions[i],
+                                    df_composite,
+                                    chatbot_ticker,
+                                    st.session_state.chat_history[:-1],  # Exclude the question we just added
+                                    s.openai_api_key
+                                )
+                                # Add response to history
+                                st.session_state.chat_history.append({
+                                    "role": "assistant",
+                                    "content": response
+                                })
+                                st.rerun()
+
+                    with col2:
+                        if i + 1 < len(suggestions):
+                            if st.button(suggestions[i + 1], key=f"suggestion_{i+1}", use_container_width=True):
+                                # Add question to chat
+                                st.session_state.chat_history.append({
+                                    "role": "user",
+                                    "content": suggestions[i + 1]
+                                })
+                                # Get response
+                                response = chat_with_context(
+                                    suggestions[i + 1],
+                                    df_composite,
+                                    chatbot_ticker,
+                                    st.session_state.chat_history[:-1],
+                                    s.openai_api_key
+                                )
+                                # Add response to history
+                                st.session_state.chat_history.append({
+                                    "role": "assistant",
+                                    "content": response
+                                })
+                                st.rerun()
+
+                st.markdown("---")
+
+                # Display chat history
+                st.markdown("**💬 Conversation:**")
+
+                if st.session_state.chat_history:
+                    for i, message in enumerate(st.session_state.chat_history):
+                        if message["role"] == "user":
+                            with st.chat_message("user"):
+                                st.markdown(message["content"])
+                        else:
+                            with st.chat_message("assistant"):
+                                st.markdown(message["content"])
+                else:
+                    st.info("👋 Start by asking a question or clicking a suggested question above!")
+
+                # Chat input
+                user_input = st.chat_input("Ask me anything about your IRCI analysis...")
+
+                if user_input:
+                    # Add user message to history
+                    st.session_state.chat_history.append({
+                        "role": "user",
+                        "content": user_input
+                    })
+
+                    # Get AI response
+                    with st.spinner("Thinking..."):
+                        response = chat_with_context(
+                            user_input,
+                            df_composite,
+                            chatbot_ticker,
+                            st.session_state.chat_history[:-1],  # Exclude the question we just added
+                            s.openai_api_key
+                        )
+
+                    # Add assistant response to history
+                    st.session_state.chat_history.append({
+                        "role": "assistant",
+                        "content": response
+                    })
+
+                    # Rerun to display new messages
+                    st.rerun()
+
+                # Clear chat button
+                if st.session_state.chat_history:
+                    st.markdown("---")
+                    col1, col2, col3 = st.columns([1, 1, 4])
+                    with col1:
+                        if st.button("🗑️ Clear Chat"):
+                            st.session_state.chat_history = []
+                            st.rerun()
+                    with col2:
+                        # Export chat
+                        if st.session_state.chat_history:
+                            chat_text = "\n\n".join([
+                                f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"
+                                for msg in st.session_state.chat_history
+                            ])
+                            st.download_button(
+                                "💾 Export Chat",
+                                chat_text,
+                                f"irci_chat_{chatbot_ticker}.txt",
+                                "text/plain"
+                            )
+
+            except Exception as e:
+                st.error(f"Error loading chatbot: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
 
     # Download section
     st.markdown("---")

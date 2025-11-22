@@ -22,6 +22,9 @@ yfinance>=0.2.0
 transformers>=4.30.0
 vaderSentiment>=3.3.2
 
+# AI Chatbot
+openai>=1.0.0
+
 # Additional dependencies for IRCI functionality
 beautifulsoup4>=4.12.0
 lxml>=4.9.0
