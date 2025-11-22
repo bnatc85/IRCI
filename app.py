@@ -389,54 +389,56 @@ with st.sidebar:
         if 'weight_trust' not in st.session_state:
             st.session_state.weight_trust = 15.0
 
-        # Use number inputs - Streamlit manages state automatically via key parameter
-        # When key is used, the widget reads/writes directly to session_state[key]
+        # Use number inputs with BOTH value and key for proper state management
+        # value= forces widget to display current session state
+        # key= allows widget to update session state when user changes it
         col1, col2 = st.columns(2)
         with col1:
-            st.number_input(
+            weight_valuation = st.number_input(
                 "💰 Valuation (%)",
                 min_value=0.0,
                 max_value=100.0,
+                value=st.session_state.weight_valuation,  # Display current value
                 step=0.1,
                 format="%.1f",
-                key='weight_valuation',  # Widget syncs with st.session_state.weight_valuation
                 help="Weight for EV/EBITDA valuation metrics"
             )
-            st.number_input(
+            weight_coverage = st.number_input(
                 "📊 Coverage (%)",
                 min_value=0.0,
                 max_value=100.0,
+                value=st.session_state.weight_coverage,  # Display current value
                 step=0.1,
                 format="%.1f",
-                key='weight_coverage',  # Widget syncs with st.session_state.weight_coverage
                 help="Weight for SEC filing and media coverage metrics"
             )
 
         with col2:
-            st.number_input(
+            weight_liquidity = st.number_input(
                 "💧 Liquidity (%)",
                 min_value=0.0,
                 max_value=100.0,
+                value=st.session_state.weight_liquidity,  # Display current value
                 step=0.1,
                 format="%.1f",
-                key='weight_liquidity',  # Widget syncs with st.session_state.weight_liquidity
                 help="Weight for trading liquidity and spread metrics"
             )
-            st.number_input(
+            weight_trust = st.number_input(
                 "💭 Trust (%)",
                 min_value=0.0,
                 max_value=100.0,
+                value=st.session_state.weight_trust,  # Display current value
                 step=0.1,
                 format="%.1f",
-                key='weight_trust',  # Widget syncs with st.session_state.weight_trust
                 help="Weight for sentiment and event calm metrics"
             )
 
-        # Read values from session state (widgets update them automatically)
-        weight_valuation = st.session_state.weight_valuation
-        weight_liquidity = st.session_state.weight_liquidity
-        weight_coverage = st.session_state.weight_coverage
-        weight_trust = st.session_state.weight_trust
+        # Update session state with current widget values
+        # This allows auto-optimize to change session state, rerun, and widgets will show new values
+        st.session_state.weight_valuation = weight_valuation
+        st.session_state.weight_liquidity = weight_liquidity
+        st.session_state.weight_coverage = weight_coverage
+        st.session_state.weight_trust = weight_trust
 
         total_weight = weight_liquidity + weight_valuation + weight_coverage + weight_trust
 
