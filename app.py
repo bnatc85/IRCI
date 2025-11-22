@@ -1634,6 +1634,144 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
+                # Add methodology and proof section
+                with st.expander("📐 **Dollar Value Calculation Methodology & Proof**"):
+                    st.markdown("""
+                    ### How We Calculate Dollar Value per IRCI Point
+
+                    **Goal:** Estimate how much enterprise value corresponds to each 1-point IRCI improvement
+
+                    ---
+
+                    ### Step 1: Linear Regression (Enterprise Value ~ IRCI Score)
+
+                    We regress enterprise value against IRCI scores across your peer group:
+
+                    ```
+                    EV = slope × IRCI + intercept
+                    ```
+
+                    **What the regression tells us:**
+                    - **Slope**: Raw change in EV per 1-point IRCI change
+                    - **R²**: How much of EV variance is explained by IRCI (0-1 scale)
+                    - **P-value**: Statistical significance of the relationship
+                    """)
+
+                    # Show actual regression results from this analysis
+                    if not dollar_value_df.empty:
+                        from scipy import stats
+                        slope, intercept, r_value, p_value, std_err = stats.linregress(
+                            dollar_value_df['irci_composite_pct'],
+                            dollar_value_df['enterprise_value']
+                        )
+                        r_squared = r_value ** 2
+
+                        st.markdown(f"""
+                        **Actual Regression Results for Your Peer Group:**
+
+                        - **Raw Slope**: ${abs(slope):,.0f} per IRCI point (before R² scaling)
+                        - **R² Value**: {r_squared:.3f} ({r_squared*100:.1f}% of EV variance explained by IRCI)
+                        - **P-Value**: {p_value:.4f} {'✓ Significant' if p_value < 0.05 else '⚠️ Not significant'}
+                        - **Standard Error**: ${std_err:,.0f}
+
+                        **Interpretation:**
+                        - R² = {r_squared:.2f} means IRCI explains {r_squared*100:.0f}% of enterprise value differences
+                        - The other {(1-r_squared)*100:.0f}% comes from fundamentals, industry factors, macro conditions, etc.
+                        - This is typical for IR metrics - fundamentals drive most value
+                        """)
+
+                    st.markdown("""
+                    ---
+
+                    ### Step 2: R² Scaling (Critical!)
+
+                    **Why R² scaling matters:**
+
+                    Raw regression slope assumes IRCI is the ONLY factor affecting enterprise value.
+                    But we know that's not true - business fundamentals matter far more.
+
+                    **R² scaling corrects for this:**
+
+                    ```
+                    Company $/IRCI Point = (Raw Slope) × R²
+                    ```
+
+                    **Example with your data:**
+                    """)
+
+                    if not dollar_value_df.empty:
+                        raw_slope = abs(slope)
+                        scaled_slope = raw_slope * r_squared
+                        reduction_pct = (1 - r_squared) * 100
+
+                        st.markdown(f"""
+                        - **Raw slope**: ${raw_slope:,.0f} per IRCI point
+                        - **R² value**: {r_squared:.2f}
+                        - **Scaled slope**: ${raw_slope:,.0f} × {r_squared:.2f} = **${scaled_slope:,.0f} per IRCI point**
+                        - **Reduction**: {reduction_pct:.0f}% (accounts for other factors)
+
+                        **What this means:**
+                        - Without R² scaling: improving 1 IRCI point = ${raw_slope:,.0f} (OVERSTATED)
+                        - With R² scaling: improving 1 IRCI point = ${scaled_slope:,.0f} (REALISTIC)
+                        - We reduce the estimate by {reduction_pct:.0f}% to reflect that IR is one of many factors
+                        """)
+
+                    st.markdown("""
+                    ---
+
+                    ### Step 3: Company-Specific Adjustments
+
+                    Each company gets a $/IRCI point value based on:
+
+                    1. **Company Size**: Larger companies have larger $/IRCI values
+                    2. **Peer Group Sensitivity**: How EV changes with IRCI in this peer group
+                    3. **R² Scaling**: Already applied to be conservative
+
+                    **Formula:**
+                    ```
+                    Company $/IRCI = (Company EV / Peer Mean EV) × Peer Slope × R²
+                    ```
+
+                    This ensures larger companies show appropriate dollar values while maintaining R² realism.
+
+                    ---
+
+                    ### Step 4: Calculate Potential Upside
+
+                    **Gap to Top:**
+                    - Top performer IRCI: 85%
+                    - Your company IRCI: 60%
+                    - Gap: 25 points
+
+                    **Potential Dollar Upside (R²-Scaled):**
+                    ```
+                    Upside = Gap × (Company $/IRCI Point)
+                    Upside = 25 points × $150M/point = $3.75B
+                    ```
+
+                    **Important:** This is a PLANNING RANGE, not a guarantee:
+                    - Assumes you can actually improve IRCI by 25 points
+                    - R² scaling already applied (only {:.0f}% attribution to IR)
+                    - Fundamentals must support the value creation
+                    - Market conditions, industry trends, and other factors matter
+
+                    ---
+
+                    ### ✅ Why This Methodology is Sound
+
+                    1. **Based on peer comparisons**: Uses actual market data, not assumptions
+                    2. **R² scaling**: Conservative - only attributes the variance explained by IRCI
+                    3. **Company-specific**: Accounts for size differences in peer group
+                    4. **Transparent**: All calculations shown, regression results visible
+                    5. **Honest disclaimers**: Clear that IR is secondary to fundamentals
+
+                    **Bottom Line:**
+                    These dollar estimates help you evaluate whether IR improvements are worth
+                    the investment. They're planning tools, not promises. Business fundamentals
+                    drive most value - IRCI measures how efficiently that value is realized
+                    in the market.
+                    """.format(r_squared*100 if not dollar_value_df.empty else 30))
+
         except Exception as e:
             st.warning(f"Could not compute dollar value metrics: {str(e)}")
 
@@ -2049,23 +2187,126 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 )
 
                 st.caption("""
-                📊 **Column Definitions:**
-
-                **Confidence (0-100%)**: How reliable is this impact estimate?
-                - **100% (High)**: Direct dial measurements (Valuation, Liquidity, Coverage, Trust scores)
-                  - These are actual observed IRCI components with precise dollar values
-                - **50-70% (Medium)**: SEC filings and events (8-K, 10-Q, 10-K)
-                  - Known to affect Coverage dial, estimated impact on other dials
-                - **20-40% (Low)**: News articles and sentiment
-                  - Indirect impact through Trust dial's media tone component
-                  - Sentiment is measured, but connection to IRCI is statistical/inferred
-
-                **Impact Calculations:**
-                - IRCI Impact: Estimated change in composite IRCI score (in points)
-                - Dollar Impact: IRCI Impact × Company $/IRCI Point (from regression analysis)
-
                 💡 **Event Indicators:** 🟢 Positive news | 🔴 Negative news | 🔵 SEC filings | 📰 Neutral news | 💰 Valuation | 💧 Liquidity | 📊 Coverage | 💭 Trust
                 """)
+
+                # Calculation methodology and proof section
+                with st.expander("📐 **Impact Calculation Methodology & Proof**"):
+                    st.markdown("""
+                    ### How Individual Events Contribute to IRCI Scores
+
+                    **Key Principle:** Individual events have SMALL impacts. Quarterly AGGREGATE metrics drive dial scores.
+
+                    ---
+
+                    ### 📰 News Article Impact Calculation
+
+                    **Step 1: Sentiment Score**
+                    - News sentiment ranges from -1 (very negative) to +1 (very positive)
+                    - Example: Positive earnings news might score +0.6
+
+                    **Step 2: Dial Impact (Trust)**
+                    - Individual article contributes to Trust dial: `dial_impact = sentiment × 0.5`
+                    - Example: +0.6 sentiment → +0.3 points on Trust dial (out of 100)
+                    - Why so small? Trust dial aggregates ALL quarterly news articles
+
+                    **Step 3: IRCI Composite Impact**
+                    - Trust dial has weight (default 15%): `irci_impact = dial_impact × weight`
+                    - Example: +0.3 Trust points × 0.15 weight = **+0.045 IRCI points**
+
+                    **Step 4: Dollar Impact (R²-Scaled)**
+                    - Use company-specific $/IRCI point (already R²-scaled from regression)
+                    - Example: +0.045 IRCI pts × $150M/point = **$6.75M**
+                    - R² scaling already applied (if R²=0.3, the $150M/point was reduced from $500M/point)
+
+                    ---
+
+                    ### 📊 SEC Filing Impact Calculation
+
+                    **8-K Filing:**
+                    - Dial impact: 0.3 points on Coverage dial
+                    - IRCI impact: 0.3 × 0.15 (coverage weight) = **0.045 IRCI points**
+                    - Dollar impact: 0.045 × $150M/point = **$6.75M**
+
+                    **10-Q or 10-K Filing:**
+                    - Dial impact: 0.8 points on Coverage dial
+                    - IRCI impact: 0.8 × 0.15 = **0.12 IRCI points**
+                    - Dollar impact: 0.12 × $150M/point = **$18M**
+
+                    ---
+
+                    ### 🎯 Why Quarterly Aggregates Matter More
+                    """)
+
+                    # Calculate actual aggregate proof if we have news data
+                    if 'sentiment_score' in timeline_df.columns:
+                        news_events = timeline_df[timeline_df['event_type'] == 'news'].copy()
+                        if not news_events.empty:
+                            total_news = len(news_events)
+                            avg_sentiment = news_events['sentiment_score'].mean() if 'sentiment_score' in news_events.columns else 0
+                            total_individual_impact = news_events['irci_impact'].sum()
+
+                            # Get actual trust score from dial
+                            ticker_trust = df_trust[df_trust['ticker'] == selected_timeline_ticker]
+                            if not ticker_trust.empty:
+                                actual_trust_score = ticker_trust['trust_pct'].iloc[0] if 'trust_pct' in ticker_trust.columns else None
+                                media_tone = ticker_trust['media_tone'].iloc[0] if 'media_tone' in ticker_trust.columns else None
+
+                                st.markdown(f"""
+                                **Actual Data for {selected_timeline_ticker} This Quarter:**
+
+                                - **Total News Articles**: {total_news}
+                                - **Average Sentiment**: {avg_sentiment:+.2f}
+                                - **Sum of Individual Impacts**: {total_individual_impact:+.2f} IRCI points
+                                - **Actual Trust Dial Score**: {actual_trust_score:.1f}% (measured from all factors)
+                                - **Media Tone Component**: {media_tone:.1f}% (one of several Trust inputs)
+
+                                **📌 Key Insight:**
+                                The Trust dial is NOT just the sum of individual news impacts. It's computed from:
+                                1. Aggregate quarterly media tone (all {total_news} articles analyzed together)
+                                2. Event stability metrics
+                                3. Sentiment consistency over time
+
+                                Individual event impacts are **directional indicators**, not additive components.
+                                The actual dial score comes from quarterly aggregate analysis of all events together.
+                                """)
+
+                    st.markdown("""
+                    ---
+
+                    ### 💰 R² Scaling: Why Dollar Impacts Are Conservative
+
+                    **Regression Analysis:** We regress Enterprise Value ~ IRCI Score across peer group
+
+                    **Example Calculation:**
+                    - Raw regression slope: $500M per IRCI point
+                    - R² value: 0.30 (IRCI explains 30% of EV variance)
+                    - **R²-scaled slope**: $500M × 0.30 = **$150M per IRCI point**
+
+                    **What This Means:**
+                    - IR/IRCI is ONE of MANY factors affecting enterprise value
+                    - Business fundamentals (revenue, earnings, growth) drive most value
+                    - R² scaling ensures we don't overstate IR's contribution
+                    - If R²=0.30, we reduce dollar estimates by 70% to be realistic
+
+                    **Individual Event Example:**
+                    - Event IRCI impact: +0.045 points
+                    - Company $/IRCI: $150M/point (R²-scaled)
+                    - Event dollar impact: +0.045 × $150M = **$6.75M**
+                    - Without R² scaling: +0.045 × $500M = $22.5M (OVERSTATED)
+
+                    ---
+
+                    ### ✅ Bottom Line
+
+                    1. **Individual events = Small impacts** (~0.05-0.15 IRCI points, $5M-$20M)
+                    2. **Quarterly aggregates = Large impacts** (full dial scores, total IRCI)
+                    3. **R² scaling = Realistic estimates** (accounts for IR being one factor)
+                    4. **Dollar impacts are planning ranges**, not promises
+
+                    Individual events show what's happening day-to-day, but quarterly aggregate
+                    metrics determine your final IRCI scores and relative peer ranking.
+                    """)
 
             # User notes section
             st.markdown("---")
