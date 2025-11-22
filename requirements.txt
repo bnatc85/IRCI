@@ -29,3 +29,6 @@ openai>=1.0.0
 beautifulsoup4>=4.12.0
 lxml>=4.9.0
 pyyaml>=6.0
+
+# PDF Report Generation
+fpdf2>=2.7.0

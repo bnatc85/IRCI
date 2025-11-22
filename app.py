@@ -30,6 +30,7 @@ from irci.media_fetchers.worldnews_api import worldnews_api_fetcher
 from irci.peers import find_peers_simple
 from irci.playbook import generate_playbook
 from irci.chatbot import chat_with_context, get_suggested_questions
+from irci.report_generator import generate_pdf_report
 
 # Page config
 st.set_page_config(
@@ -2832,6 +2833,93 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             f"trust_{selected_quarter}.csv",
             "text/csv"
         )
+
+    # PDF Report Download (company-specific)
+    st.markdown("---")
+    st.markdown("#### 📄 Comprehensive PDF Report")
+    st.markdown("*Generate a complete analysis report for a specific company*")
+
+    col_pdf1, col_pdf2, col_pdf3 = st.columns([2, 2, 4])
+
+    with col_pdf1:
+        pdf_ticker = st.selectbox(
+            "Select company for PDF report:",
+            df_composite['ticker'].unique(),
+            key="pdf_ticker_select"
+        )
+
+    with col_pdf2:
+        if st.button("📄 Generate PDF Report", type="primary", use_container_width=True):
+            with st.spinner(f"Generating comprehensive PDF report for {pdf_ticker}..."):
+                try:
+                    # Get playbook for the selected ticker
+                    company_row = df_composite[df_composite['ticker'] == pdf_ticker].iloc[0]
+                    dial_scores = {
+                        'valuation': company_row.get('valuation_pct', 50),
+                        'liquidity': company_row.get('liquidity_pct', 50),
+                        'coverage': company_row.get('coverage_pct', 50),
+                        'trust': company_row.get('sentiment_pct', 50)
+                    }
+                    pdf_playbook = generate_playbook(dial_scores, df_composite, pdf_ticker)
+
+                    # Get timeline data if available
+                    try:
+                        from irci.event_timeline import aggregate_timeline_events
+                        from irci.coverage import _company_submissions, _cik_for_ticker
+
+                        cik = _cik_for_ticker(pdf_ticker)
+                        if cik:
+                            filings_df = _company_submissions(cik, q_start, q_end)
+                        else:
+                            filings_df = pd.DataFrame()
+
+                        # Get news data (simplified - just use what's available)
+                        timeline_data = aggregate_timeline_events(
+                            ticker=pdf_ticker,
+                            df_trust=df_trust,
+                            filings_df=filings_df,
+                            q_start=q_start,
+                            q_end=q_end,
+                            df_composite=df_composite
+                        )
+                    except:
+                        timeline_data = None
+
+                    # Generate PDF
+                    pdf_bytes = generate_pdf_report(
+                        ticker=pdf_ticker,
+                        quarter=selected_quarter,
+                        df_composite=df_composite,
+                        df_valuation=df_val,
+                        df_liquidity=df_liq,
+                        df_coverage=df_cov,
+                        df_trust=df_trust,
+                        playbook=pdf_playbook,
+                        timeline_df=timeline_data
+                    )
+
+                    # Store in session state for download
+                    st.session_state['pdf_report'] = pdf_bytes
+                    st.session_state['pdf_ticker'] = pdf_ticker
+                    st.session_state['pdf_quarter'] = selected_quarter
+                    st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
+
+                except Exception as e:
+                    st.error(f"Error generating PDF report: {str(e)}")
+                    import traceback
+                    with st.expander("Error details"):
+                        st.code(traceback.format_exc())
+
+    # Show download button if PDF was generated
+    if 'pdf_report' in st.session_state and st.session_state.get('pdf_ticker') == pdf_ticker:
+        with col_pdf3:
+            st.download_button(
+                label=f"⬇️ Download {pdf_ticker} Report",
+                data=st.session_state['pdf_report'],
+                file_name=f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
 
 # Footer
 st.markdown("---")
