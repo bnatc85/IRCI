@@ -1485,11 +1485,40 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         st.exception(e)
         st.stop()
 
+    # Handle single vs multi-quarter data
+    is_multi_quarter = 'quarter' in df_composite.columns
+    if is_multi_quarter:
+        # Multi-quarter data - let user select which quarter to view
+        available_quarters = sorted(df_composite['quarter'].unique(), reverse=True)
+        st.markdown("### 📅 Quarter Selection")
+        selected_quarter = st.selectbox(
+            "Select quarter to display:",
+            available_quarters,
+            help="Viewing one quarter at a time. For trend analysis across quarters, see the Trend Analysis tab below."
+        )
+
+        # Filter data for selected quarter
+        df_composite_filtered = df_composite[df_composite['quarter'] == selected_quarter].copy()
+        df_trust_filtered = df_trust[df_trust['quarter'] == selected_quarter].copy() if 'quarter' in df_trust.columns else df_trust
+        df_val_filtered = df_val[df_val['quarter'] == selected_quarter].copy() if 'quarter' in df_val.columns else df_val
+        df_cov_filtered = df_cov[df_cov['quarter'] == selected_quarter].copy() if 'quarter' in df_cov.columns else df_cov
+        df_liq_filtered = df_liq[df_liq['quarter'] == selected_quarter].copy() if 'quarter' in df_liq.columns else df_liq
+
+        st.info(f"💡 **Multi-Quarter Mode:** Displaying results for **{selected_quarter}**. Scroll down to see trend analysis across all {len(available_quarters)} quarters.")
+    else:
+        # Single quarter data - use directly
+        selected_quarter = quarters_analyzed[0] if quarters_analyzed else "Current"
+        df_composite_filtered = df_composite.copy()
+        df_trust_filtered = df_trust.copy()
+        df_val_filtered = df_val.copy()
+        df_cov_filtered = df_cov.copy()
+        df_liq_filtered = df_liq.copy()
+
     # Composite ranking
     st.markdown("### 🏆 Composite Ranking")
 
-    # Prepare display data
-    display_df = df_composite.copy()
+    # Prepare display data (use filtered data)
+    display_df = df_composite_filtered.copy()
     # Sort by composite score (highest first) and create rank
     display_df = display_df.sort_values('irci_composite_pct', ascending=False)
     display_df['rank'] = range(1, len(display_df) + 1)
@@ -1531,7 +1560,98 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     # Visualizations
     st.markdown("### 📈 Visualizations")
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Composite Scores", "Dial Breakdown", "Detailed Metrics", "📊 Insights", "📅 Timeline", "📋 Playbook", "💬 AI Assistant"])
+    # Add Trend Analysis tab if multi-quarter data is available
+    if is_multi_quarter:
+        tab_trend, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📈 Trend Analysis", "Composite Scores", "Dial Breakdown", "Detailed Metrics", "📊 Insights", "📅 Timeline", "📋 Playbook", "💬 AI Assistant"])
+    else:
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Composite Scores", "Dial Breakdown", "Detailed Metrics", "📊 Insights", "📅 Timeline", "📋 Playbook", "💬 AI Assistant"])
+
+    # Trend Analysis tab (only for multi-quarter data)
+    if is_multi_quarter:
+        with tab_trend:
+            st.markdown("#### IRCI Score Progression Over Time")
+            st.caption("Track how each company's IRCI score has changed across quarters")
+
+            # Prepare data for trend visualization
+            trend_df = df_composite.copy()
+
+            # Line chart showing IRCI progression for each company
+            fig_trend = px.line(
+                trend_df,
+                x='quarter',
+                y='irci_composite_pct',
+                color='ticker',
+                markers=True,
+                title='IRCI Composite Score Trends',
+                labels={'irci_composite_pct': 'IRCI Score (%)', 'quarter': 'Quarter', 'ticker': 'Company'}
+            )
+            fig_trend.update_layout(
+                height=500,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(30,33,48,0.5)',
+                font=dict(color='#fafafa'),
+                title_font=dict(color='#00d4ff'),
+                xaxis=dict(gridcolor='#2e3440'),
+                yaxis=dict(gridcolor='#2e3440'),
+                hovermode='x unified'
+            )
+            st.plotly_chart(fig_trend, use_container_width=True)
+
+            # Quarter-over-quarter changes
+            st.markdown("#### Quarter-over-Quarter Changes")
+
+            # Calculate QoQ changes
+            qoq_data = []
+            for ticker in trend_df['ticker'].unique():
+                ticker_data = trend_df[trend_df['ticker'] == ticker].sort_values('quarter')
+                if len(ticker_data) > 1:
+                    for i in range(1, len(ticker_data)):
+                        prev_row = ticker_data.iloc[i-1]
+                        curr_row = ticker_data.iloc[i]
+                        qoq_change = curr_row['irci_composite_pct'] - prev_row['irci_composite_pct']
+                        qoq_data.append({
+                            'ticker': ticker,
+                            'quarter': curr_row['quarter'],
+                            'prev_quarter': prev_row['quarter'],
+                            'change': qoq_change,
+                            'current_score': curr_row['irci_composite_pct'],
+                            'previous_score': prev_row['irci_composite_pct']
+                        })
+
+            if qoq_data:
+                import pandas as pd
+                qoq_df = pd.DataFrame(qoq_data)
+
+                # Bar chart of QoQ changes
+                fig_qoq = px.bar(
+                    qoq_df,
+                    x='ticker',
+                    y='change',
+                    color='change',
+                    title='Quarter-over-Quarter IRCI Changes',
+                    labels={'change': 'IRCI Change (pts)', 'ticker': 'Company'},
+                    color_continuous_scale='RdYlGn',
+                    color_continuous_midpoint=0,
+                    facet_col='quarter',
+                    facet_col_wrap=3
+                )
+                fig_qoq.update_layout(
+                    height=400,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(30,33,48,0.5)',
+                    font=dict(color='#fafafa'),
+                    title_font=dict(color='#00d4ff')
+                )
+                st.plotly_chart(fig_qoq, use_container_width=True)
+
+                # Summary table
+                st.markdown("#### QoQ Change Summary")
+                summary_df = qoq_df.groupby('ticker')['change'].agg(['mean', 'min', 'max']).reset_index()
+                summary_df.columns = ['Ticker', 'Avg Change', 'Min Change', 'Max Change']
+                summary_df = summary_df.round(2)
+                st.dataframe(summary_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("Need at least 2 quarters of data per company to show QoQ changes.")
 
     with tab1:
         # Bar chart of composite scores
