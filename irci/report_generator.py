@@ -478,6 +478,10 @@ def generate_pdf_report(
             pdf.set_font('Arial', 'B', 10)
             # Use safe_multi_cell for wrapping long titles
             pdf.safe_multi_cell(0, 6, f"{i}. {rec['action']} ({rec['category']})")
+            # Add "what" field if present
+            if rec.get('what'):
+                pdf.set_font('Arial', 'I', 9)
+                pdf.safe_multi_cell(0, 5, f"What: {rec['what']}")
             pdf.set_font('Arial', '', 9)
             pdf.safe_multi_cell(0, 5, rec['description'])
             if rec.get('quick_win'):
@@ -501,6 +505,10 @@ def generate_pdf_report(
             pdf.set_font('Arial', 'B', 10)
             # Use safe_multi_cell for wrapping long titles
             pdf.safe_multi_cell(0, 6, f"{i}. {rec['action']} ({rec['category']})")
+            # Add "what" field if present
+            if rec.get('what'):
+                pdf.set_font('Arial', 'I', 9)
+                pdf.safe_multi_cell(0, 5, f"What: {rec['what']}")
             pdf.set_font('Arial', '', 9)
             pdf.safe_multi_cell(0, 5, rec['description'])
             if rec.get('quick_win'):
