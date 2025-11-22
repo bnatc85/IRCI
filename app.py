@@ -546,7 +546,7 @@ with st.sidebar:
                 st.error(f"Failed to load session: {str(e)}")
     else:
         # Show info that session is already loaded with option to clear
-        st.info("📊 Session data is loaded. Results are displayed below.")
+        st.info("📊 Session data is loaded. Results are displayed!")
         if st.button("🔄 Clear Session (to load different file)", use_container_width=True):
             # Clear all analysis data
             for key in ['df_composite', 'df_trust', 'df_val', 'df_cov', 'df_liq', 'news_df']:
