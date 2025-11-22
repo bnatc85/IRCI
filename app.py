@@ -350,23 +350,40 @@ with st.sidebar:
 
     st.info(f"Selected: {len(tickers)} companies")
 
-    # Quarter selection
+    # Quarter selection - support multiple quarters for trend analysis
     quarters = ["2025Q4", "2025Q3", "2025Q2", "2025Q1", "2024Q4", "2024Q3", "2024Q2", "2024Q1"]
-    selected_quarter = st.selectbox("Select Quarter", quarters, index=1)
+    selected_quarters = st.multiselect(
+        "Select Quarter(s)",
+        quarters,
+        default=["2025Q3"],
+        help="Select one or more quarters. Multiple quarters enable trend analysis and better statistical comparisons."
+    )
 
-    # Convert quarter to dates
-    quarter_map = {
-        "Q1": ("01-01", "03-31"),
-        "Q2": ("04-01", "06-30"),
-        "Q3": ("07-01", "09-30"),
-        "Q4": ("10-01", "12-31")
-    }
-    year = selected_quarter[:4]
-    q = selected_quarter[4:]
-    start_date = f"{year}-{quarter_map[q][0]}"
-    end_date = f"{year}-{quarter_map[q][1]}"
+    if not selected_quarters:
+        st.warning("⚠️ Please select at least one quarter to analyze.")
+        st.stop()
 
-    st.caption(f"Period: {start_date} to {end_date}")
+    # Convert quarter to dates helper function
+    def quarter_to_dates(quarter_str):
+        quarter_map = {
+            "Q1": ("01-01", "03-31"),
+            "Q2": ("04-01", "06-30"),
+            "Q3": ("07-01", "09-30"),
+            "Q4": ("10-01", "12-31")
+        }
+        year = quarter_str[:4]
+        q = quarter_str[4:]
+        start_date = f"{year}-{quarter_map[q][0]}"
+        end_date = f"{year}-{quarter_map[q][1]}"
+        return start_date, end_date
+
+    # Show selected period(s)
+    if len(selected_quarters) == 1:
+        start_date, end_date = quarter_to_dates(selected_quarters[0])
+        st.caption(f"📅 Period: {start_date} to {end_date}")
+    else:
+        st.caption(f"📅 Analyzing {len(selected_quarters)} quarters: {', '.join(selected_quarters)}")
+        st.info(f"💡 **Trend Analysis Mode:** Results will show progression across {len(selected_quarters)} quarters with quarter-over-quarter comparisons.")
 
     # Run Analysis button - prominently placed after quarter selection
     st.markdown("---")
@@ -487,7 +504,7 @@ with st.sidebar:
                 'weight_valuation': st.session_state.get('weight_valuation'),
                 'weight_coverage': st.session_state.get('weight_coverage'),
                 'weight_trust': st.session_state.get('weight_trust'),
-                'selected_quarter': selected_quarter,
+                'selected_quarters': st.session_state.get('selected_quarters', selected_quarters),
                 'tickers': tickers,
                 'saved_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
@@ -495,11 +512,14 @@ with st.sidebar:
             # Serialize to bytes
             session_bytes = pickle.dumps(session_data)
 
+            # Create filename based on quarters analyzed
+            quarters_str = "_".join(st.session_state.get('selected_quarters', selected_quarters)) if st.session_state.get('selected_quarters') else "multi"
+
             # Offer download
             st.download_button(
                 label="📥 Download Session File",
                 data=session_bytes,
-                file_name=f"irci_session_{selected_quarter}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl",
+                file_name=f"irci_session_{quarters_str}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl",
                 mime="application/octet-stream",
                 use_container_width=True
             )
@@ -1069,29 +1089,45 @@ if not show_results and not run_analysis:
 elif run_analysis:
     # Run the analysis (only when button is clicked)
     st.markdown("---")
-    st.markdown("## 🔄 Running Analysis...")
+    if len(selected_quarters) == 1:
+        st.markdown("## 🔄 Running Analysis...")
+    else:
+        st.markdown(f"## 🔄 Running Analysis for {len(selected_quarters)} Quarters...")
 
-    progress_bar = st.progress(0)
-    status_text = st.empty()
+    # Store results for all quarters
+    all_quarters_results = {}
 
-    try:
-        # Load settings
-        s = Settings.load()
+    # Loop through each selected quarter
+    for quarter_idx, selected_quarter in enumerate(selected_quarters):
+        # Get start/end dates for this quarter
+        start_date, end_date = quarter_to_dates(selected_quarter)
 
-        # Prepare news data - automatically fetch from FMP API
-        news_df = None
-        if uploaded_news is not None:
-            # User uploaded news file
-            news_df = pd.read_csv(uploaded_news)
-            st.success(f"✓ Loaded {len(news_df)} news articles from upload")
-        else:
-            # Automatically fetch news for all tickers using API (FMP → World News → Alpha Vantage fallback)
-            status_text.text("Fetching news articles...")
-            news_list = []
-            news_counts = {}
-            news_sources_used = {}  # Track which source was used for each ticker
-            q_start = pd.to_datetime(start_date, utc=True)
-            q_end = pd.to_datetime(end_date, utc=True)
+        # Progress tracking
+        if len(selected_quarters) > 1:
+            st.markdown(f"### 📊 Quarter {quarter_idx + 1}/{len(selected_quarters)}: **{selected_quarter}** ({start_date} to {end_date})")
+
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        try:
+            # Load settings
+            s = Settings.load()
+
+            # Prepare news data - automatically fetch from FMP API
+            news_df = None
+            if uploaded_news is not None:
+                # User uploaded news file
+                news_df = pd.read_csv(uploaded_news)
+                news_df = news_df[(news_df['date'] >= start_date) & (news_df['date'] <= end_date)]
+                st.success(f"✓ Loaded {len(news_df)} news articles from upload for {selected_quarter}")
+            else:
+                # Automatically fetch news for all tickers using API (FMP → World News → Alpha Vantage fallback)
+                status_text.text(f"Fetching news articles for {selected_quarter}...")
+                news_list = []
+                news_counts = {}
+                news_sources_used = {}  # Track which source was used for each ticker
+                q_start = pd.to_datetime(start_date, utc=True)
+                q_end = pd.to_datetime(end_date, utc=True)
 
             # Track errors for display
             news_errors = {}
@@ -1223,128 +1259,190 @@ elif run_analysis:
             else:
                 st.warning("⚠️ No news articles found for any ticker in this date range. Try a more recent quarter (2024Q4 or 2025Q1) for news data.")
 
-        # Convert end_date to timezone-naive datetime for consistency
-        quarter_end_dt = pd.to_datetime(end_date)
-        if hasattr(quarter_end_dt, 'tz_localize'):
-            quarter_end_dt = quarter_end_dt.tz_localize(None)
-        elif quarter_end_dt.tz is not None:
-            quarter_end_dt = quarter_end_dt.tz_localize(None)
+            # Convert end_date to timezone-naive datetime for consistency
+            quarter_end_dt = pd.to_datetime(end_date)
+            if hasattr(quarter_end_dt, 'tz_localize'):
+                quarter_end_dt = quarter_end_dt.tz_localize(None)
+            elif quarter_end_dt.tz is not None:
+                quarter_end_dt = quarter_end_dt.tz_localize(None)
 
-        # 1. Trust
-        status_text.text("Running Trust analysis...")
-        progress_bar.progress(10)
-        df_trust = trust_snapshot(
-            tickers,
-            start=start_date,
-            end=end_date,
-            news_df=news_df,
-            apikey=s.fmp_api_key,
-            s=s
-        )
-        if not df_trust.empty:
-            if "quarter_end" not in df_trust.columns:
-                df_trust["quarter_end"] = quarter_end_dt
-            # Force timezone-naive by normalizing to date
-            df_trust["quarter_end"] = pd.to_datetime(pd.to_datetime(df_trust["quarter_end"]).dt.date)
-        progress_bar.progress(30)
+            # 1. Trust
+            status_text.text("Running Trust analysis...")
+            progress_bar.progress(10)
+            df_trust = trust_snapshot(
+                tickers,
+                start=start_date,
+                end=end_date,
+                news_df=news_df,
+                apikey=s.fmp_api_key,
+                s=s
+            )
+            if not df_trust.empty:
+                if "quarter_end" not in df_trust.columns:
+                    df_trust["quarter_end"] = quarter_end_dt
+                # Force timezone-naive by normalizing to date
+                df_trust["quarter_end"] = pd.to_datetime(pd.to_datetime(df_trust["quarter_end"]).dt.date)
+            progress_bar.progress(30)
 
-        # 2. Valuation
-        status_text.text("Running Valuation analysis...")
-        df_val = valuation_snapshot(
-            tickers,
-            as_of=end_date
-        )
-        if not df_val.empty:
-            if "quarter_end" not in df_val.columns:
-                df_val["quarter_end"] = quarter_end_dt
-            # Force timezone-naive by normalizing to date
-            df_val["quarter_end"] = pd.to_datetime(pd.to_datetime(df_val["quarter_end"]).dt.date)
-        progress_bar.progress(50)
+            # 2. Valuation
+            status_text.text("Running Valuation analysis...")
+            df_val = valuation_snapshot(
+                tickers,
+                as_of=end_date
+            )
+            if not df_val.empty:
+                if "quarter_end" not in df_val.columns:
+                    df_val["quarter_end"] = quarter_end_dt
+                # Force timezone-naive by normalizing to date
+                df_val["quarter_end"] = pd.to_datetime(pd.to_datetime(df_val["quarter_end"]).dt.date)
+            progress_bar.progress(50)
 
-        # 3. Coverage
-        status_text.text("Running Coverage analysis...")
-        df_cov = coverage_snapshot(
-            tickers,
-            as_of=end_date,
-            media_fetcher=fmp_news_media_fetcher
-        )
-        if not df_cov.empty:
-            if "quarter_end" not in df_cov.columns:
-                df_cov["quarter_end"] = quarter_end_dt
-            # Force timezone-naive by normalizing to date
-            df_cov["quarter_end"] = pd.to_datetime(pd.to_datetime(df_cov["quarter_end"]).dt.date)
-        progress_bar.progress(70)
+            # 3. Coverage
+            status_text.text("Running Coverage analysis...")
+            df_cov = coverage_snapshot(
+                tickers,
+                as_of=end_date,
+                media_fetcher=fmp_news_media_fetcher
+            )
+            if not df_cov.empty:
+                if "quarter_end" not in df_cov.columns:
+                    df_cov["quarter_end"] = quarter_end_dt
+                # Force timezone-naive by normalizing to date
+                df_cov["quarter_end"] = pd.to_datetime(pd.to_datetime(df_cov["quarter_end"]).dt.date)
+            progress_bar.progress(70)
 
-        # 4. Liquidity
-        status_text.text("Running Liquidity analysis...")
-        rows = []
-        for sym in tickers:
-            try:
-                prices = fetch_prices_fmp(sym, start_date, end_date, s.fmp_api_key)
-                daily = daily_liquidity_bundle(sym, s, prices, end_date)
-                q = quarterly_liquidity(daily, freq="QE-DEC").reset_index()
-                if "quarter_end" not in q.columns:
-                    q = q.rename(columns={"Date": "quarter_end", "date": "quarter_end", "index": "quarter_end"})
-                q["ticker"] = sym
-                rows.append(q)
-            except Exception as e:
-                st.warning(f"⚠️ Liquidity data unavailable for {sym}: {str(e)}")
-        df_liq = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
-        if not df_liq.empty:
-            # Force timezone-naive by normalizing to date
-            if "quarter_end" in df_liq.columns:
-                df_liq["quarter_end"] = pd.to_datetime(pd.to_datetime(df_liq["quarter_end"]).dt.date)
-            df_liq = add_liquidity_percentile(df_liq)
-        progress_bar.progress(85)
+            # 4. Liquidity
+            status_text.text("Running Liquidity analysis...")
+            rows = []
+            for sym in tickers:
+                try:
+                    prices = fetch_prices_fmp(sym, start_date, end_date, s.fmp_api_key)
+                    daily = daily_liquidity_bundle(sym, s, prices, end_date)
+                    q = quarterly_liquidity(daily, freq="QE-DEC").reset_index()
+                    if "quarter_end" not in q.columns:
+                        q = q.rename(columns={"Date": "quarter_end", "date": "quarter_end", "index": "quarter_end"})
+                    q["ticker"] = sym
+                    rows.append(q)
+                except Exception as e:
+                    st.warning(f"⚠️ Liquidity data unavailable for {sym}: {str(e)}")
+            df_liq = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
+            if not df_liq.empty:
+                # Force timezone-naive by normalizing to date
+                if "quarter_end" in df_liq.columns:
+                    df_liq["quarter_end"] = pd.to_datetime(pd.to_datetime(df_liq["quarter_end"]).dt.date)
+                df_liq = add_liquidity_percentile(df_liq)
+            progress_bar.progress(85)
 
-        # 5. Composite
-        status_text.text("Computing composite scores...")
+            # 5. Composite
+            status_text.text("Computing composite scores...")
 
-        # Final timezone normalization - ensure ALL quarter_end columns are timezone-naive
-        def strip_timezone(df):
-            if df is not None and not df.empty and "quarter_end" in df.columns:
-                # Convert to naive datetime by going through numpy datetime64
-                df = df.copy()
-                df["quarter_end"] = df["quarter_end"].values.astype('datetime64[ns]')
-            return df
+            # Final timezone normalization - ensure ALL quarter_end columns are timezone-naive
+            def strip_timezone(df):
+                if df is not None and not df.empty and "quarter_end" in df.columns:
+                    # Convert to naive datetime by going through numpy datetime64
+                    df = df.copy()
+                    df["quarter_end"] = df["quarter_end"].values.astype('datetime64[ns]')
+                return df
 
-        df_val = strip_timezone(df_val)
-        df_liq = strip_timezone(df_liq)
-        df_cov = strip_timezone(df_cov)
-        df_trust = strip_timezone(df_trust)
+            df_val = strip_timezone(df_val)
+            df_liq = strip_timezone(df_liq)
+            df_cov = strip_timezone(df_cov)
+            df_trust = strip_timezone(df_trust)
 
-        df_composite = irci_composite(
-            valuation=df_val,
-            liquidity=df_liq,
-            coverage=df_cov,
-            sentiment=df_trust,
-            weights={
-                'liquidity': weight_liquidity / 100,
-                'valuation': weight_valuation / 100,
-                'coverage': weight_coverage / 100,
-                'trust': weight_trust / 100
+            df_composite = irci_composite(
+                valuation=df_val,
+                liquidity=df_liq,
+                coverage=df_cov,
+                sentiment=df_trust,
+                weights={
+                    'liquidity': weight_liquidity / 100,
+                    'valuation': weight_valuation / 100,
+                    'coverage': weight_coverage / 100,
+                    'trust': weight_trust / 100
+                }
+            )
+            progress_bar.progress(100)
+            status_text.text(f"✓ Analysis complete for {selected_quarter}!")
+
+            # Store results for this quarter
+            all_quarters_results[selected_quarter] = {
+                'df_composite': df_composite,
+                'df_trust': df_trust,
+                'df_val': df_val,
+                'df_cov': df_cov,
+                'df_liq': df_liq,
+                'news_df': news_df,
+                'start_date': start_date,
+                'end_date': end_date
             }
-        )
-        progress_bar.progress(100)
-        status_text.text("✓ Analysis complete!")
 
-        # Store in session state
-        st.session_state['df_composite'] = df_composite
-        st.session_state['df_trust'] = df_trust
-        st.session_state['df_val'] = df_val
-        st.session_state['df_cov'] = df_cov
-        st.session_state['df_liq'] = df_liq
-        st.session_state['news_df'] = news_df  # Store news data for timeline
-        st.session_state['run_time'] = datetime.now()
+            # Also store as previous quarter data for future QoQ comparisons
+            prev_quarter_key = f'df_composite_prev_{selected_quarter}'
+            st.session_state[prev_quarter_key] = df_composite.copy()
 
-        # Also store as previous quarter data for future QoQ comparisons
-        # This allows next quarter's analysis to compare against this one
-        prev_quarter_key = f'df_composite_prev_{selected_quarter}'
-        st.session_state[prev_quarter_key] = df_composite.copy()
+        except Exception as e:
+            st.error(f"❌ Error running analysis for {selected_quarter}: {str(e)}")
+            st.exception(e)
+            # Continue with next quarter instead of stopping
+            continue
 
-    except Exception as e:
-        st.error(f"❌ Error running analysis: {str(e)}")
-        st.exception(e)
+    # After all quarters are processed, store in session state
+    if all_quarters_results:
+        # For single quarter, use standard storage
+        if len(selected_quarters) == 1:
+            quarter = selected_quarters[0]
+            st.session_state['df_composite'] = all_quarters_results[quarter]['df_composite']
+            st.session_state['df_trust'] = all_quarters_results[quarter]['df_trust']
+            st.session_state['df_val'] = all_quarters_results[quarter]['df_val']
+            st.session_state['df_cov'] = all_quarters_results[quarter]['df_cov']
+            st.session_state['df_liq'] = all_quarters_results[quarter]['df_liq']
+            st.session_state['news_df'] = all_quarters_results[quarter]['news_df']
+            st.session_state['run_time'] = datetime.now()
+        else:
+            # For multiple quarters, combine all data with quarter labels
+            combined_composite = []
+            combined_trust = []
+            combined_val = []
+            combined_cov = []
+            combined_liq = []
+            combined_news = []
+
+            for quarter, results in all_quarters_results.items():
+                # Add quarter column to each dataframe
+                for df_name in ['df_composite', 'df_trust', 'df_val', 'df_cov', 'df_liq']:
+                    if results[df_name] is not None:
+                        df = results[df_name].copy()
+                        df['quarter'] = quarter
+                        if df_name == 'df_composite':
+                            combined_composite.append(df)
+                        elif df_name == 'df_trust':
+                            combined_trust.append(df)
+                        elif df_name == 'df_val':
+                            combined_val.append(df)
+                        elif df_name == 'df_cov':
+                            combined_cov.append(df)
+                        elif df_name == 'df_liq':
+                            combined_liq.append(df)
+
+                # News data
+                if results['news_df'] is not None:
+                    news_df = results['news_df'].copy()
+                    news_df['quarter'] = quarter
+                    combined_news.append(news_df)
+
+            # Concatenate all quarters
+            st.session_state['df_composite'] = pd.concat(combined_composite, ignore_index=True) if combined_composite else None
+            st.session_state['df_trust'] = pd.concat(combined_trust, ignore_index=True) if combined_trust else None
+            st.session_state['df_val'] = pd.concat(combined_val, ignore_index=True) if combined_val else None
+            st.session_state['df_cov'] = pd.concat(combined_cov, ignore_index=True) if combined_cov else None
+            st.session_state['df_liq'] = pd.concat(combined_liq, ignore_index=True) if combined_liq else None
+            st.session_state['news_df'] = pd.concat(combined_news, ignore_index=True) if combined_news else None
+            st.session_state['run_time'] = datetime.now()
+            st.session_state['selected_quarters'] = selected_quarters  # Store list of quarters analyzed
+
+        st.success(f"✅ Analysis complete for {len(all_quarters_results)} quarter(s)!")
+    else:
+        st.error("❌ No quarters were successfully analyzed.")
         st.stop()
 
 # Display results (if available)
@@ -1371,8 +1469,17 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             st.error("❌ Loaded session contains empty analysis data. Please run a new analysis.")
             st.stop()
 
-        # Top metrics
-        st.markdown(f"### Quarter: {selected_quarter} | Companies: {len(df_composite)} | Run: {st.session_state['run_time'].strftime('%Y-%m-%d %H:%M')}")
+        # Top metrics - handle single or multiple quarters
+        quarters_analyzed = st.session_state.get('selected_quarters', [])
+        if 'quarter' in df_composite.columns:
+            # Multi-quarter data
+            unique_quarters = df_composite['quarter'].unique()
+            num_companies = len(df_composite[df_composite['quarter'] == unique_quarters[0]])
+            st.markdown(f"### Quarters: {', '.join(unique_quarters)} | Companies: {num_companies} | Run: {st.session_state['run_time'].strftime('%Y-%m-%d %H:%M')}")
+        else:
+            # Single quarter data
+            quarter_str = quarters_analyzed[0] if quarters_analyzed else "N/A"
+            st.markdown(f"### Quarter: {quarter_str} | Companies: {len(df_composite)} | Run: {st.session_state['run_time'].strftime('%Y-%m-%d %H:%M')}")
     except Exception as e:
         st.error(f"❌ Error displaying results: {str(e)}")
         st.exception(e)
