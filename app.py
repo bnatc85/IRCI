@@ -579,40 +579,13 @@ if st.session_state.get('optimize_weights', False):
                 'sentiment': weight_trust / 100
             }
 
-            # Try R² optimization first, fall back to variance if it fails or produces poor results
+            # Use variance-based optimization (same as Insights tab)
+            # R² optimization tends to overfit and produce unrealistic weights
             weight_analysis = recommend_optimal_weights(
-                df_comp,
-                current_weights=current_weights,
-                optimize_for='r2'
+                st.session_state['df_composite'],  # Use original df_composite (same as Insights)
+                current_weights=current_weights
+                # No optimize_for parameter = default variance-based method
             )
-
-            # Validate that optimization actually improved things
-            if 'optimized_r2' in weight_analysis:
-                # Calculate current R² for comparison
-                from scipy import stats
-                current_comp = (
-                    df_comp['valuation_pct'].fillna(0) * current_weights['valuation'] +
-                    df_comp['liquidity_pct'].fillna(0) * current_weights['liquidity'] +
-                    df_comp['coverage_pct'].fillna(0) * current_weights['coverage'] +
-                    df_comp['sentiment_pct'].fillna(0) * current_weights['sentiment']
-                )
-                if 'enterprise_value' in df_comp.columns:
-                    valid_mask = (current_comp > 0) & (df_comp['enterprise_value'] > 0)
-                    if valid_mask.sum() >= 3:
-                        _, _, r_value, _, _ = stats.linregress(
-                            current_comp[valid_mask],
-                            df_comp['enterprise_value'][valid_mask]
-                        )
-                        baseline_r2 = r_value ** 2
-
-                        # If optimization didn't improve, use variance method instead
-                        if weight_analysis['optimized_r2'] <= baseline_r2:
-                            st.warning(f"⚠️ R² optimization didn't improve (baseline: {baseline_r2:.4f}, optimized: {weight_analysis['optimized_r2']:.4f}). Using variance-based method instead.")
-                            weight_analysis = recommend_optimal_weights(
-                                df_comp,
-                                current_weights=current_weights,
-                                optimize_for='variance'
-                            )
             rec_weights = weight_analysis['recommended_weights']
 
             # Debug: show what recommend_optimal_weights returned
