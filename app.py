@@ -1698,15 +1698,34 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
             # Trend forecasting
             st.markdown("---")
-            st.markdown("#### 🔮 Trend Forecasting")
-            st.caption("Predict next quarter IRCI scores based on historical trends using linear regression")
+            st.markdown("#### 🔮 Advanced Trend Forecasting")
+            st.caption("Predict next quarter IRCI scores with confidence intervals using linear or polynomial regression")
 
             # Only forecast if we have at least 2 quarters
             if len(trend_df['quarter'].unique()) >= 2:
                 from sklearn.linear_model import LinearRegression
+                from sklearn.preprocessing import PolynomialFeatures
+                from scipy import stats
                 import numpy as np
 
+                # Model selection
+                col_model, col_ci = st.columns([2, 1])
+                with col_model:
+                    model_type = st.selectbox(
+                        "Forecasting Model",
+                        ["Linear Regression", "Polynomial Regression (Degree 2)", "Polynomial Regression (Degree 3)", "Auto-Select Best Model"],
+                        help="Linear: Assumes straight-line trends. Polynomial: Captures curves and acceleration/deceleration. Auto-Select: Chooses model with best R²."
+                    )
+                with col_ci:
+                    confidence_level = st.selectbox(
+                        "Confidence Interval",
+                        [90, 95, 99],
+                        index=1,
+                        help="Prediction interval width. 95% means we're 95% confident the actual value will fall within the range."
+                    )
+
                 forecast_data = []
+                forecast_plot_data_enhanced = []
 
                 # Get unique quarters sorted
                 quarters_sorted = sorted(trend_df['quarter'].unique())
@@ -1732,34 +1751,155 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         # Prepare X (quarter indices) and y (IRCI scores)
                         X = np.array([quarter_to_idx[q] for q in ticker_data['quarter']]).reshape(-1, 1)
                         y = ticker_data['irci_composite_pct'].values
+                        n = len(y)
 
-                        # Fit linear regression
-                        model = LinearRegression()
-                        model.fit(X, y)
+                        # Try different models
+                        models_to_try = {}
 
-                        # Predict next quarter (index = len(quarters_sorted))
-                        next_quarter_idx = len(quarters_sorted)
-                        predicted_score = model.predict([[next_quarter_idx]])[0]
-
-                        # Calculate confidence metrics
-                        current_score = ticker_data['irci_composite_pct'].iloc[-1]
-                        trend_direction = "📈 Improving" if model.coef_[0] > 0.5 else "📉 Declining" if model.coef_[0] < -0.5 else "➡️ Stable"
-                        trend_slope = model.coef_[0]
-
-                        # Calculate R² (goodness of fit)
-                        y_pred = model.predict(X)
-                        ss_res = np.sum((y - y_pred) ** 2)
+                        # 1. Linear regression
+                        linear_model = LinearRegression()
+                        linear_model.fit(X, y)
+                        y_pred_linear = linear_model.predict(X)
+                        ss_res_linear = np.sum((y - y_pred_linear) ** 2)
                         ss_tot = np.sum((y - np.mean(y)) ** 2)
-                        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+                        r2_linear = 1 - (ss_res_linear / ss_tot) if ss_tot > 0 else 0
+                        models_to_try['Linear'] = {
+                            'model': linear_model,
+                            'r2': r2_linear,
+                            'y_pred': y_pred_linear,
+                            'degree': 1,
+                            'poly_features': None
+                        }
+
+                        # 2. Polynomial regression (degree 2) - if enough data
+                        if len(ticker_data) >= 3:
+                            poly_features_2 = PolynomialFeatures(degree=2)
+                            X_poly_2 = poly_features_2.fit_transform(X)
+                            poly_model_2 = LinearRegression()
+                            poly_model_2.fit(X_poly_2, y)
+                            y_pred_poly_2 = poly_model_2.predict(X_poly_2)
+                            ss_res_poly_2 = np.sum((y - y_pred_poly_2) ** 2)
+                            r2_poly_2 = 1 - (ss_res_poly_2 / ss_tot) if ss_tot > 0 else 0
+                            models_to_try['Polynomial (Degree 2)'] = {
+                                'model': poly_model_2,
+                                'r2': r2_poly_2,
+                                'y_pred': y_pred_poly_2,
+                                'degree': 2,
+                                'poly_features': poly_features_2
+                            }
+
+                        # 3. Polynomial regression (degree 3) - if enough data
+                        if len(ticker_data) >= 4:
+                            poly_features_3 = PolynomialFeatures(degree=3)
+                            X_poly_3 = poly_features_3.fit_transform(X)
+                            poly_model_3 = LinearRegression()
+                            poly_model_3.fit(X_poly_3, y)
+                            y_pred_poly_3 = poly_model_3.predict(X_poly_3)
+                            ss_res_poly_3 = np.sum((y - y_pred_poly_3) ** 2)
+                            r2_poly_3 = 1 - (ss_res_poly_3 / ss_tot) if ss_tot > 0 else 0
+                            models_to_try['Polynomial (Degree 3)'] = {
+                                'model': poly_model_3,
+                                'r2': r2_poly_3,
+                                'y_pred': y_pred_poly_3,
+                                'degree': 3,
+                                'poly_features': poly_features_3
+                            }
+
+                        # Select model based on user choice
+                        if model_type == "Auto-Select Best Model":
+                            # Choose model with highest R²
+                            best_model_name = max(models_to_try.items(), key=lambda x: x[1]['r2'])[0]
+                            selected_model_info = models_to_try[best_model_name]
+                            model_used = best_model_name
+                        elif model_type == "Linear Regression":
+                            selected_model_info = models_to_try['Linear']
+                            model_used = "Linear"
+                        elif model_type == "Polynomial Regression (Degree 2)":
+                            if 'Polynomial (Degree 2)' in models_to_try:
+                                selected_model_info = models_to_try['Polynomial (Degree 2)']
+                                model_used = "Polynomial (Degree 2)"
+                            else:
+                                selected_model_info = models_to_try['Linear']
+                                model_used = "Linear (insufficient data for polynomial)"
+                        elif model_type == "Polynomial Regression (Degree 3)":
+                            if 'Polynomial (Degree 3)' in models_to_try:
+                                selected_model_info = models_to_try['Polynomial (Degree 3)']
+                                model_used = "Polynomial (Degree 3)"
+                            else:
+                                selected_model_info = models_to_try['Linear']
+                                model_used = "Linear (insufficient data for polynomial)"
+
+                        model = selected_model_info['model']
+                        r_squared = selected_model_info['r2']
+                        y_pred = selected_model_info['y_pred']
+                        poly_features = selected_model_info['poly_features']
+
+                        # Predict next quarter
+                        next_quarter_idx = len(quarters_sorted)
+                        X_next = np.array([[next_quarter_idx]])
+                        if poly_features is not None:
+                            X_next_transformed = poly_features.transform(X_next)
+                            predicted_score = model.predict(X_next_transformed)[0]
+                        else:
+                            predicted_score = model.predict(X_next)[0]
+
+                        # Calculate confidence interval using prediction interval formula
+                        # Standard error of prediction
+                        mse = ss_res_linear / (n - 2) if n > 2 else ss_res_linear / n
+                        se = np.sqrt(mse)
+
+                        # For simple cases, use t-distribution
+                        t_value = stats.t.ppf((1 + confidence_level/100) / 2, n - 2 if n > 2 else 1)
+
+                        # Prediction interval (wider than confidence interval)
+                        # Simplified calculation (assumes constant variance)
+                        margin_of_error = t_value * se * np.sqrt(1 + 1/n)
+
+                        lower_bound = predicted_score - margin_of_error
+                        upper_bound = predicted_score + margin_of_error
+
+                        # Calculate metrics
+                        current_score = ticker_data['irci_composite_pct'].iloc[-1]
+                        if selected_model_info['degree'] == 1:
+                            trend_slope = model.coef_[0]
+                        else:
+                            # For polynomial, calculate slope at the last point (derivative)
+                            trend_slope = np.gradient(y_pred)[-1]
+
+                        trend_direction = "📈 Improving" if trend_slope > 0.5 else "📉 Declining" if trend_slope < -0.5 else "➡️ Stable"
 
                         forecast_data.append({
                             'Ticker': ticker,
+                            'Model': model_used,
                             'Current IRCI': round(current_score, 1),
                             f'Predicted {next_quarter}': round(predicted_score, 1),
+                            f'{confidence_level}% Lower': round(lower_bound, 1),
+                            f'{confidence_level}% Upper': round(upper_bound, 1),
+                            'Range Width': round(upper_bound - lower_bound, 1),
                             'Expected Change': round(predicted_score - current_score, 1),
                             'Trend': trend_direction,
-                            'Trend Slope': round(trend_slope, 2),
                             'Confidence (R²)': round(r_squared, 2)
+                        })
+
+                        # Store data for visualization with confidence bands
+                        for _, row in ticker_data.iterrows():
+                            forecast_plot_data_enhanced.append({
+                                'ticker': ticker,
+                                'quarter': row['quarter'],
+                                'score': row['irci_composite_pct'],
+                                'type': 'Historical',
+                                'lower': None,
+                                'upper': None
+                            })
+
+                        # Add forecast point with confidence interval
+                        forecast_plot_data_enhanced.append({
+                            'ticker': ticker,
+                            'quarter': next_quarter,
+                            'score': predicted_score,
+                            'type': 'Forecast',
+                            'lower': lower_bound,
+                            'upper': upper_bound
                         })
 
                 if forecast_data:
@@ -1786,85 +1926,309 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         hide_index=True
                     )
 
-                    # Visualization: Forecast chart
-                    st.markdown("##### Forecast Visualization")
+                    # Visualization: Forecast chart with confidence bands
+                    st.markdown(f"##### Forecast Visualization with {confidence_level}% Confidence Intervals")
 
-                    # Create extended data with forecasts
-                    forecast_plot_data = []
-                    for ticker in trend_df['ticker'].unique():
-                        ticker_historical = trend_df[trend_df['ticker'] == ticker].sort_values('quarter')
+                    # Create figure using plotly graph objects for better control
+                    import plotly.graph_objects as go
 
-                        # Add historical data
-                        for _, row in ticker_historical.iterrows():
-                            forecast_plot_data.append({
-                                'ticker': ticker,
-                                'quarter': row['quarter'],
-                                'score': row['irci_composite_pct'],
-                                'type': 'Historical'
-                            })
+                    fig_forecast = go.Figure()
 
-                        # Add forecast
-                        ticker_forecast = forecast_df[forecast_df['Ticker'] == ticker]
-                        if not ticker_forecast.empty:
-                            forecast_plot_data.append({
-                                'ticker': ticker,
-                                'quarter': next_quarter,
-                                'score': ticker_forecast.iloc[0][f'Predicted {next_quarter}'],
-                                'type': 'Forecast'
-                            })
+                    # Get unique companies and assign colors
+                    companies = trend_df['ticker'].unique()
+                    colors = px.colors.qualitative.Plotly
 
-                    forecast_plot_df = pd.DataFrame(forecast_plot_data)
+                    for idx, ticker in enumerate(companies):
+                        color = colors[idx % len(colors)]
 
-                    # Create line chart with historical and forecast
-                    fig_forecast = px.line(
-                        forecast_plot_df,
-                        x='quarter',
-                        y='score',
-                        color='ticker',
-                        line_dash='type',
-                        markers=True,
-                        title=f'IRCI Trends with {next_quarter} Forecast',
-                        labels={'score': 'IRCI Score (%)', 'quarter': 'Quarter', 'ticker': 'Company'}
-                    )
+                        # Get data for this ticker
+                        ticker_data_enhanced = [d for d in forecast_plot_data_enhanced if d['ticker'] == ticker]
+                        if not ticker_data_enhanced:
+                            continue
+
+                        # Separate historical and forecast
+                        historical = [d for d in ticker_data_enhanced if d['type'] == 'Historical']
+                        forecast = [d for d in ticker_data_enhanced if d['type'] == 'Forecast']
+
+                        # Plot historical data (solid line)
+                        if historical:
+                            quarters_hist = [d['quarter'] for d in historical]
+                            scores_hist = [d['score'] for d in historical]
+
+                            fig_forecast.add_trace(go.Scatter(
+                                x=quarters_hist,
+                                y=scores_hist,
+                                mode='lines+markers',
+                                name=ticker,
+                                line=dict(color=color, width=2),
+                                marker=dict(size=8),
+                                showlegend=True,
+                                hovertemplate=f'{ticker}<br>Quarter: %{{x}}<br>IRCI: %{{y:.1f}}<extra></extra>'
+                            ))
+
+                        # Plot forecast with confidence band
+                        if forecast:
+                            forecast_point = forecast[0]
+                            last_hist = historical[-1] if historical else None
+
+                            # Draw line from last historical to forecast
+                            if last_hist:
+                                fig_forecast.add_trace(go.Scatter(
+                                    x=[last_hist['quarter'], forecast_point['quarter']],
+                                    y=[last_hist['score'], forecast_point['score']],
+                                    mode='lines+markers',
+                                    name=f'{ticker} (forecast)',
+                                    line=dict(color=color, width=2, dash='dash'),
+                                    marker=dict(size=8, symbol='diamond'),
+                                    showlegend=False,
+                                    hovertemplate=f'{ticker} Forecast<br>Quarter: %{{x}}<br>IRCI: %{{y:.1f}}<extra></extra>'
+                                ))
+
+                            # Add confidence band (shaded area)
+                            if forecast_point['lower'] is not None and forecast_point['upper'] is not None:
+                                # Upper bound line
+                                fig_forecast.add_trace(go.Scatter(
+                                    x=[forecast_point['quarter'], forecast_point['quarter']],
+                                    y=[forecast_point['lower'], forecast_point['upper']],
+                                    fill=None,
+                                    mode='lines',
+                                    line=dict(color=color, width=0),
+                                    showlegend=False,
+                                    hoverinfo='skip'
+                                ))
+
+                                # Create shaded area using shapes
+                                # We'll use error bars instead for better rendering
+                                error_y = forecast_point['upper'] - forecast_point['score']
+                                error_y_minus = forecast_point['score'] - forecast_point['lower']
+
+                                fig_forecast.add_trace(go.Scatter(
+                                    x=[forecast_point['quarter']],
+                                    y=[forecast_point['score']],
+                                    mode='markers',
+                                    marker=dict(size=12, symbol='diamond', color=color),
+                                    error_y=dict(
+                                        type='data',
+                                        symmetric=False,
+                                        array=[error_y],
+                                        arrayminus=[error_y_minus],
+                                        color=color,
+                                        thickness=1.5,
+                                        width=10
+                                    ),
+                                    name=f'{ticker} CI',
+                                    showlegend=False,
+                                    hovertemplate=f'{ticker} Forecast<br>Predicted: {forecast_point["score"]:.1f}<br>CI: [{forecast_point["lower"]:.1f}, {forecast_point["upper"]:.1f}]<extra></extra>'
+                                ))
+
+                    # Update layout
                     fig_forecast.update_layout(
-                        height=500,
+                        height=600,
                         paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(30,33,48,0.5)',
                         font=dict(color='#fafafa'),
-                        title_font=dict(color='#00d4ff'),
-                        xaxis=dict(gridcolor='#2e3440'),
-                        yaxis=dict(gridcolor='#2e3440'),
-                        hovermode='x unified'
+                        title=dict(
+                            text=f'IRCI Trends with {next_quarter} Forecast & {confidence_level}% Confidence Intervals',
+                            font=dict(color='#00d4ff', size=16)
+                        ),
+                        xaxis=dict(
+                            title='Quarter',
+                            gridcolor='#2e3440',
+                            showline=True,
+                            linecolor='#2e3440'
+                        ),
+                        yaxis=dict(
+                            title='IRCI Score (%)',
+                            gridcolor='#2e3440',
+                            showline=True,
+                            linecolor='#2e3440',
+                            range=[0, 100]
+                        ),
+                        hovermode='closest',
+                        legend=dict(
+                            orientation="v",
+                            yanchor="top",
+                            y=0.99,
+                            xanchor="left",
+                            x=0.01,
+                            bgcolor='rgba(30,33,48,0.8)',
+                            bordercolor='#2e3440',
+                            borderwidth=1
+                        )
                     )
+
                     st.plotly_chart(fig_forecast, use_container_width=True)
 
+                    # Show interpretation guide
+                    st.caption(f"""
+                    **How to read this chart:**
+                    - **Solid lines**: Historical IRCI scores
+                    - **Dashed lines**: Forecasted scores for {next_quarter}
+                    - **Diamond markers**: Predicted values
+                    - **Error bars**: {confidence_level}% confidence interval (we're {confidence_level}% confident the actual score will fall within this range)
+                    """)
+
                     # Methodology explanation
-                    with st.expander("ℹ️ How Forecasting Works"):
-                        st.markdown("""
-                        **Forecasting Methodology:**
+                    with st.expander("ℹ️ How Advanced Forecasting Works"):
+                        st.markdown(f"""
+                        **Forecasting Models Available:**
 
-                        1. **Linear Regression:** Fits a straight line through historical IRCI scores
-                        2. **Trend Slope:** Points per quarter change (positive = improving, negative = declining)
-                        3. **R² Confidence:** How well the trend line fits historical data
-                           - R² > 0.7: High confidence forecast
-                           - R² 0.4-0.7: Moderate confidence
-                           - R² < 0.4: Low confidence (data is noisy)
+                        **1. Linear Regression (Degree 1)**
+                        - Fits a straight line through historical IRCI scores
+                        - Best for: Consistent, steady trends
+                        - Formula: IRCI = β₀ + β₁ × Quarter
+                        - Requires: Minimum 2 quarters
 
-                        **Interpretation:**
-                        - **Predicted Score:** Expected IRCI for next quarter if current trend continues
-                        - **Expected Change:** Difference from most recent quarter
-                        - **Trend Direction:** Overall trajectory based on slope
+                        **2. Polynomial Regression (Degree 2)**
+                        - Fits a quadratic curve (can capture acceleration/deceleration)
+                        - Best for: Trends that are speeding up or slowing down
+                        - Formula: IRCI = β₀ + β₁×Q + β₂×Q²
+                        - Requires: Minimum 3 quarters
+                        - Example: IR improvements that accelerate over time
 
-                        **Limitations:**
-                        - Assumes linear trends (may not capture sudden changes)
-                        - Requires at least 2 quarters of data
-                        - Past performance doesn't guarantee future results
-                        - External factors (market changes, new IR initiatives) not included
+                        **3. Polynomial Regression (Degree 3)**
+                        - Fits a cubic curve (can capture S-curves and inflection points)
+                        - Best for: Complex trends with multiple phases
+                        - Formula: IRCI = β₀ + β₁×Q + β₂×Q² + β₃×Q³
+                        - Requires: Minimum 4 quarters
+                        - Example: Initial improvement, plateau, then further gains
 
-                        **Best Used For:**
-                        - Identifying companies on strong upward/downward trajectories
-                        - Setting realistic IR improvement targets
-                        - Planning quarterly IR initiatives
+                        **4. Auto-Select Best Model**
+                        - Automatically chooses the model with highest R² (best fit)
+                        - Compares all available models based on your data
+                        - Recommended for most use cases
+
+                        **Current Selection:** {model_type}
+
+                        ---
+
+                        **Confidence Intervals ({confidence_level}%):**
+
+                        The prediction interval shows the range where we expect the actual IRCI score to fall:
+                        - **{confidence_level}% confidence** means if we repeated this forecast 100 times, about {confidence_level} times the actual value would fall within the range
+                        - **Wider intervals** = more uncertainty in forecast
+                        - **Narrower intervals** = more confidence in forecast
+
+                        **Factors affecting interval width:**
+                        - Data variance: More volatile historical data → wider intervals
+                        - Sample size: More quarters → narrower intervals
+                        - Model fit (R²): Better fit → narrower intervals
+
+                        ---
+
+                        **Metrics Explained:**
+
+                        **R² (R-squared):**
+                        - Measures how well the model fits historical data (0 to 1 scale)
+                        - R² > 0.7: High confidence forecast (trend is very consistent)
+                        - R² 0.4-0.7: Moderate confidence (trend is somewhat consistent)
+                        - R² < 0.4: Low confidence (data is noisy, trend unclear)
+
+                        **Range Width:**
+                        - Width of the {confidence_level}% confidence interval
+                        - Smaller width = more precise forecast
+                        - Example: Width of 5 points means ±2.5 points uncertainty
+
+                        **Model Used:**
+                        - Shows which regression model was selected
+                        - Compare models to see which fits your data best
+
+                        ---
+
+                        **When to Use Each Model:**
+
+                        **Linear:** Choose when...
+                        - Your IRCI improves/declines at a steady rate each quarter
+                        - You have 2-3 quarters of data
+                        - You want a simple, interpretable forecast
+
+                        **Polynomial (Degree 2):** Choose when...
+                        - Your IRCI improvement is accelerating or decelerating
+                        - You see curved trends in historical data
+                        - You have 3+ quarters of data
+
+                        **Polynomial (Degree 3):** Choose when...
+                        - You see S-curves or multiple inflection points
+                        - Early rapid growth, then stabilization, then growth again
+                        - You have 4+ quarters of data
+
+                        **Auto-Select:** Choose when...
+                        - You're unsure which model is best
+                        - You want maximum R² (best statistical fit)
+                        - You trust the algorithm to find optimal complexity
+
+                        ---
+
+                        **Interpretation Guide:**
+
+                        **Predicted Score:**
+                        - Expected IRCI for {next_quarter} if current trend continues
+                        - Point estimate (single best guess)
+
+                        **{confidence_level}% Lower / Upper:**
+                        - Lower bound and upper bound of prediction interval
+                        - Actual score has {confidence_level}% probability of falling in this range
+
+                        **Expected Change:**
+                        - Delta from most recent quarter to forecast
+                        - Positive = improving, negative = declining
+
+                        **Trend Direction:**
+                        - 📈 Improving: Slope > +0.5 points/quarter
+                        - 📉 Declining: Slope < -0.5 points/quarter
+                        - ➡️ Stable: Slope between -0.5 and +0.5
+
+                        ---
+
+                        **Limitations & Caveats:**
+
+                        ⚠️ **Model Assumptions:**
+                        - Assumes trends continue unchanged
+                        - Does not account for external shocks
+                        - Does not include planned IR initiatives
+                        - Historical relationship may not persist
+
+                        ⚠️ **Data Requirements:**
+                        - Minimum 2 quarters (linear only)
+                        - More data = better forecasts
+                        - Outliers can skew results
+
+                        ⚠️ **Uncertainty:**
+                        - Past performance ≠ future results
+                        - Confidence intervals show statistical uncertainty only
+                        - Real-world factors (market changes, competitor IR) not modeled
+
+                        ---
+
+                        **Best Practices:**
+
+                        ✅ **Do:**
+                        - Use forecasts to set realistic targets
+                        - Compare multiple models (Auto-Select helps)
+                        - Consider confidence intervals when making decisions
+                        - Update forecasts quarterly as new data arrives
+
+                        ❌ **Don't:**
+                        - Treat forecasts as guarantees
+                        - Ignore wide confidence intervals (they signal uncertainty)
+                        - Use forecasts beyond next quarter (error compounds)
+                        - Forget that you control IR outcomes through actions
+
+                        ---
+
+                        **Example Interpretation:**
+
+                        *"AAPL predicted at 74.3 (95% CI: [70.1, 78.5]), R²=0.92, Polynomial Degree 2"*
+
+                        **Means:**
+                        - Best guess: 74.3 IRCI next quarter
+                        - 95% confident actual will be between 70.1 and 78.5
+                        - Very high confidence (R²=0.92 means model explains 92% of variance)
+                        - Polynomial model chosen (trend is accelerating, not linear)
+                        - Range width of 8.4 points (moderate precision)
+
+                        **Action:**
+                        Set target of 74+ for next quarter, plan for range of 70-79 in scenarios.
                         """)
                 else:
                     st.info("Unable to generate forecasts. Need at least 2 quarters of data per company.")
