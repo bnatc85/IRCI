@@ -2343,12 +2343,19 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         st.markdown("#### 💰 Valuation Details")
 
         # Include PEG ratio if available from Alpha Vantage
-        val_cols = ['ticker', 'valuation_pct', 'ev_to_ebitda']
-        val_rename = {
-            'ticker': 'Ticker',
+        val_cols = ['ticker']
+        val_rename = {'ticker': 'Ticker'}
+
+        # Add quarter column if in multi-quarter mode
+        if 'quarter' in df_val.columns:
+            val_cols.append('quarter')
+            val_rename['quarter'] = 'Quarter'
+
+        val_cols.extend(['valuation_pct', 'ev_to_ebitda'])
+        val_rename.update({
             'valuation_pct': 'Score %',
             'ev_to_ebitda': 'EV/EBITDA'
-        }
+        })
 
         if 'peg_ratio' in df_val.columns:
             val_cols.append('peg_ratio')
@@ -2371,14 +2378,26 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             st.caption("💡 **PEG Ratio** (Price/Earnings to Growth) from Alpha Vantage - Growth-adjusted valuation metric. Lower is generally better (typically <1.0 indicates undervalued relative to growth).")
 
         st.markdown("#### 💧 Liquidity Details")
+
+        # Build liquidity columns list
+        liq_cols = ['ticker']
+        liq_rename = {'ticker': 'Ticker'}
+
+        # Add quarter column if in multi-quarter mode
+        if 'quarter' in df_liq.columns:
+            liq_cols.append('quarter')
+            liq_rename['quarter'] = 'Quarter'
+
+        liq_cols.extend(['liquidity_pct', 'q_amihud_e6', 'q_spread_bps', 'q_turnover'])
+        liq_rename.update({
+            'liquidity_pct': 'Score %',
+            'q_amihud_e6': 'Amihud (×10⁶)',
+            'q_spread_bps': 'Spread (bps)',
+            'q_turnover': 'Turnover'
+        })
+
         st.dataframe(
-            df_liq[['ticker', 'liquidity_pct', 'q_amihud_e6', 'q_spread_bps', 'q_turnover']].rename(columns={
-                'ticker': 'Ticker',
-                'liquidity_pct': 'Score %',
-                'q_amihud_e6': 'Amihud (×10⁶)',
-                'q_spread_bps': 'Spread (bps)',
-                'q_turnover': 'Turnover'
-            }),
+            df_liq[liq_cols].rename(columns=liq_rename),
             use_container_width=True,
             hide_index=True
         )
@@ -2426,13 +2445,20 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             df_cov_display['high_quality_articles'] = high_quality_counts
 
         # Display coverage details with high-quality article count if available
-        coverage_cols = ['ticker', 'coverage_pct', 'q_8k_count', 'q_days_to_10q']
-        coverage_rename = {
-            'ticker': 'Ticker',
+        coverage_cols = ['ticker']
+        coverage_rename = {'ticker': 'Ticker'}
+
+        # Add quarter column if in multi-quarter mode
+        if 'quarter' in df_cov_display.columns:
+            coverage_cols.append('quarter')
+            coverage_rename['quarter'] = 'Quarter'
+
+        coverage_cols.extend(['coverage_pct', 'q_8k_count', 'q_days_to_10q'])
+        coverage_rename.update({
             'coverage_pct': 'Score %',
             'q_8k_count': '8-K Count',
             'q_days_to_10q': 'Days to 10-Q/K'
-        }
+        })
 
         if 'high_quality_articles' in df_cov_display.columns:
             coverage_cols.append('high_quality_articles')
@@ -2448,16 +2474,28 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             st.caption("💡 **High-Quality Articles** = Articles from top-tier sources (WSJ, Bloomberg, Reuters, etc. with domain weight ≥ 0.8). These sources have higher credibility and reach.")
 
         st.markdown("#### 💭 Trust Details")
+
+        # Build trust columns list
+        trust_cols = ['ticker']
+        trust_rename = {'ticker': 'Ticker'}
+
+        # Add quarter column if in multi-quarter mode
+        if 'quarter' in df_trust.columns:
+            trust_cols.append('quarter')
+            trust_rename['quarter'] = 'Quarter'
+
+        trust_cols.extend(['trust_pct', 'p_event_calm', 'p_baseline_calm', 'p_media_tone', 'event_count', 'media_tone_n'])
+        trust_rename.update({
+            'trust_pct': 'Score %',
+            'p_event_calm': 'Event Calm %',
+            'p_baseline_calm': 'Baseline Calm %',
+            'p_media_tone': 'Media Tone %',
+            'event_count': 'Events',
+            'media_tone_n': 'Articles'
+        })
+
         st.dataframe(
-            df_trust[['ticker', 'trust_pct', 'p_event_calm', 'p_baseline_calm', 'p_media_tone', 'event_count', 'media_tone_n']].rename(columns={
-                'ticker': 'Ticker',
-                'trust_pct': 'Score %',
-                'p_event_calm': 'Event Calm %',
-                'p_baseline_calm': 'Baseline Calm %',
-                'p_media_tone': 'Media Tone %',
-                'event_count': 'Events',
-                'media_tone_n': 'Articles'
-            }),
+            df_trust[trust_cols].rename(columns=trust_rename),
             use_container_width=True,
             hide_index=True
         )
@@ -2483,7 +2521,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         """)
 
         try:
-            dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
+            dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
 
             if dollar_value_df.empty:
                 st.warning("⚠️ No enterprise value data available for dollar value calculations. The valuation dial may not have enterprise_value data for this time period.")
@@ -3303,6 +3341,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         )
         from irci.coverage import _company_submissions, _cik_for_ticker
 
+        # Get start/end dates for the selected quarter (for filtering events)
+        start_date, end_date = quarter_to_dates(selected_quarter)
+
         st.markdown("#### 📅 Event Timeline & Calendar")
         st.markdown("*Track events, filings, news, and their impact on IRCI scores*")
 
@@ -3367,7 +3408,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             company_dollar_per_irci_pt = None
             try:
                 from irci.dial_insights import compute_dollar_value_per_irci_point
-                dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
+                dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
                 if not dollar_value_df.empty:
                     ticker_dollar_data = dollar_value_df[dollar_value_df['ticker'] == selected_timeline_ticker]
                     if not ticker_dollar_data.empty:
@@ -3401,11 +3442,11 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 ticker=selected_timeline_ticker,
                 start_date=start_date,
                 end_date=end_date,
-                df_composite=df_composite,
-                df_val=df_val,
-                df_cov=df_cov,
-                df_liq=df_liq,
-                df_trust=df_trust,
+                df_composite=df_composite_filtered,
+                df_val=df_val_filtered,
+                df_cov=df_cov_filtered,
+                df_liq=df_liq_filtered,
+                df_trust=df_trust_filtered,
                 news_df=news_df,
                 sec_filings_df=sec_filings_df,
                 weights=current_weights,
@@ -3729,12 +3770,12 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             # Company selector for playbook
             playbook_ticker = st.selectbox(
                 "Select company for IR playbook:",
-                df_composite['ticker'].unique(),
+                df_composite_filtered['ticker'].unique(),
                 key="playbook_ticker_select"
             )
 
             # Get dial scores for selected company
-            company_row = df_composite[df_composite['ticker'] == playbook_ticker].iloc[0]
+            company_row = df_composite_filtered[df_composite_filtered['ticker'] == playbook_ticker].iloc[0]
 
             dial_scores = {
                 'valuation': company_row.get('valuation_pct', 50),
@@ -3742,6 +3783,18 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 'coverage': company_row.get('coverage_pct', 50),
                 'trust': company_row.get('sentiment_pct', 50)
             }
+
+            # Calculate dollar value per IRCI point for this company
+            company_dollar_per_point = None
+            try:
+                from irci.dial_insights import compute_dollar_value_per_irci_point
+                dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
+                if not dollar_value_df.empty:
+                    company_data = dollar_value_df[dollar_value_df['ticker'] == playbook_ticker]
+                    if not company_data.empty:
+                        company_dollar_per_point = company_data['company_$/irci_pt'].iloc[0]
+            except Exception:
+                pass  # Silently fail if dollar value can't be calculated
 
             # Generate playbook
             playbook = generate_playbook(dial_scores, df_composite, playbook_ticker)
@@ -3793,6 +3846,112 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     f"{dial_scores['trust']:.1f}%",
                     delta=f"{classification_colors[trust_cls]} {trust_cls.capitalize()}"
                 )
+
+            # Potential Value Improvements Section
+            if company_dollar_per_point:
+                st.markdown("---")
+                st.markdown("### 💎 Potential Value Improvements")
+                st.markdown("*Conservative estimates of value you can add by improving each dial next quarter*")
+
+                st.info("""
+                **How to read these estimates:**
+                - **Conservative Range:** Based on peer benchmarking and industry research
+                - **Point Improvement:** Realistic quarterly improvement target for each dial
+                - **Estimated Value:** Dollar impact calculated using your company's $/IRCI point
+                - **Assumptions:** 2-5 point improvement for critical dials, 1-3 points for others
+
+                These are **planning estimates** to help prioritize IR investments, not guarantees.
+                """)
+
+                # Calculate improvement opportunities for each dial
+                improvements = []
+                dial_names = {
+                    'valuation': ('💰 Valuation', weight_valuation / 100),
+                    'liquidity': ('💧 Liquidity', weight_liquidity / 100),
+                    'coverage': ('📰 Coverage', weight_coverage / 100),
+                    'trust': ('🤝 Trust', weight_trust / 100)
+                }
+
+                for dial, score in dial_scores.items():
+                    dial_label, dial_weight = dial_names[dial]
+                    classification = playbook['dial_classifications'][dial]
+
+                    # Conservative improvement estimates based on classification
+                    if classification == 'critical' and score < 40:
+                        # Critical dials with very low scores have most improvement potential
+                        min_improvement = 3
+                        max_improvement = 8
+                    elif classification == 'low' or score < 50:
+                        # Below-average dials
+                        min_improvement = 2
+                        max_improvement = 5
+                    elif score < 70:
+                        # Average dials
+                        min_improvement = 1
+                        max_improvement = 3
+                    else:
+                        # Already strong dials
+                        min_improvement = 0.5
+                        max_improvement = 2
+
+                    # Calculate IRCI impact (dial improvement × dial weight)
+                    min_irci_impact = min_improvement * dial_weight
+                    max_irci_impact = max_improvement * dial_weight
+
+                    # Calculate dollar value range
+                    min_value = min_irci_impact * company_dollar_per_point
+                    max_value = max_irci_impact * company_dollar_per_point
+
+                    improvements.append({
+                        'dial': dial_label,
+                        'current_score': score,
+                        'classification': classification,
+                        'min_improvement': min_improvement,
+                        'max_improvement': max_improvement,
+                        'min_value': min_value,
+                        'max_value': max_value,
+                        'priority': 1 if classification in ['critical', 'low'] else 2 if score < 70 else 3
+                    })
+
+                # Sort by priority (critical/low first)
+                improvements.sort(key=lambda x: (x['priority'], -x['max_value']))
+
+                # Display as cards
+                for imp in improvements:
+                    color = "🔴" if imp['classification'] == 'critical' else "🟠" if imp['classification'] == 'low' else "🟡" if imp['classification'] == 'medium' else "🟢"
+
+                    with st.expander(f"{color} **{imp['dial']}** - ${imp['min_value']/1e6:.0f}M to ${imp['max_value']/1e6:.0f}M potential value", expanded=imp['priority'] == 1):
+                        col_left, col_right = st.columns([1, 1])
+
+                        with col_left:
+                            st.metric(
+                                "Current Score",
+                                f"{imp['current_score']:.1f}%",
+                                delta=f"{color} {imp['classification'].capitalize()}"
+                            )
+
+                        with col_right:
+                            st.metric(
+                                "Quarterly Improvement Range",
+                                f"+{imp['min_improvement']:.1f} to +{imp['max_improvement']:.1f} pts"
+                            )
+
+                        st.markdown(f"""
+                        **What this means:**
+                        - By focusing on {imp['dial'].lower()} improvement initiatives next quarter, you could realistically gain **{imp['min_improvement']:.1f}-{imp['max_improvement']:.1f} points**
+                        - This translates to an estimated **${imp['min_value']/1e9:.2f}B - ${imp['max_value']/1e9:.2f}B** in enterprise value impact
+                        - See recommendations below for specific actions to achieve these improvements
+
+                        **Key actions:** Review the {imp['dial'].split()[1]} recommendations in the sections below for concrete next steps.
+                        """)
+
+                st.caption(f"""
+                💡 **About these estimates:**
+                - $/IRCI Point for {playbook_ticker}: ${company_dollar_per_point:,.0f}
+                - Improvement ranges based on peer analysis and classification severity
+                - Critical/low scoring dials have higher improvement potential
+                - Values are R²-scaled to reflect IR's partial influence on enterprise value
+                """)
 
             # Quick Wins section
             if playbook['quick_wins']:
