@@ -534,7 +534,9 @@ with st.sidebar:
             # Verify data was loaded
             if st.session_state['df_composite'] is not None:
                 num_companies = len(st.session_state['df_composite'])
-                st.success(f"✓ Session loaded! Saved on {session_data.get('saved_at', 'unknown date')}. Analysis for {num_companies} companies is ready. Scroll down to view results.")
+                st.success(f"✓ Session loaded! Saved on {session_data.get('saved_at', 'unknown date')}. Analysis for {num_companies} companies is ready.")
+                # Force rerun to close uploader and show results
+                st.rerun()
             else:
                 st.warning("⚠️ Session loaded but no analysis data found. The session file may be incomplete.")
 
