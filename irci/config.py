@@ -10,6 +10,7 @@ load_dotenv(override=True)
 class Settings:
     fmp_api_key: str = os.getenv("FMP_API_KEY", "")
     worldnews_api_key: str = os.getenv("WORLDNEWS_API_KEY", "")
+    newsapi_api_key: str = os.getenv("NEWSAPI_API_KEY", "")
     alpha_vantage_api_key: str = os.getenv("ALPHA_VANTAGE_API_KEY", "")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     data_dir: Path = Path(os.getenv("IRCI_DATA_DIR", "./data"))
@@ -65,10 +66,31 @@ class Settings:
         # --- Sensible defaults if unset ---
         if not s.domain_weights:
             s.domain_weights = {
+                # Tier 1: Premium financial news (1.0)
                 "wsj.com": 1.0,
                 "bloomberg.com": 1.0,
+                "ft.com": 1.0,
+
+                # Tier 2: Major news & business (0.9)
                 "reuters.com": 0.9,
+                "cnbc.com": 0.9,
+                "forbes.com": 0.9,
+                "businessinsider.com": 0.85,
+
+                # Tier 3: Reputable sources (0.7-0.8)
+                "theverge.com": 0.75,
+                "techcrunch.com": 0.75,
+                "arstechnica.com": 0.75,
+                "marketwatch.com": 0.7,
+
+                # Tier 4: General coverage (0.5-0.6)
                 "seekingalpha.com": 0.6,
+                "yahoo.com": 0.5,
+                "investing.com": 0.5,
+
+                # Tier 5: Press releases (0.3-0.4)
                 "prnewswire.com": 0.4,
+                "businesswire.com": 0.4,
+                "globenewswire.com": 0.3,
             }
         return s
