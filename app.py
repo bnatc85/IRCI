@@ -1059,10 +1059,16 @@ elif run_analysis:
             q_start = pd.to_datetime(start_date, utc=True)
             q_end = pd.to_datetime(end_date, utc=True)
 
+            # Track errors for display
+            news_errors = {}
+
             for ticker in tickers:
                 ticker_got_news = False
+                ticker_errors = []
+
                 try:
                     # Try FMP first
+                    status_text.text(f"Fetching news for {ticker} from FMP...")
                     ticker_news = fmp_news_media_fetcher(ticker, q_start, q_end, s)
                     if not ticker_news.empty:
                         ticker_news['ticker'] = ticker
@@ -1070,12 +1076,18 @@ elif run_analysis:
                         news_counts[ticker] = len(ticker_news)
                         news_sources_used[ticker] = "FMP"
                         ticker_got_news = True
+                        print(f"✓ FMP returned {len(ticker_news)} articles for {ticker}")
+                    else:
+                        ticker_errors.append("FMP: No articles found")
                 except Exception as e:
+                    error_msg = f"FMP: {str(e)}"
+                    ticker_errors.append(error_msg)
                     print(f"FMP news fetch failed for {ticker}: {e}")
 
                 # If FMP failed or returned no results, try World News API
                 if not ticker_got_news:
                     try:
+                        status_text.text(f"Fetching news for {ticker} from World News API...")
                         ticker_news = worldnews_api_fetcher(ticker, q_start, q_end, s)
                         if not ticker_news.empty:
                             ticker_news['ticker'] = ticker
@@ -1083,12 +1095,18 @@ elif run_analysis:
                             news_counts[ticker] = len(ticker_news)
                             news_sources_used[ticker] = "World News API"
                             ticker_got_news = True
+                            print(f"✓ World News API returned {len(ticker_news)} articles for {ticker}")
+                        else:
+                            ticker_errors.append("World News API: No articles found")
                     except Exception as e:
+                        error_msg = f"World News API: {str(e)}"
+                        ticker_errors.append(error_msg)
                         print(f"World News API fetch failed for {ticker}: {e}")
 
                 # If both FMP and World News failed, try Alpha Vantage
                 if not ticker_got_news:
                     try:
+                        status_text.text(f"Fetching news for {ticker} from Alpha Vantage...")
                         ticker_news = alpha_vantage_news_fetcher(ticker, q_start, q_end, s)
                         if not ticker_news.empty:
                             ticker_news['ticker'] = ticker
@@ -1096,11 +1114,17 @@ elif run_analysis:
                             news_counts[ticker] = len(ticker_news)
                             news_sources_used[ticker] = "Alpha Vantage"
                             ticker_got_news = True
+                            print(f"✓ Alpha Vantage returned {len(ticker_news)} articles for {ticker}")
+                        else:
+                            ticker_errors.append("Alpha Vantage: No articles found")
                     except Exception as e:
+                        error_msg = f"Alpha Vantage: {str(e)}"
+                        ticker_errors.append(error_msg)
                         print(f"Alpha Vantage news fetch failed for {ticker}: {e}")
 
                 if not ticker_got_news:
                     news_counts[ticker] = 0
+                    news_errors[ticker] = ticker_errors
                     print(f"No news found for {ticker} in period {start_date} to {end_date}")
 
             if news_list:
@@ -1151,9 +1175,17 @@ elif run_analysis:
                     # Show each ticker with count and source
                     ticker_details = [f'{t} ({news_counts[t]} from {news_sources_used.get(t, "API")})' for t in success_tickers]
                     msg += f"\n   Success: {', '.join(ticker_details)}"
-                if failed_tickers:
-                    msg += f"\n   No news: {', '.join(failed_tickers)}"
                 st.success(msg)
+
+                # Show detailed errors for failed tickers
+                if failed_tickers and news_errors:
+                    error_msg = "⚠️ **Failed to fetch news for some tickers:**\n\n"
+                    for ticker in failed_tickers:
+                        if ticker in news_errors:
+                            error_msg += f"**{ticker}:** Tried all sources\n"
+                            for err in news_errors[ticker]:
+                                error_msg += f"  - {err}\n"
+                    st.warning(error_msg)
             else:
                 st.warning("⚠️ No news articles found for any ticker in this date range. Try a more recent quarter (2024Q4 or 2025Q1) for news data.")
 
