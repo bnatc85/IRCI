@@ -219,8 +219,19 @@ def alpha_vantage_call_with_rate_limit(func, *args, **kwargs):
 - [x] API Key added to .env
 - [x] Python package installed (alpha-vantage 3.0.0)
 - [x] Added to requirements.txt
-- [ ] Integration into irci/valuation.py (next step)
-- [ ] Testing with sample companies
-- [ ] Documentation update
+- [x] Integration into irci/valuation.py ✅ **COMPLETE**
+- [x] PEG ratio implementation ✅ **COMPLETE**
+- [x] Display in Detailed Metrics tab ✅ **COMPLETE**
+- [ ] Testing with sample companies (test with analysis run)
+- [x] Documentation update
 
-**Ready to integrate!** Let me know if you want me to implement Option 1, 2, or 3 above.
+## 🎉 Integration Complete!
+
+**Phase 1: PEG Ratio** is now implemented:
+- `get_alpha_vantage_peg()` function fetches PEG ratio from Alpha Vantage
+- Rate limiting: 12-second delay between calls (respects 5 calls/minute limit)
+- PEG ratio added to `valuation_snapshot()` output
+- Displayed in Detailed Metrics tab with explanatory caption
+- Gracefully handles missing data (returns NaN if unavailable)
+
+Run a valuation analysis to see PEG ratios appear alongside EV/EBITDA metrics!
