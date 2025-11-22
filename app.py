@@ -1580,11 +1580,16 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     # Visualizations
     st.markdown("### 📈 Visualizations")
 
+    # Two-row tab layout for better screen space utilization
+    st.markdown("**Core Analysis**")
     # Add Trend Analysis tab if multi-quarter data is available
     if is_multi_quarter:
-        tab_trend, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📈 Trend Analysis", "Composite Scores", "Dial Breakdown", "Detailed Metrics", "📊 Insights", "📅 Timeline", "📋 Playbook", "💬 AI Assistant"])
+        tab_trend, tab1, tab2, tab3 = st.tabs(["📈 Trend Analysis", "📊 Composite Scores", "📉 Dial Breakdown", "📋 Detailed Metrics"])
     else:
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Composite Scores", "Dial Breakdown", "Detailed Metrics", "📊 Insights", "📅 Timeline", "📋 Playbook", "💬 AI Assistant"])
+        tab1, tab2, tab3 = st.tabs(["📊 Composite Scores", "📉 Dial Breakdown", "📋 Detailed Metrics"])
+
+    st.markdown("**Advanced Tools**")
+    tab4, tab5, tab6, tab7 = st.tabs(["💵 Dollar Value", "📅 Event Timeline", "🎯 Playbook", "💬 AI Assistant"])
 
     # Trend Analysis tab (only for multi-quarter data)
     if is_multi_quarter:
