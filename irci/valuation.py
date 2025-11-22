@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import requests
 from requests import HTTPError
+import os
+import time
 
 from .config import Settings
 from .logging import get_logger
@@ -98,6 +100,42 @@ def _get_json(url: str, timeout: int = 60) -> list | dict:
     r = requests.get(url, timeout=timeout)
     r.raise_for_status()
     return r.json()
+
+def get_alpha_vantage_peg(ticker: str) -> float:
+    """
+    Fetch PEG ratio from Alpha Vantage Company Overview endpoint.
+    Returns np.nan if unavailable or on error.
+
+    Rate limit: 5 calls/minute (free tier), so caller should manage timing.
+    """
+    api_key = os.getenv('ALPHA_VANTAGE_API_KEY')
+    if not api_key:
+        log.debug(f"ALPHA_VANTAGE_API_KEY not set; skipping PEG for {ticker}")
+        return np.nan
+
+    try:
+        url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
+        log.info(f"GET Alpha Vantage OVERVIEW for {ticker}")
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+
+        # Alpha Vantage returns empty dict or error message if symbol not found
+        if not data or 'PEGRatio' not in data:
+            log.warning(f"PEG ratio not available from Alpha Vantage for {ticker}")
+            return np.nan
+
+        peg_str = data.get('PEGRatio', 'None')
+        if peg_str in ('None', '', None):
+            return np.nan
+
+        peg_value = float(peg_str)
+        log.info(f"Alpha Vantage PEG for {ticker}: {peg_value}")
+        return peg_value
+
+    except Exception as e:
+        log.warning(f"Alpha Vantage PEG fetch failed for {ticker}: {e}")
+        return np.nan
 
 def fmp_enterprise_values(symbol: str, apikey: str, period: str = "quarter", limit: int = 40) -> pd.DataFrame:
     url = f"https://financialmodelingprep.com/api/v3/enterprise-values/{symbol}?period={period}&limit={limit}&apikey={apikey}"
@@ -275,6 +313,12 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
         ebitda = sec["ttm_ebitda"]
         ratio = np.nan if (pd.isna(ebitda) or ebitda == 0.0) else ev_val / ebitda
 
+        # 3) PEG ratio from Alpha Vantage (with rate limiting)
+        peg_ratio = get_alpha_vantage_peg(sym)
+        # Rate limit: 5 calls/minute = 12 seconds between calls
+        if not pd.isna(peg_ratio):
+            time.sleep(12)
+
         rows.append({
             "ticker": sym,
             "as_of": ev_date,
@@ -282,6 +326,7 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
             "ttm_ebitda": ebitda,
             "ev_to_ebitda": ratio,
             "ebitda_method": sec.get("method"),
+            "peg_ratio": peg_ratio,
         })
 
     out = pd.DataFrame(rows)

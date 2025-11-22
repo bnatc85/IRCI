@@ -1495,18 +1495,34 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     with tab3:
         # Detailed metrics by dial
         st.markdown("#### 💰 Valuation Details")
+
+        # Include PEG ratio if available from Alpha Vantage
+        val_cols = ['ticker', 'valuation_pct', 'ev_to_ebitda']
+        val_rename = {
+            'ticker': 'Ticker',
+            'valuation_pct': 'Score %',
+            'ev_to_ebitda': 'EV/EBITDA'
+        }
+
+        if 'peg_ratio' in df_val.columns:
+            val_cols.append('peg_ratio')
+            val_rename['peg_ratio'] = 'PEG Ratio'
+
+        val_cols.extend(['peer_mean_excl_self', 'valuation_gap_pct', 'valuation_quartile'])
+        val_rename.update({
+            'peer_mean_excl_self': 'Peer Avg',
+            'valuation_gap_pct': 'Gap %',
+            'valuation_quartile': 'Quartile'
+        })
+
         st.dataframe(
-            df_val[['ticker', 'valuation_pct', 'ev_to_ebitda', 'peer_mean_excl_self', 'valuation_gap_pct', 'valuation_quartile']].rename(columns={
-                'ticker': 'Ticker',
-                'valuation_pct': 'Score %',
-                'ev_to_ebitda': 'EV/EBITDA',
-                'peer_mean_excl_self': 'Peer Avg',
-                'valuation_gap_pct': 'Gap %',
-                'valuation_quartile': 'Quartile'
-            }),
+            df_val[val_cols].rename(columns=val_rename),
             use_container_width=True,
             hide_index=True
         )
+
+        if 'peg_ratio' in df_val.columns:
+            st.caption("💡 **PEG Ratio** (Price/Earnings to Growth) from Alpha Vantage - Growth-adjusted valuation metric. Lower is generally better (typically <1.0 indicates undervalued relative to growth).")
 
         st.markdown("#### 💧 Liquidity Details")
         st.dataframe(
