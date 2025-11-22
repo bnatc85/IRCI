@@ -161,48 +161,75 @@ def generate_pdf_report(
     # Valuation
     pdf.section_title('Valuation Dial ({:.1f}%)'.format(valuation_score))
     val_data = df_valuation[df_valuation['ticker'] == ticker].iloc[0]
+
+    ev_ebitda = val_data['ev_to_ebitda'] if 'ev_to_ebitda' in val_data.index and pd.notna(val_data['ev_to_ebitda']) else None
+    enterprise_value = val_data['enterprise_value'] if 'enterprise_value' in val_data.index and pd.notna(val_data['enterprise_value']) else None
+    ttm_ebitda = val_data['ttm_ebitda'] if 'ttm_ebitda' in val_data.index and pd.notna(val_data['ttm_ebitda']) else None
+
     pdf.body_text(
-        f"P/E Ratio: {val_data.get('pe_ratio', 0):.2f}\n"
-        f"P/E Percentile: {val_data.get('pe_percentile', 0):.1f}%\n"
-        f"P/S Ratio: {val_data.get('ps_ratio', 0):.2f}\n"
-        f"P/S Percentile: {val_data.get('ps_percentile', 0):.1f}%"
+        f"Valuation Percentile: {valuation_score:.1f}% (within peer group)\n"
+        f"EV/EBITDA Ratio: {ev_ebitda:.2f}" if ev_ebitda else "EV/EBITDA Ratio: N/A"
     )
-    if 'ev_ebitda' in val_data and pd.notna(val_data['ev_ebitda']):
-        pdf.body_text(f"EV/EBITDA: {val_data.get('ev_ebitda', 0):.2f}")
+    if enterprise_value:
+        pdf.body_text(f"Enterprise Value: ${enterprise_value/1e9:.2f}B")
+    if ttm_ebitda:
+        pdf.body_text(f"TTM EBITDA: ${ttm_ebitda/1e9:.2f}B")
 
     # Liquidity
     pdf.section_title('Liquidity Dial ({:.1f}%)'.format(liquidity_score))
     liq_data = df_liquidity[df_liquidity['ticker'] == ticker].iloc[0]
+
+    avg_volume = liq_data['avg_volume'] if 'avg_volume' in liq_data.index and pd.notna(liq_data['avg_volume']) else None
+    avg_spread = liq_data['avg_spread_pct'] if 'avg_spread_pct' in liq_data.index and pd.notna(liq_data['avg_spread_pct']) else None
+    avg_volatility = liq_data['avg_volatility'] if 'avg_volatility' in liq_data.index and pd.notna(liq_data['avg_volatility']) else None
+
     pdf.body_text(
-        f"Avg Volume Percentile: {liq_data.get('volume_pct', 0):.1f}%\n"
-        f"Spread Percentile: {liq_data.get('spread_pct', 0):.1f}%\n"
-        f"Volatility Percentile: {liq_data.get('volatility_pct', 0):.1f}%"
+        f"Liquidity Percentile: {liquidity_score:.1f}% (within peer group)"
     )
+    if avg_volume:
+        pdf.body_text(f"Average Daily Volume: {avg_volume:,.0f} shares")
+    if avg_spread:
+        pdf.body_text(f"Average Bid-Ask Spread: {avg_spread:.3f}%")
+    if avg_volatility:
+        pdf.body_text(f"Average Volatility: {avg_volatility:.2f}%")
 
     # Coverage
     pdf.section_title('Coverage Dial ({:.1f}%)'.format(coverage_score))
     cov_data = df_coverage[df_coverage['ticker'] == ticker].iloc[0]
 
-    total_articles = cov_data.get('total_weighted_articles', 0)
-    total_filings = cov_data.get('total_filings', 0)
+    total_weighted = cov_data['total_weighted_articles'] if 'total_weighted_articles' in cov_data.index and pd.notna(cov_data['total_weighted_articles']) else None
+    total_filings = cov_data['total_filings'] if 'total_filings' in cov_data.index and pd.notna(cov_data['total_filings']) else None
+    media_score = cov_data['media_score'] if 'media_score' in cov_data.index and pd.notna(cov_data['media_score']) else None
 
     pdf.body_text(
-        f"Weighted Article Count: {total_articles:.1f}\n"
-        f"SEC Filings: {total_filings}\n"
-        f"Media Score Percentile: {cov_data.get('media_score_pct', 0):.1f}%\n"
-        f"Filing Score Percentile: {cov_data.get('filing_score_pct', 0):.1f}%"
+        f"Coverage Percentile: {coverage_score:.1f}% (within peer group)"
     )
+    if total_weighted:
+        pdf.body_text(f"Weighted Media Coverage: {total_weighted:.1f} articles")
+    if total_filings:
+        pdf.body_text(f"SEC Filings This Quarter: {int(total_filings)}")
+    if media_score:
+        pdf.body_text(f"Media Score: {media_score:.1f}")
 
     # Trust
     pdf.section_title('Trust Dial ({:.1f}%)'.format(trust_score))
     trust_data = df_trust[df_trust['ticker'] == ticker].iloc[0]
 
-    media_tone = trust_data.get('media_tone', 0)
+    media_tone = trust_data['media_tone'] if 'media_tone' in trust_data.index and pd.notna(trust_data['media_tone']) else None
+    sentiment_label = "N/A"
+    if media_tone is not None:
+        if media_tone > 60:
+            sentiment_label = "Positive"
+        elif media_tone > 40:
+            sentiment_label = "Neutral"
+        else:
+            sentiment_label = "Negative"
 
     pdf.body_text(
-        f"Media Tone: {media_tone:.1f}%\n"
-        f"Sentiment Analysis: {'Positive' if media_tone > 60 else 'Neutral' if media_tone > 40 else 'Negative'}"
+        f"Trust Percentile: {trust_score:.1f}% (within peer group)"
     )
+    if media_tone is not None:
+        pdf.body_text(f"Media Tone Score: {media_tone:.1f}%\nSentiment: {sentiment_label}")
 
     pdf.add_page()
 
@@ -260,7 +287,8 @@ def generate_pdf_report(
         pdf.section_title('High Priority Actions')
         for i, rec in enumerate(high_priority, 1):
             pdf.set_font('Arial', 'B', 10)
-            pdf.cell(0, 6, strip_emojis(f"{i}. {rec['action']} ({rec['category']})"), 0, 1)
+            # Use multi_cell for wrapping long titles
+            pdf.multi_cell(0, 6, strip_emojis(f"{i}. {rec['action']} ({rec['category']})"))
             pdf.set_font('Arial', '', 9)
             pdf.multi_cell(0, 5, strip_emojis(rec['description']))
             if rec.get('quick_win'):
@@ -275,7 +303,8 @@ def generate_pdf_report(
         pdf.section_title('Medium Priority Actions')
         for i, rec in enumerate(medium_priority, 1):
             pdf.set_font('Arial', 'B', 10)
-            pdf.cell(0, 6, strip_emojis(f"{i}. {rec['action']} ({rec['category']})"), 0, 1)
+            # Use multi_cell for wrapping long titles
+            pdf.multi_cell(0, 6, strip_emojis(f"{i}. {rec['action']} ({rec['category']})"))
             pdf.set_font('Arial', '', 9)
             pdf.multi_cell(0, 5, strip_emojis(rec['description']))
             if rec.get('quick_win'):
@@ -292,7 +321,8 @@ def generate_pdf_report(
 
         for i, rec in enumerate(playbook['quick_wins'][:10], 1):  # Top 10 quick wins
             pdf.set_font('Arial', 'B', 9)
-            pdf.cell(0, 5, strip_emojis(f"{i}. {rec['action']}"), 0, 1)
+            # Use multi_cell for wrapping
+            pdf.multi_cell(0, 5, strip_emojis(f"{i}. {rec['action']}"))
 
     # 5. TIMELINE HIGHLIGHTS
     if timeline_df is not None and not timeline_df.empty:
@@ -307,11 +337,12 @@ def generate_pdf_report(
         for idx, event in timeline_sorted.head(10).iterrows():
             event_type = event.get('event_type', 'unknown')
             date = event.get('date', '')
-            description = event.get('description', 'No description')[:100]
+            description = event.get('description', 'No description')[:200]  # Increased from 100 to 200
             irci_impact = event.get('irci_impact', 0)
 
             pdf.set_font('Arial', 'B', 9)
-            pdf.cell(0, 5, strip_emojis(f"{date} - {event_type.upper()}"), 0, 1)
+            # Use multi_cell for date/type to handle wrapping
+            pdf.multi_cell(0, 5, strip_emojis(f"{date} - {event_type.upper()}"))
             pdf.set_font('Arial', '', 9)
             pdf.multi_cell(0, 4, strip_emojis(description))
             pdf.set_font('Arial', 'I', 8)
