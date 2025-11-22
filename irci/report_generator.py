@@ -8,6 +8,32 @@ from datetime import datetime
 from typing import Dict, List, Optional
 import pandas as pd
 import io
+import re
+
+
+def strip_emojis(text: str) -> str:
+    """Remove emojis and other non-ASCII characters from text for PDF compatibility"""
+    # Remove emojis and other Unicode characters
+    emoji_pattern = re.compile(
+        "["
+        u"\U0001F600-\U0001F64F"  # emoticons
+        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        u"\U00002702-\U000027B0"
+        u"\U000024C2-\U0001F251"
+        "]+",
+        flags=re.UNICODE
+    )
+    text = emoji_pattern.sub('', text)
+    # Also remove other common Unicode characters that might cause issues
+    text = text.replace('✅', '[OK]')
+    text = text.replace('⚠️', '[WARNING]')
+    text = text.replace('❌', '[X]')
+    text = text.replace('✓', '[CHECK]')
+    text = text.replace('→', '->')
+    text = text.replace('•', '*')
+    return text.strip()
 
 
 class IRCIReport(FPDF):
@@ -37,19 +63,19 @@ class IRCIReport(FPDF):
         """Add a chapter title"""
         self.set_font('Arial', 'B', 14)
         self.set_fill_color(0, 212, 255)
-        self.cell(0, 10, title, 0, 1, 'L', 0)
+        self.cell(0, 10, strip_emojis(title), 0, 1, 'L', 0)
         self.ln(2)
 
     def section_title(self, title: str):
         """Add a section title"""
         self.set_font('Arial', 'B', 11)
-        self.cell(0, 8, title, 0, 1, 'L')
+        self.cell(0, 8, strip_emojis(title), 0, 1, 'L')
         self.ln(1)
 
     def body_text(self, text: str):
         """Add body text"""
         self.set_font('Arial', '', 10)
-        self.multi_cell(0, 5, text)
+        self.multi_cell(0, 5, strip_emojis(text))
         self.ln(2)
 
 
@@ -234,9 +260,9 @@ def generate_pdf_report(
         pdf.section_title('High Priority Actions')
         for i, rec in enumerate(high_priority, 1):
             pdf.set_font('Arial', 'B', 10)
-            pdf.cell(0, 6, f"{i}. {rec['action']} ({rec['category']})", 0, 1)
+            pdf.cell(0, 6, strip_emojis(f"{i}. {rec['action']} ({rec['category']})"), 0, 1)
             pdf.set_font('Arial', '', 9)
-            pdf.multi_cell(0, 5, rec['description'])
+            pdf.multi_cell(0, 5, strip_emojis(rec['description']))
             if rec.get('quick_win'):
                 pdf.set_font('Arial', 'I', 8)
                 pdf.cell(0, 4, '   Quick Win', 0, 1)
@@ -249,9 +275,9 @@ def generate_pdf_report(
         pdf.section_title('Medium Priority Actions')
         for i, rec in enumerate(medium_priority, 1):
             pdf.set_font('Arial', 'B', 10)
-            pdf.cell(0, 6, f"{i}. {rec['action']} ({rec['category']})", 0, 1)
+            pdf.cell(0, 6, strip_emojis(f"{i}. {rec['action']} ({rec['category']})"), 0, 1)
             pdf.set_font('Arial', '', 9)
-            pdf.multi_cell(0, 5, rec['description'])
+            pdf.multi_cell(0, 5, strip_emojis(rec['description']))
             if rec.get('quick_win'):
                 pdf.set_font('Arial', 'I', 8)
                 pdf.cell(0, 4, '   Quick Win', 0, 1)
@@ -266,7 +292,7 @@ def generate_pdf_report(
 
         for i, rec in enumerate(playbook['quick_wins'][:10], 1):  # Top 10 quick wins
             pdf.set_font('Arial', 'B', 9)
-            pdf.cell(0, 5, f"{i}. {rec['action']}", 0, 1)
+            pdf.cell(0, 5, strip_emojis(f"{i}. {rec['action']}"), 0, 1)
 
     # 5. TIMELINE HIGHLIGHTS
     if timeline_df is not None and not timeline_df.empty:
@@ -285,9 +311,9 @@ def generate_pdf_report(
             irci_impact = event.get('irci_impact', 0)
 
             pdf.set_font('Arial', 'B', 9)
-            pdf.cell(0, 5, f"{date} - {event_type.upper()}", 0, 1)
+            pdf.cell(0, 5, strip_emojis(f"{date} - {event_type.upper()}"), 0, 1)
             pdf.set_font('Arial', '', 9)
-            pdf.multi_cell(0, 4, f"{description}")
+            pdf.multi_cell(0, 4, strip_emojis(description))
             pdf.set_font('Arial', 'I', 8)
             pdf.cell(0, 4, f"IRCI Impact: {irci_impact:+.3f} points", 0, 1)
             pdf.ln(2)
