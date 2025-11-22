@@ -521,10 +521,29 @@ with st.sidebar:
             st.session_state['weight_trust'] = session_data.get('weight_trust', 15)
             st.session_state['run_time'] = datetime.now()
 
-            st.success(f"✓ Session loaded! Saved on {session_data.get('saved_at', 'unknown date')}")
+            # Verify data was loaded
+            if st.session_state['df_composite'] is not None:
+                num_companies = len(st.session_state['df_composite'])
+                st.success(f"✓ Session loaded! Saved on {session_data.get('saved_at', 'unknown date')}. Analysis for {num_companies} companies is ready. Scroll down to view results.")
+            else:
+                st.warning("⚠️ Session loaded but no analysis data found. The session file may be incomplete.")
+
             st.rerun()
         except Exception as e:
             st.error(f"Failed to load session: {str(e)}")
+
+    # Debug info (for troubleshooting)
+    with st.expander("🔍 Session Debug Info"):
+        st.write("**Session State Keys:**", list(st.session_state.keys()))
+        if 'df_composite' in st.session_state:
+            df_comp = st.session_state['df_composite']
+            if df_comp is not None:
+                st.write(f"✓ df_composite exists: {len(df_comp)} rows")
+                st.write("Columns:", list(df_comp.columns))
+            else:
+                st.write("❌ df_composite is None")
+        else:
+            st.write("❌ df_composite not in session_state")
 
     # Contact information
     st.markdown("""
@@ -1235,7 +1254,7 @@ elif run_analysis:
         st.stop()
 
 # Display results (if available)
-if 'df_composite' in st.session_state:
+if 'df_composite' in st.session_state and st.session_state['df_composite'] is not None:
     st.markdown("---")
     st.markdown("## 📊 Analysis Results")
 
@@ -1246,14 +1265,24 @@ if 'df_composite' in st.session_state:
     Focus on identifying the weakest dial and taking targeted action.
     """)
 
-    df_composite = st.session_state['df_composite']
-    df_trust = st.session_state['df_trust']
-    df_val = st.session_state['df_val']
-    df_cov = st.session_state['df_cov']
-    df_liq = st.session_state['df_liq']
+    try:
+        df_composite = st.session_state['df_composite']
+        df_trust = st.session_state['df_trust']
+        df_val = st.session_state['df_val']
+        df_cov = st.session_state['df_cov']
+        df_liq = st.session_state['df_liq']
 
-    # Top metrics
-    st.markdown(f"### Quarter: {selected_quarter} | Companies: {len(df_composite)} | Run: {st.session_state['run_time'].strftime('%Y-%m-%d %H:%M')}")
+        # Check if dataframes are empty
+        if df_composite.empty:
+            st.error("❌ Loaded session contains empty analysis data. Please run a new analysis.")
+            st.stop()
+
+        # Top metrics
+        st.markdown(f"### Quarter: {selected_quarter} | Companies: {len(df_composite)} | Run: {st.session_state['run_time'].strftime('%Y-%m-%d %H:%M')}")
+    except Exception as e:
+        st.error(f"❌ Error displaying results: {str(e)}")
+        st.exception(e)
+        st.stop()
 
     # Composite ranking
     st.markdown("### 🏆 Composite Ranking")
