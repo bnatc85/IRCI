@@ -32,7 +32,7 @@ from irci.peers import find_peers_simple
 # Page config
 st.set_page_config(
     page_title="IRCI Analysis",
-    page_icon="📊",
+    page_icon="IRCI_icon_primary.png",  # Use IRCI logo as favicon
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
