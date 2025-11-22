@@ -39,7 +39,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'About': "IRCI Analysis Platform - Information Risk, Coverage, Trust, Liquidity & Valuation"
+        'About': "IRCI Analysis Platform - Coverage, Trust, Liquidity & Valuation"
     }
 )
 
@@ -1325,6 +1325,11 @@ elif run_analysis:
         st.session_state['news_df'] = news_df  # Store news data for timeline
         st.session_state['run_time'] = datetime.now()
 
+        # Also store as previous quarter data for future QoQ comparisons
+        # This allows next quarter's analysis to compare against this one
+        prev_quarter_key = f'df_composite_prev_{selected_quarter}'
+        st.session_state[prev_quarter_key] = df_composite.copy()
+
     except Exception as e:
         st.error(f"❌ Error running analysis: {str(e)}")
         st.exception(e)
@@ -1593,14 +1598,36 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 # IR Contribution Value Summary
                 st.markdown("---")
                 st.markdown("#### 💰 Quarterly IR Value Contribution")
-                st.info("""
-                **What this shows:** How much dollar value your IR team added this quarter by performing above (or below)
-                the peer average. Calculated as: (Your IRCI - Peer Average IRCI) × $/IRCI point (R²-scaled).
 
-                - **Positive value** = Your IR outperformed peers, adding enterprise value
-                - **Negative value** = Your IR underperformed peers, leaving value on the table
-                - **Zero** = You performed at peer average
-                """)
+                # Get previous quarter data if available
+                quarters_list = ["2025Q4", "2025Q3", "2025Q2", "2025Q1", "2024Q4", "2024Q3", "2024Q2", "2024Q1"]
+                current_q_idx = quarters_list.index(selected_quarter) if selected_quarter in quarters_list else -1
+                previous_quarter = quarters_list[current_q_idx + 1] if current_q_idx >= 0 and current_q_idx < len(quarters_list) - 1 else None
+
+                # Try to get previous quarter IRCI scores from session state
+                prev_quarter_key = f'df_composite_prev_{previous_quarter}'
+                has_prev_data = previous_quarter and prev_quarter_key in st.session_state and st.session_state[prev_quarter_key] is not None
+
+                if has_prev_data:
+                    st.info("""
+                    **What this shows:** How much dollar value your IR team added THIS quarter by improving IRCI score
+                    from the previous quarter. Calculated as: (Current Quarter IRCI - Previous Quarter IRCI) × $/IRCI point (R²-scaled).
+
+                    - **Positive value** = IRCI improved, IR team added enterprise value
+                    - **Negative value** = IRCI declined, IR team lost value
+                    - **Zero** = No change from last quarter
+                    """)
+                else:
+                    st.info("""
+                    **What this shows:** How much dollar value your IR team represents relative to peer average.
+                    Calculated as: (Your IRCI - Peer Average IRCI) × $/IRCI point (R²-scaled).
+
+                    💡 **To track quarterly improvement**, run analysis for previous quarter first, then this quarter.
+
+                    - **Positive value** = Your IR outperformed peers
+                    - **Negative value** = Your IR underperformed peers
+                    - **Zero** = You performed at peer average
+                    """)
 
                 # Calculate peer average IRCI
                 peer_avg_irci = dollar_value_df['irci_composite_pct'].mean()
@@ -1612,19 +1639,53 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     irci_score = row['irci_composite_pct']
                     dollar_per_pt = row['company_$/irci_pt']
 
-                    # IR value contribution = (Your IRCI - Peer Average) × $/IRCI point
-                    # This shows what your IR added RELATIVE to peers this quarter
-                    irci_gap_from_avg = irci_score - peer_avg_irci
-                    ir_value_contribution = irci_gap_from_avg * dollar_per_pt
+                    if has_prev_data:
+                        # Use quarter-over-quarter change
+                        prev_df = st.session_state[prev_quarter_key]
+                        prev_row = prev_df[prev_df['ticker'] == ticker]
 
-                    ir_contribution_data.append({
-                        'ticker': ticker,
-                        'irci_score': irci_score,
-                        'peer_avg_irci': peer_avg_irci,
-                        'irci_gap_from_avg': irci_gap_from_avg,
-                        'dollar_per_pt': dollar_per_pt,
-                        'ir_value_contribution': ir_value_contribution
-                    })
+                        if not prev_row.empty:
+                            prev_irci_score = prev_row['irci_composite_pct'].iloc[0]
+                            irci_change = irci_score - prev_irci_score
+                            ir_value_contribution = irci_change * dollar_per_pt
+
+                            ir_contribution_data.append({
+                                'ticker': ticker,
+                                'irci_score': irci_score,
+                                'prev_irci_score': prev_irci_score,
+                                'irci_change': irci_change,
+                                'dollar_per_pt': dollar_per_pt,
+                                'ir_value_contribution': ir_value_contribution,
+                                'comparison_type': 'qoq'
+                            })
+                        else:
+                            # Fallback to peer average if no previous data for this ticker
+                            irci_gap_from_avg = irci_score - peer_avg_irci
+                            ir_value_contribution = irci_gap_from_avg * dollar_per_pt
+
+                            ir_contribution_data.append({
+                                'ticker': ticker,
+                                'irci_score': irci_score,
+                                'peer_avg_irci': peer_avg_irci,
+                                'irci_gap_from_avg': irci_gap_from_avg,
+                                'dollar_per_pt': dollar_per_pt,
+                                'ir_value_contribution': ir_value_contribution,
+                                'comparison_type': 'peer_avg'
+                            })
+                    else:
+                        # Use peer average comparison
+                        irci_gap_from_avg = irci_score - peer_avg_irci
+                        ir_value_contribution = irci_gap_from_avg * dollar_per_pt
+
+                        ir_contribution_data.append({
+                            'ticker': ticker,
+                            'irci_score': irci_score,
+                            'peer_avg_irci': peer_avg_irci,
+                            'irci_gap_from_avg': irci_gap_from_avg,
+                            'dollar_per_pt': dollar_per_pt,
+                            'ir_value_contribution': ir_value_contribution,
+                            'comparison_type': 'peer_avg'
+                        })
 
                 ir_contrib_df = pd.DataFrame(ir_contribution_data)
 
@@ -1634,25 +1695,47 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     col_idx = idx % 3
                     with cols[col_idx]:
                         delta_color = "normal" if company['ir_value_contribution'] >= 0 else "inverse"
+
+                        # Create delta text and help based on comparison type
+                        if company.get('comparison_type') == 'qoq':
+                            delta_text = f"{company['irci_change']:+.1f} pts vs {previous_quarter}"
+                            help_text = f"Change: {company['irci_change']:+.1f} pts ({company['prev_irci_score']:.1f}→{company['irci_score']:.1f}) × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f}"
+                        else:
+                            delta_text = f"{company['irci_gap_from_avg']:+.1f} pts vs avg"
+                            help_text = f"Gap from avg: {company['irci_gap_from_avg']:+.1f} pts × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f}"
+
                         st.metric(
                             f"{company['ticker']} IR Contribution",
                             f"${company['ir_value_contribution']:,.0f}",
-                            delta=f"{company['irci_gap_from_avg']:+.1f} pts vs avg",
+                            delta=delta_text,
                             delta_color=delta_color,
-                            help=f"Gap from avg: {company['irci_gap_from_avg']:+.1f} pts × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f}"
+                            help=help_text
                         )
 
-                st.caption(f"""
-                📊 **Peer Average IRCI:** {peer_avg_irci:.1f} points
+                # Show appropriate caption based on comparison type
+                if has_prev_data:
+                    st.caption(f"""
+                    📊 **Comparison:** {selected_quarter} vs {previous_quarter}
 
-                💡 **How to interpret:** This shows how much value your IR team added THIS QUARTER relative to peers.
-                - If you scored 65 IRCI and peer average is 50 → You're +15 points above average
-                - +15 points × $150M/point = **+$2.25B** (your IR outperformed and added value)
-                - If you scored 45 and average is 50 → You're -5 points below average
-                - -5 points × $150M/point = **-$750M** (your IR underperformed, value left on table)
+                    💡 **How to interpret:** This shows how much value your IR team added THIS quarter by improving IRCI.
+                    - **Q2 IRCI:** 55 points → **Q3 IRCI:** 62 points = **+7 point improvement**
+                    - +7 points × $150M/point = **+$1.05B** (IR improved score, added value)
+                    - If IRCI declined: -3 points × $150M/point = **-$450M** (IR lost ground)
 
-                This answers: **"How much did our IR team contribute this quarter?"** by comparing your performance to peers.
-                """)
+                    This answers: **"How much did our IR team contribute this quarter?"** by showing quarter-over-quarter improvement.
+                    """)
+                else:
+                    st.caption(f"""
+                    📊 **Peer Average IRCI:** {peer_avg_irci:.1f} points
+
+                    💡 **To see quarterly improvement:** Run analysis for {previous_quarter if previous_quarter else 'previous quarter'} first,
+                    then run for {selected_quarter}. The system will then show quarter-over-quarter change.
+
+                    **Current view (vs peer average):**
+                    - If you scored 65 IRCI and peer average is 50 → You're +15 points above average
+                    - +15 points × $150M/point = **+$2.25B** (your IR outperformed peers)
+                    - This shows positioning, not quarterly improvement
+                    """)
 
                 st.markdown("---")
                 # Per-Ticker $/IRCI Point Table (Most Important)
