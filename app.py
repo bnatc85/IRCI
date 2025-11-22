@@ -368,6 +368,16 @@ with st.sidebar:
 
     st.caption(f"Period: {start_date} to {end_date}")
 
+    # Run Analysis button - prominently placed after quarter selection
+    st.markdown("---")
+    run_analysis = st.button(
+        "🚀 Run Analysis",
+        type="primary",
+        use_container_width=True,
+        help="Start analyzing the selected companies for the chosen quarter"
+    )
+    st.markdown("---")
+
     # News file upload
     st.markdown("### News Data")
     st.info("📰 News articles are automatically fetched from FMP API for sentiment analysis")
@@ -454,9 +464,6 @@ with st.sidebar:
         # Auto-optimize button
         if st.button("🎯 Auto-Optimize Weights", use_container_width=True, help="Find weights that maximize EV ~ IRCI regression R²"):
             st.session_state.optimize_weights = True
-
-    # Run button
-    run_analysis = st.button("🚀 Run Analysis", type="primary", use_container_width=True)
 
     # Save/Load session
     st.markdown("---")
