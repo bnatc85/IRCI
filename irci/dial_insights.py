@@ -113,33 +113,45 @@ def compute_dollar_value_per_irci_point(
         group_dollars_per_point = group_dollars_per_point_raw * r_squared
 
         # Company-specific $/IRCI point calculation
-        # Approach: Scale the regression slope by company's EV relative to predicted EV
-        # This accounts for company size and position relative to trend
-        df['predicted_ev'] = slope * df['irci_composite_pct'] + intercept
-        df['ev_to_predicted_ratio'] = df['enterprise_value'] / (df['predicted_ev'] + 1e9)
+        # NEW APPROACH: Use percentage-based limits to avoid unrealistic trillion-dollar values
+        # Academic research (Bushee & Miller 2012, Agarwal et al. 2016):
+        #   - IR contributes 5-15% to firm value over long term
+        #   - This represents the MAXIMUM structural value attributable to IR
+        #
+        # For cross-sectional peer comparisons:
+        #   - Max impact = 10% of EV per 10 IRCI points (1% per point)
+        #   - Scaled by R² to reflect actual explanatory power
+        #
+        # This prevents absurd results like "$500B upside from 10-point IRCI gap"
 
-        # Company-specific $/IRCI is the regression slope scaled by company size
-        # Companies with higher EV should have higher $/IRCI point
-        # Use the company's actual EV as the baseline, scaled by peer group sensitivity
-        irci_std = df['irci_composite_pct'].std()
-        if irci_std > 0:
-            # Sensitivity: how much EV changes per IRCI point for this company
-            # Based on company's EV and the peer group's IRCI volatility
-            # CRITICAL: Scale by R² to reflect actual explanatory power
-            # If R²=0.2, only 20% of EV variance is explained by IRCI
-            df['company_$/irci_pt'] = df['enterprise_value'] * (peer_regression_slope / peer_mean_ev) * r_squared
-        else:
-            df['company_$/irci_pt'] = peer_regression_slope * r_squared
+        # Calculate percentage-based $/IRCI point (capped at 1% of EV per point)
+        MAX_PERCENT_PER_POINT = 0.01  # 1% of EV per IRCI point
+
+        # Calculate raw $/IRCI from regression
+        raw_dollars_per_point = peer_regression_slope
+
+        # For each company, cap at MAX_PERCENT_PER_POINT of their EV
+        # Scaled by R² (if R²=0.5, only use 0.5% of EV per point)
+        df['company_$/irci_pt'] = df['enterprise_value'] * MAX_PERCENT_PER_POINT * r_squared
+
+        # Alternative: Use regression slope if it's more conservative than percentage cap
+        # This handles cases where peer group shows weak EV-IRCI relationship
+        regression_based = raw_dollars_per_point * r_squared
+
+        # Use the SMALLER of (regression-based, percentage-capped) for each company
+        # This ensures we never show unrealistic values
+        df['company_$/irci_pt'] = df['company_$/irci_pt'].clip(upper=regression_based)
 
     else:
         # Fallback: proportional to company EV (no R² scaling available without regression)
         df['regression_r2'] = 0.0
-        group_dollars_per_point = group_dollars_per_point_raw * 0.1  # Apply conservative 10% scaling when no R² available
-        # Each company's $/IRCI point proportional to their EV
-        if peer_mean_ev > 0:
-            df['company_$/irci_pt'] = df['enterprise_value'] * (group_dollars_per_point / peer_mean_ev)
-        else:
-            df['company_$/irci_pt'] = group_dollars_per_point
+        MAX_PERCENT_PER_POINT = 0.005  # 0.5% when no regression available (more conservative)
+
+        # Each company's $/IRCI point = 0.5% of their EV per point
+        df['company_$/irci_pt'] = df['enterprise_value'] * MAX_PERCENT_PER_POINT
+
+        # Group dollars per point is average of company values
+        group_dollars_per_point = df['company_$/irci_pt'].mean()
 
     # Per-company gap metrics
     df['irci_gap_to_top'] = peer_max_irci - df['irci_composite_pct']

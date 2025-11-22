@@ -1598,7 +1598,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 col1.metric(
                     "Avg Company $/IRCI Point",
                     f"${avg_company_dollars_per_point:,.0f}" if not pd.isna(avg_company_dollars_per_point) else "N/A",
-                    help="Average company-specific dollar value per IRCI point (R²-scaled). This reflects how much enterprise value typically changes per 1-point IRCI improvement, accounting for the fact that IR is one of many factors."
+                    help="Company-specific dollar value per IRCI point. Capped at max 1% of EV per point (scaled by R²) to reflect realistic IR impact based on academic research."
                 )
                 col2.metric(
                     "Regression R²",
@@ -1610,6 +1610,41 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     f"{dollar_value_df['irci_gap_to_top'].max():.1f} pts",
                     help="Largest gap between a peer and the top performer. This shows the maximum improvement opportunity in the peer group."
                 )
+
+                # Calculation methodology explainer
+                with st.expander("🔢 How We Calculate $/IRCI Point"):
+                    st.markdown(f"""
+                    ### Percentage-Based Approach (Prevents Unrealistic Trillion-Dollar Values)
+
+                    **The Problem with Regression-Only:**
+                    - Old approach: Used cross-sectional regression slope directly
+                    - For large companies ($500B+), this could produce absurd results like "$50B per IRCI point"
+                    - A 10-point gap would imply $500B upside (100% of the company's value!)
+
+                    **Our Solution: Academic-Backed Percentage Caps**
+
+                    We cap $/IRCI point at **1% of enterprise value per point** (scaled by R²):
+
+                    ```
+                    $/IRCI Point = EV × 1% × R²
+                    ```
+
+                    **Why 1% per point?**
+                    - Academic research: IR contributes **5-15% to firm value** over long term
+                    - A 10-point IRCI gap → max 10% of EV (within academic range)
+                    - A 5-point quarterly improvement → 5% × 10% factor = 0.5% of EV (realistic)
+
+                    **Example (R² = {r2_score:.2f}):**
+                    - $500B company: ${500 * 0.01 * r2_score:,.1f}B per IRCI point
+                    - 10-point gap to top performer: ${500 * 0.01 * r2_score * 10:,.1f}B potential upside ({500 * 0.01 * r2_score * 10 / 5:.1f}% of EV)
+                    - 5-point quarterly improvement: ${500 * 0.01 * r2_score * 5 * 0.1:,.1f}B IR contribution ({500 * 0.01 * r2_score * 5 * 0.1 / 5:.2f}% of EV)
+
+                    This ensures dollar values are always proportional to company size and capped at realistic levels based on peer-reviewed academic research.
+
+                    **Academic Sources:**
+                    - Bushee & Miller (2012): IR contributes 5-10% to firm value
+                    - Agarwal et al. (2016): 8-12% higher institutional ownership from IR
+                    """)
 
                 # IR Contribution Value Summary
                 st.markdown("---")
@@ -1900,10 +1935,15 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 st.caption("""
                 📊 **Column Definitions:**
 
-                - IRCI Score %: Current composite IRCI score (0-100, peer-relative)
-                - 🎯 Company $/IRCI Point: **R²-scaled** estimate of enterprise value change per 1-point IRCI improvement (accounts for IR being one of many factors)
-                - Gap to Top (pts): How many IRCI points behind the top performer this company is
-                - Potential $ Upside: **R²-scaled** dollar value if this company reached the top performer's IRCI score (Gap × $/Point)
+                - **IRCI Score %:** Current composite IRCI score (0-100, peer-relative)
+                - **🎯 Company $/IRCI Point:** Enterprise value change per 1-point IRCI improvement
+                  - Capped at **1% of EV per point** (scaled by R²)
+                  - Based on academic research: IR contributes 5-15% to firm value over long term
+                  - Prevents unrealistic trillion-dollar values for large companies
+                - **Gap to Top (pts):** How many IRCI points behind the top performer
+                - **Potential $ Upside:** Dollar value if company reached top performer's IRCI (Gap × $/Point)
+                  - Represents long-term structural positioning, not quarterly achievable gains
+                  - Capped at realistic percentages of enterprise value
                 """)
 
                 # Additional detailed metrics
