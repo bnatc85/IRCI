@@ -2053,9 +2053,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         st.markdown("*Track events, filings, news, and their impact on IRCI scores*")
 
         st.info("""
-        📊 **Event Impact Methodology**: Individual event impacts are intentionally conservative.
-        - News articles: ~0.05-0.10 IRCI points each (aggregate quarterly sentiment matters more)
-        - SEC filings: ~0.05-0.15 IRCI points each (counted in aggregate for coverage dial)
+        📊 **Event Impact Methodology**: Individual event impacts are very small because dials measure quarterly aggregates.
+        - News articles: ~0.00001-0.0001 IRCI points each (~1/100th of quarterly media tone)
+        - SEC filings: ~0.0001-0.0005 IRCI points each (counted in aggregate for coverage dial)
         - Dollar impacts are **R²-scaled** and reflect that individual events are one of many factors
         """)
 
@@ -2123,29 +2123,24 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
             # Display the company's $/IRCI point value for transparency with example calculation
             if company_dollar_per_irci_pt is not None:
-                # Calculate example impact for a typical positive news article
+                # Calculate example impact for a single positive news article
+                # Note: Individual articles have small impacts because the Trust dial aggregates
+                # 50-100+ articles per quarter. Each article is ~1/100th of the quarterly media tone.
                 example_sentiment = 0.6  # Moderately positive news
-                example_dial_impact = example_sentiment * 0.5  # 0.3 Trust dial points
-                example_irci_impact = example_dial_impact * current_weights['sentiment']  # ~0.045 IRCI points
+                example_dial_impact = example_sentiment * 0.0005  # 0.03% of Trust dial (~1/100th of quarterly coverage)
+                example_irci_impact = example_dial_impact * current_weights['sentiment']  # Tiny IRCI impact
                 example_dollar_impact = example_irci_impact * company_dollar_per_irci_pt
 
                 st.info(f"""
                 💰 **{selected_timeline_ticker} Impact Calculation Parameters (R²-scaled)**:
                 - Company $/IRCI Point: **${company_dollar_per_irci_pt:,.0f}**
-                - Example: Positive news (sentiment +0.6) → +{example_irci_impact:.3f} IRCI pts → **${example_dollar_impact:,.0f}** impact
-                - Multiple events on same day will sum together in calendar view
-                """)
+                - Example: Single positive news article (sentiment +0.6) → +{example_irci_impact:.6f} IRCI pts → **${example_dollar_impact:,.0f}** impact
 
-                # Add reality check for very large values
-                if company_dollar_per_irci_pt > 500_000_000:  # $500M+
-                    st.warning(f"""
-                    ⚠️ **Large Company Note**: {selected_timeline_ticker} has a high $/IRCI point value because it's a large company.
-                    Even with R² scaling, large companies show large dollar impacts. This is mathematically correct:
-                    - Larger enterprise value → larger $/IRCI point
-                    - Many events on one day → impacts sum up
-                    - Focus on IRCI point impacts (which are always small: ~0.05-0.15 per event)
-                    - Dollar values are planning ranges - actual IR impact is one of many factors
-                    """)
+                **Note**: Individual events show small impacts because dials measure quarterly aggregates:
+                - Trust dial aggregates 50-100+ articles → each is ~1/100th of media tone component
+                - Media tone is 30% of Trust dial → each article ≈ 0.3% of Trust dial
+                - Quarterly aggregate patterns drive the dial scores, not single events
+                """)
 
             # Aggregate timeline events
             timeline_df = aggregate_timeline_events(
@@ -2207,9 +2202,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 st.caption("""
                 📊 **Calendar Note**: Each row shows the SUM of all events on that day.
                 - If 20 news articles occur on one day, their impacts are added together
-                - Individual events have small impacts (~0.05-0.15 IRCI points each)
-                - For large companies, multiple events × large $/IRCI point = large daily total
-                - This is mathematically correct but shows why aggregate quarterly analysis matters more
+                - Individual events have tiny impacts (~0.00001-0.0005 IRCI points each)
+                - For large companies, even tiny IRCI impacts can translate to $100K-$1M due to high $/IRCI point
+                - This shows why quarterly aggregate analysis matters more than individual events
                 """)
             else:
                 st.info("No events found for this period. Try uploading news data or check the date range.")
@@ -2278,7 +2273,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     st.markdown("""
                     ### How Individual Events Contribute to IRCI Scores
 
-                    **Key Principle:** Individual events have SMALL impacts. Quarterly AGGREGATE metrics drive dial scores.
+                    **Key Principle:** Individual events have TINY impacts. Quarterly AGGREGATE metrics drive dial scores.
 
                     ---
 
@@ -2289,32 +2284,41 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     - Example: Positive earnings news might score +0.6
 
                     **Step 2: Dial Impact (Trust)**
-                    - Individual article contributes to Trust dial: `dial_impact = sentiment × 0.5`
-                    - Example: +0.6 sentiment → +0.3 points on Trust dial (out of 100)
-                    - Why so small? Trust dial aggregates ALL quarterly news articles
+                    - Individual article contributes to Trust dial: `dial_impact = sentiment × 0.0005`
+                    - Example: +0.6 sentiment → +0.0003 points on Trust dial (0.03% of dial)
+                    - **Why so tiny?** Trust dial aggregates 50-100+ articles per quarter
+                      - Each article is ~1/100th of the quarterly media tone
+                      - Media tone is 30% of Trust dial
+                      - So each article ≈ 0.3% of Trust dial (we use 0.05% to be conservative)
 
                     **Step 3: IRCI Composite Impact**
                     - Trust dial has weight (default 15%): `irci_impact = dial_impact × weight`
-                    - Example: +0.3 Trust points × 0.15 weight = **+0.045 IRCI points**
+                    - Example: +0.0003 Trust points × 0.15 weight = **+0.000045 IRCI points**
 
                     **Step 4: Dollar Impact (R²-Scaled)**
                     - Use company-specific $/IRCI point (already R²-scaled from regression)
-                    - Example: +0.045 IRCI pts × $150M/point = **$6.75M**
-                    - R² scaling already applied (if R²=0.3, the $150M/point was reduced from $500M/point)
+                    - Example (mid-cap): +0.000045 IRCI pts × $150M/point = **$6,750**
+                    - Example (large-cap): +0.000045 IRCI pts × $4B/point = **$180,000**
+                    - R² scaling already applied (if R²=0.3, the $/point was reduced by 70%)
 
                     ---
 
                     ### 📊 SEC Filing Impact Calculation
 
                     **8-K Filing:**
-                    - Dial impact: 0.3 points on Coverage dial
-                    - IRCI impact: 0.3 × 0.15 (coverage weight) = **0.045 IRCI points**
-                    - Dollar impact: 0.045 × $150M/point = **$6.75M**
+                    - Dial impact: 0.001 points on Coverage dial (0.1% of dial)
+                    - IRCI impact: 0.001 × 0.15 (coverage weight) = **0.00015 IRCI points**
+                    - Dollar impact (mid-cap): 0.00015 × $150M/point = **$22,500**
+                    - Dollar impact (large-cap): 0.00015 × $4B/point = **$600,000**
 
                     **10-Q or 10-K Filing:**
-                    - Dial impact: 0.8 points on Coverage dial
-                    - IRCI impact: 0.8 × 0.15 = **0.12 IRCI points**
-                    - Dollar impact: 0.12 × $150M/point = **$18M**
+                    - Dial impact: 0.003 points on Coverage dial (0.3% of dial)
+                    - IRCI impact: 0.003 × 0.15 = **0.00045 IRCI points**
+                    - Dollar impact (mid-cap): 0.00045 × $150M/point = **$67,500**
+                    - Dollar impact (large-cap): 0.00045 × $4B/point = **$1.8M**
+
+                    **Why these values?** Coverage dial measures aggregate quarterly filing activity,
+                    not individual filings. A typical company has 5-20 8-Ks per quarter.
 
                     ---
 
@@ -2377,19 +2381,19 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     - If R²=0.30, we reduce dollar estimates by 70% to be realistic
 
                     **Individual Event Example:**
-                    - Event IRCI impact: +0.045 points
+                    - Event IRCI impact: +0.000045 points (single positive news article)
                     - Company $/IRCI: $150M/point (R²-scaled)
-                    - Event dollar impact: +0.045 × $150M = **$6.75M**
-                    - Without R² scaling: +0.045 × $500M = $22.5M (OVERSTATED)
+                    - Event dollar impact: +0.000045 × $150M = **$6,750**
+                    - Without R² scaling: +0.000045 × $500M = $22,500 (OVERSTATED by 3.3x)
 
                     ---
 
                     ### ✅ Bottom Line
 
-                    1. **Individual events = Small impacts** (~0.05-0.15 IRCI points, $5M-$20M)
-                    2. **Quarterly aggregates = Large impacts** (full dial scores, total IRCI)
-                    3. **R² scaling = Realistic estimates** (accounts for IR being one factor)
-                    4. **Dollar impacts are planning ranges**, not promises
+                    1. **Individual events = Tiny impacts** (~0.00001-0.0005 IRCI points, $1K-$100K for mid-caps, $50K-$2M for large-caps)
+                    2. **Quarterly aggregates = Large impacts** (full dial scores determine total IRCI)
+                    3. **R² scaling = Realistic estimates** (accounts for IR being one of many factors)
+                    4. **Dollar impacts are planning ranges**, not guarantees
 
                     Individual events show what's happening day-to-day, but quarterly aggregate
                     metrics determine your final IRCI scores and relative peer ranking.
