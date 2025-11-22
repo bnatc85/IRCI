@@ -389,57 +389,54 @@ with st.sidebar:
         if 'weight_trust' not in st.session_state:
             st.session_state.weight_trust = 15.0
 
-        # Use number inputs for precise control
+        # Use number inputs - Streamlit manages state automatically via key parameter
+        # When key is used, the widget reads/writes directly to session_state[key]
         col1, col2 = st.columns(2)
         with col1:
-            weight_valuation = st.number_input(
+            st.number_input(
                 "💰 Valuation (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=float(st.session_state.weight_valuation),
                 step=0.1,
                 format="%.1f",
-                key='input_val',
+                key='weight_valuation',  # Widget syncs with st.session_state.weight_valuation
                 help="Weight for EV/EBITDA valuation metrics"
             )
-            weight_coverage = st.number_input(
+            st.number_input(
                 "📊 Coverage (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=float(st.session_state.weight_coverage),
                 step=0.1,
                 format="%.1f",
-                key='input_cov',
+                key='weight_coverage',  # Widget syncs with st.session_state.weight_coverage
                 help="Weight for SEC filing and media coverage metrics"
             )
 
         with col2:
-            weight_liquidity = st.number_input(
+            st.number_input(
                 "💧 Liquidity (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=float(st.session_state.weight_liquidity),
                 step=0.1,
                 format="%.1f",
-                key='input_liq',
+                key='weight_liquidity',  # Widget syncs with st.session_state.weight_liquidity
                 help="Weight for trading liquidity and spread metrics"
             )
-            weight_trust = st.number_input(
+            st.number_input(
                 "💭 Trust (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=float(st.session_state.weight_trust),
                 step=0.1,
                 format="%.1f",
-                key='input_trust',
+                key='weight_trust',  # Widget syncs with st.session_state.weight_trust
                 help="Weight for sentiment and event calm metrics"
             )
 
-        # Update session state
-        st.session_state.weight_liquidity = weight_liquidity
-        st.session_state.weight_valuation = weight_valuation
-        st.session_state.weight_coverage = weight_coverage
-        st.session_state.weight_trust = weight_trust
+        # Read values from session state (widgets update them automatically)
+        weight_valuation = st.session_state.weight_valuation
+        weight_liquidity = st.session_state.weight_liquidity
+        weight_coverage = st.session_state.weight_coverage
+        weight_trust = st.session_state.weight_trust
 
         total_weight = weight_liquidity + weight_valuation + weight_coverage + weight_trust
 
@@ -640,10 +637,14 @@ if st.session_state.get('optimize_weights', False):
 
 # Show success message after weights were optimized
 if st.session_state.get('weights_just_optimized', False):
-    msg = "✓ Weights optimized to maximize EV ~ IRCI regression R²!"
+    msg = "✓ **Weights Auto-Optimized!** The sliders above have been updated to maximize EV ~ IRCI correlation.\n\n"
+    msg += f"**New Weights:** Valuation {st.session_state.weight_valuation:.1f}%, "
+    msg += f"Liquidity {st.session_state.weight_liquidity:.1f}%, "
+    msg += f"Coverage {st.session_state.weight_coverage:.1f}%, "
+    msg += f"Trust {st.session_state.weight_trust:.1f}%"
     if 'optimized_r2' in st.session_state:
-        msg += f" Achieved R² = {st.session_state.optimized_r2:.3f}"
-    msg += " Click 'Run Analysis' to see results with optimized weights."
+        msg += f"\n\n**Achieved R²:** {st.session_state.optimized_r2:.3f}"
+    msg += "\n\n📊 Click **'Run Analysis'** below to see results with these optimized weights."
     st.success(msg)
     st.session_state.weights_just_optimized = False
 
