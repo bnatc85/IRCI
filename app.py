@@ -1864,6 +1864,13 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         st.markdown("#### 📅 Event Timeline & Calendar")
         st.markdown("*Track events, filings, news, and their impact on IRCI scores*")
 
+        st.info("""
+        📊 **Event Impact Methodology**: Individual event impacts are intentionally conservative.
+        - News articles: ~0.05-0.10 IRCI points each (aggregate quarterly sentiment matters more)
+        - SEC filings: ~0.05-0.15 IRCI points each (counted in aggregate for coverage dial)
+        - Dollar impacts are **R²-scaled** and reflect that individual events are one of many factors
+        """)
+
         # Company selector for timeline
         selected_timeline_ticker = st.selectbox(
             "Select company for timeline:",

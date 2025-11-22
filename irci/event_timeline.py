@@ -335,24 +335,29 @@ def calculate_event_irci_impact(
     # Estimate impact based on event type
     if event_type == 'news':
         # News impacts trust dial (sentiment_pct)
-        # Assume strong positive news could move trust dial by ~5-10 points
+        # Individual articles have VERY small impact - aggregate quarterly sentiment matters more
+        # A single article might contribute 0.1-0.5% to the trust dial
         if sentiment_score is not None:
             trust_weight = weights.get('sentiment', 0.15)  # Use configured trust/sentiment weight
-            dial_impact = sentiment_score * 10  # -10 to +10 points on trust dial
+            # Conservative: single article contributes ~0.5% max to trust dial
+            # sentiment_score ranges -1 to +1, so scale to max 0.5 dial points
+            dial_impact = sentiment_score * 0.5  # -0.5 to +0.5 points on trust dial
             impact['irci_impact'] = dial_impact * trust_weight
             impact['affected_dials'] = ['Trust']
-            impact['confidence'] = 0.3  # Low confidence - news impact is indirect
+            impact['confidence'] = 0.1  # Very low confidence - individual news is weak signal
 
     elif event_type in ['8-K', '10-Q', '10-K']:
         # Filings positively impact coverage dial
+        # Individual filings contribute to quarterly coverage metrics
+        # A single filing might contribute 0.5-1% to coverage dial
         coverage_weight = weights.get('coverage', 0.15)  # Use configured coverage weight
         if event_type == '8-K':
-            dial_impact = 2.0  # Small positive boost
+            dial_impact = 0.3  # Small positive contribution
         else:  # 10-Q or 10-K
-            dial_impact = 3.0  # Larger boost for major filings
+            dial_impact = 0.8  # Larger contribution for major filings
         impact['irci_impact'] = dial_impact * coverage_weight
         impact['affected_dials'] = ['Coverage']
-        impact['confidence'] = 0.5
+        impact['confidence'] = 0.3  # Moderate confidence - filings are measured in aggregate
 
     elif event_type == 'ev_change':
         # Direct impact on valuation
