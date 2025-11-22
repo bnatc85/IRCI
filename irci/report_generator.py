@@ -13,6 +13,12 @@ import re
 
 def strip_emojis(text: str) -> str:
     """Remove emojis and other non-ASCII characters from text for PDF compatibility"""
+    if not text:
+        return ""
+
+    # Convert to string if not already
+    text = str(text)
+
     # Remove emojis and other Unicode characters
     emoji_pattern = re.compile(
         "["
@@ -33,7 +39,20 @@ def strip_emojis(text: str) -> str:
     text = text.replace('✓', '[CHECK]')
     text = text.replace('→', '->')
     text = text.replace('•', '*')
-    return text.strip()
+
+    # Break very long words that might not fit (URLs, long strings without spaces)
+    words = text.split()
+    max_word_length = 80  # Maximum characters for a single word
+    processed_words = []
+    for word in words:
+        if len(word) > max_word_length:
+            # Insert spaces every max_word_length characters
+            chunks = [word[i:i+max_word_length] for i in range(0, len(word), max_word_length)]
+            processed_words.append(' '.join(chunks))
+        else:
+            processed_words.append(word)
+
+    return ' '.join(processed_words).strip()
 
 
 class IRCIReport(FPDF):
@@ -43,7 +62,25 @@ class IRCIReport(FPDF):
         super().__init__()
         self.ticker = ticker
         self.quarter = quarter
+        # Set margins (left, top, right)
+        self.set_margins(left=15, top=15, right=15)
         self.set_auto_page_break(auto=True, margin=15)
+
+    def safe_multi_cell(self, w, h, txt, border=0, align='L', fill=False):
+        """Safely render multi_cell with error handling"""
+        try:
+            cleaned_txt = strip_emojis(txt) if txt else ""
+            if cleaned_txt:
+                self.multi_cell(w, h, cleaned_txt, border=border, align=align, fill=fill)
+        except Exception as e:
+            # If rendering fails, truncate and try again
+            print(f"Warning: PDF rendering issue, truncating text: {str(e)}")
+            cleaned_txt = strip_emojis(txt)[:300] if txt else ""
+            try:
+                self.multi_cell(w, h, cleaned_txt + "...", border=border, align=align, fill=fill)
+            except:
+                # Last resort - just skip this text
+                pass
 
     def header(self):
         """Page header"""
@@ -75,7 +112,7 @@ class IRCIReport(FPDF):
     def body_text(self, text: str):
         """Add body text"""
         self.set_font('Arial', '', 10)
-        self.multi_cell(0, 5, strip_emojis(text))
+        self.safe_multi_cell(0, 5, text)
         self.ln(2)
 
 
@@ -287,10 +324,10 @@ def generate_pdf_report(
         pdf.section_title('High Priority Actions')
         for i, rec in enumerate(high_priority, 1):
             pdf.set_font('Arial', 'B', 10)
-            # Use multi_cell for wrapping long titles
-            pdf.multi_cell(0, 6, strip_emojis(f"{i}. {rec['action']} ({rec['category']})"))
+            # Use safe_multi_cell for wrapping long titles
+            pdf.safe_multi_cell(0, 6, f"{i}. {rec['action']} ({rec['category']})")
             pdf.set_font('Arial', '', 9)
-            pdf.multi_cell(0, 5, strip_emojis(rec['description']))
+            pdf.safe_multi_cell(0, 5, rec['description'])
             if rec.get('quick_win'):
                 pdf.set_font('Arial', 'I', 8)
                 pdf.cell(0, 4, '   Quick Win', 0, 1)
@@ -303,10 +340,10 @@ def generate_pdf_report(
         pdf.section_title('Medium Priority Actions')
         for i, rec in enumerate(medium_priority, 1):
             pdf.set_font('Arial', 'B', 10)
-            # Use multi_cell for wrapping long titles
-            pdf.multi_cell(0, 6, strip_emojis(f"{i}. {rec['action']} ({rec['category']})"))
+            # Use safe_multi_cell for wrapping long titles
+            pdf.safe_multi_cell(0, 6, f"{i}. {rec['action']} ({rec['category']})")
             pdf.set_font('Arial', '', 9)
-            pdf.multi_cell(0, 5, strip_emojis(rec['description']))
+            pdf.safe_multi_cell(0, 5, rec['description'])
             if rec.get('quick_win'):
                 pdf.set_font('Arial', 'I', 8)
                 pdf.cell(0, 4, '   Quick Win', 0, 1)
@@ -321,8 +358,8 @@ def generate_pdf_report(
 
         for i, rec in enumerate(playbook['quick_wins'][:10], 1):  # Top 10 quick wins
             pdf.set_font('Arial', 'B', 9)
-            # Use multi_cell for wrapping
-            pdf.multi_cell(0, 5, strip_emojis(f"{i}. {rec['action']}"))
+            # Use safe_multi_cell for wrapping
+            pdf.safe_multi_cell(0, 5, f"{i}. {rec['action']}")
 
     # 5. TIMELINE HIGHLIGHTS
     if timeline_df is not None and not timeline_df.empty:
@@ -341,10 +378,10 @@ def generate_pdf_report(
             irci_impact = event.get('irci_impact', 0)
 
             pdf.set_font('Arial', 'B', 9)
-            # Use multi_cell for date/type to handle wrapping
-            pdf.multi_cell(0, 5, strip_emojis(f"{date} - {event_type.upper()}"))
+            # Use safe_multi_cell for date/type to handle wrapping
+            pdf.safe_multi_cell(0, 5, f"{date} - {event_type.upper()}")
             pdf.set_font('Arial', '', 9)
-            pdf.multi_cell(0, 4, strip_emojis(description))
+            pdf.safe_multi_cell(0, 4, description)
             pdf.set_font('Arial', 'I', 8)
             pdf.cell(0, 4, f"IRCI Impact: {irci_impact:+.3f} points", 0, 1)
             pdf.ln(2)
