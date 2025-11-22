@@ -1594,10 +1594,16 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 st.markdown("---")
                 st.markdown("#### 💰 Quarterly IR Value Contribution")
                 st.info("""
-                **What this shows:** The estimated dollar value your IR efforts represent this quarter, calculated as
-                your IRCI score × $/IRCI point (R²-scaled). This reflects the enterprise value associated with your
-                IR positioning relative to peers.
+                **What this shows:** How much dollar value your IR team added this quarter by performing above (or below)
+                the peer average. Calculated as: (Your IRCI - Peer Average IRCI) × $/IRCI point (R²-scaled).
+
+                - **Positive value** = Your IR outperformed peers, adding enterprise value
+                - **Negative value** = Your IR underperformed peers, leaving value on the table
+                - **Zero** = You performed at peer average
                 """)
+
+                # Calculate peer average IRCI
+                peer_avg_irci = dollar_value_df['irci_composite_pct'].mean()
 
                 # Calculate IR contribution for each company
                 ir_contribution_data = []
@@ -1606,13 +1612,16 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     irci_score = row['irci_composite_pct']
                     dollar_per_pt = row['company_$/irci_pt']
 
-                    # Total IR value contribution = IRCI score × $/IRCI point
-                    # This represents the value associated with current IR positioning
-                    ir_value_contribution = irci_score * dollar_per_pt
+                    # IR value contribution = (Your IRCI - Peer Average) × $/IRCI point
+                    # This shows what your IR added RELATIVE to peers this quarter
+                    irci_gap_from_avg = irci_score - peer_avg_irci
+                    ir_value_contribution = irci_gap_from_avg * dollar_per_pt
 
                     ir_contribution_data.append({
                         'ticker': ticker,
                         'irci_score': irci_score,
+                        'peer_avg_irci': peer_avg_irci,
+                        'irci_gap_from_avg': irci_gap_from_avg,
                         'dollar_per_pt': dollar_per_pt,
                         'ir_value_contribution': ir_value_contribution
                     })
@@ -1624,20 +1633,25 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 for idx, (_, company) in enumerate(ir_contrib_df.iterrows()):
                     col_idx = idx % 3
                     with cols[col_idx]:
+                        delta_color = "normal" if company['ir_value_contribution'] >= 0 else "inverse"
                         st.metric(
-                            f"{company['ticker']} IR Value",
+                            f"{company['ticker']} IR Contribution",
                             f"${company['ir_value_contribution']:,.0f}",
-                            help=f"IRCI Score: {company['irci_score']:.1f} × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f}"
+                            delta=f"{company['irci_gap_from_avg']:+.1f} pts vs avg",
+                            delta_color=delta_color,
+                            help=f"Gap from avg: {company['irci_gap_from_avg']:+.1f} pts × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f}"
                         )
 
-                st.caption("""
-                💡 **How to interpret:** This value represents the enterprise value associated with your current
-                IR/IRCI positioning relative to peers. It's calculated as your IRCI score × your company's $/IRCI point
-                (which is already R²-scaled to account for IR being one of many factors affecting enterprise value).
+                st.caption(f"""
+                📊 **Peer Average IRCI:** {peer_avg_irci:.1f} points
 
-                **Example:** If your IRCI is 65 points and your $/IRCI point is $150M, your IR value contribution is
-                65 × $150M = $9.75B. This doesn't mean IR alone created $9.75B, but rather that your IR positioning
-                represents this value contribution relative to your peer group.
+                💡 **How to interpret:** This shows how much value your IR team added THIS QUARTER relative to peers.
+                - If you scored 65 IRCI and peer average is 50 → You're +15 points above average
+                - +15 points × $150M/point = **+$2.25B** (your IR outperformed and added value)
+                - If you scored 45 and average is 50 → You're -5 points below average
+                - -5 points × $150M/point = **-$750M** (your IR underperformed, value left on table)
+
+                This answers: **"How much did our IR team contribute this quarter?"** by comparing your performance to peers.
                 """)
 
                 st.markdown("---")
