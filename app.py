@@ -506,43 +506,53 @@ with st.sidebar:
         else:
             st.warning("No analysis results to save. Run an analysis first!")
 
-    # Load session
-    uploaded_session = st.file_uploader(
-        "📤 Load Previous Session",
-        type=["pkl"],
-        help="Upload a previously saved session file"
-    )
+    # Load session - only show uploader if we don't have results yet
+    # This prevents the uploader from blocking the view after loading
+    if 'df_composite' not in st.session_state or st.session_state.get('df_composite') is None:
+        uploaded_session = st.file_uploader(
+            "📤 Load Previous Session",
+            type=["pkl"],
+            help="Upload a previously saved session file",
+            key="session_uploader"
+        )
 
-    if uploaded_session is not None:
-        try:
-            import pickle
-            session_data = pickle.load(uploaded_session)
+        if uploaded_session is not None:
+            try:
+                import pickle
+                session_data = pickle.load(uploaded_session)
 
-            # Restore session state
-            st.session_state['df_composite'] = session_data.get('df_composite')
-            st.session_state['df_trust'] = session_data.get('df_trust')
-            st.session_state['df_val'] = session_data.get('df_val')
-            st.session_state['df_cov'] = session_data.get('df_cov')
-            st.session_state['df_liq'] = session_data.get('df_liq')
-            st.session_state['news_df'] = session_data.get('news_df')
-            st.session_state['weight_liquidity'] = session_data.get('weight_liquidity', 35)
-            st.session_state['weight_valuation'] = session_data.get('weight_valuation', 35)
-            st.session_state['weight_coverage'] = session_data.get('weight_coverage', 15)
-            st.session_state['weight_trust'] = session_data.get('weight_trust', 15)
-            st.session_state['run_time'] = datetime.now()
+                # Restore session state
+                st.session_state['df_composite'] = session_data.get('df_composite')
+                st.session_state['df_trust'] = session_data.get('df_trust')
+                st.session_state['df_val'] = session_data.get('df_val')
+                st.session_state['df_cov'] = session_data.get('df_cov')
+                st.session_state['df_liq'] = session_data.get('df_liq')
+                st.session_state['news_df'] = session_data.get('news_df')
+                st.session_state['weight_liquidity'] = session_data.get('weight_liquidity', 35)
+                st.session_state['weight_valuation'] = session_data.get('weight_valuation', 35)
+                st.session_state['weight_coverage'] = session_data.get('weight_coverage', 15)
+                st.session_state['weight_trust'] = session_data.get('weight_trust', 15)
+                st.session_state['run_time'] = datetime.now()
 
-            # Verify data was loaded
-            if st.session_state['df_composite'] is not None:
-                num_companies = len(st.session_state['df_composite'])
-                st.success(f"✓ Session loaded! Saved on {session_data.get('saved_at', 'unknown date')}. Analysis for {num_companies} companies is ready.")
-                # Force rerun to close uploader and show results
-                st.rerun()
-            else:
-                st.warning("⚠️ Session loaded but no analysis data found. The session file may be incomplete.")
+                # Verify data was loaded
+                if st.session_state['df_composite'] is not None:
+                    num_companies = len(st.session_state['df_composite'])
+                    st.success(f"✓ Session loaded! Saved on {session_data.get('saved_at', 'unknown date')}. Analysis for {num_companies} companies is ready.")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Session loaded but no analysis data found. The session file may be incomplete.")
 
+            except Exception as e:
+                st.error(f"Failed to load session: {str(e)}")
+    else:
+        # Show info that session is already loaded with option to clear
+        st.info("📊 Session data is loaded. Results are displayed below.")
+        if st.button("🔄 Clear Session (to load different file)", use_container_width=True):
+            # Clear all analysis data
+            for key in ['df_composite', 'df_trust', 'df_val', 'df_cov', 'df_liq', 'news_df']:
+                if key in st.session_state:
+                    del st.session_state[key]
             st.rerun()
-        except Exception as e:
-            st.error(f"Failed to load session: {str(e)}")
 
     # Debug info (for troubleshooting)
     with st.expander("🔍 Session Debug Info"):
