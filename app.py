@@ -1583,6 +1583,57 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     help="Largest gap between a peer and the top performer. This shows the maximum improvement opportunity in the peer group."
                 )
 
+                # IR Contribution Value Summary
+                st.markdown("---")
+                st.markdown("#### 💰 Quarterly IR Value Contribution")
+                st.info("""
+                **What this shows:** The estimated dollar value your IR efforts represent this quarter, calculated as
+                your IRCI score × $/IRCI point (R²-scaled). This reflects the enterprise value associated with your
+                IR positioning relative to peers.
+                """)
+
+                # Calculate IR contribution for each company
+                ir_contribution_data = []
+                for _, row in dollar_value_df.iterrows():
+                    ticker = row['ticker']
+                    irci_score = row['irci_composite_pct']
+                    dollar_per_pt = row['company_$/irci_pt']
+
+                    # Total IR value contribution = IRCI score × $/IRCI point
+                    # This represents the value associated with current IR positioning
+                    ir_value_contribution = irci_score * dollar_per_pt
+
+                    ir_contribution_data.append({
+                        'ticker': ticker,
+                        'irci_score': irci_score,
+                        'dollar_per_pt': dollar_per_pt,
+                        'ir_value_contribution': ir_value_contribution
+                    })
+
+                ir_contrib_df = pd.DataFrame(ir_contribution_data)
+
+                # Display as cards for each company
+                cols = st.columns(min(len(ir_contrib_df), 3))
+                for idx, (_, company) in enumerate(ir_contrib_df.iterrows()):
+                    col_idx = idx % 3
+                    with cols[col_idx]:
+                        st.metric(
+                            f"{company['ticker']} IR Value",
+                            f"${company['ir_value_contribution']:,.0f}",
+                            help=f"IRCI Score: {company['irci_score']:.1f} × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f}"
+                        )
+
+                st.caption("""
+                💡 **How to interpret:** This value represents the enterprise value associated with your current
+                IR/IRCI positioning relative to peers. It's calculated as your IRCI score × your company's $/IRCI point
+                (which is already R²-scaled to account for IR being one of many factors affecting enterprise value).
+
+                **Example:** If your IRCI is 65 points and your $/IRCI point is $150M, your IR value contribution is
+                65 × $150M = $9.75B. This doesn't mean IR alone created $9.75B, but rather that your IR positioning
+                represents this value contribution relative to your peer group.
+                """)
+
+                st.markdown("---")
                 # Per-Ticker $/IRCI Point Table (Most Important)
                 st.markdown("**Per-Ticker Dollar Value per IRCI Point:**")
                 st.dataframe(
