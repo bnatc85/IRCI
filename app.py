@@ -4338,6 +4338,22 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     # Get news data for sentiment analysis
                     pdf_news_df = st.session_state.get('news_df', None)
 
+                    # Get dollar value data if available
+                    pdf_dollar_value_df = None
+                    pdf_weights = None
+                    try:
+                        from irci.dial_insights import compute_dollar_value_per_irci_point
+                        pdf_dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
+                        # Get current weights from session state
+                        pdf_weights = {
+                            'valuation': st.session_state.weight_valuation / 100,
+                            'liquidity': st.session_state.weight_liquidity / 100,
+                            'coverage': st.session_state.weight_coverage / 100,
+                            'sentiment': st.session_state.weight_trust / 100
+                        }
+                    except:
+                        pass
+
                     # Generate PDF
                     pdf_bytes = generate_pdf_report(
                         ticker=pdf_ticker,
@@ -4349,7 +4365,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         df_trust=df_trust,
                         playbook=pdf_playbook,
                         timeline_df=timeline_data,
-                        news_df=pdf_news_df
+                        news_df=pdf_news_df,
+                        dollar_value_df=pdf_dollar_value_df,
+                        weights=pdf_weights
                     )
 
                     # Store in session state for download

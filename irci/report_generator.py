@@ -126,7 +126,9 @@ def generate_pdf_report(
     df_trust: pd.DataFrame,
     playbook: Dict,
     timeline_df: Optional[pd.DataFrame] = None,
-    news_df: Optional[pd.DataFrame] = None
+    news_df: Optional[pd.DataFrame] = None,
+    dollar_value_df: Optional[pd.DataFrame] = None,
+    weights: Optional[Dict] = None
 ) -> bytes:
     """
     Generate a comprehensive PDF report of IRCI analysis
@@ -219,6 +221,105 @@ def generate_pdf_report(
     high_priority_count = playbook['priority_counts']['high']
     if high_priority_count > 0:
         pdf.body_text(f"\n{high_priority_count} high-priority action items identified (see Playbook section)")
+
+    # Add Potential Value Improvements if we have dollar value data
+    if dollar_value_df is not None and not dollar_value_df.empty and weights is not None:
+        company_data_dv = dollar_value_df[dollar_value_df['ticker'] == ticker]
+        if not company_data_dv.empty:
+            company_dollar_per_point = company_data_dv['company_$/irci_pt'].iloc[0]
+
+            pdf.section_title('Potential Value Improvements')
+            pdf.body_text(
+                "Conservative estimates of value you can add by improving each dial next quarter:"
+            )
+            pdf.ln(2)
+
+            # Get dial scores
+            dial_scores = {
+                'valuation': company_data.get('valuation_pct', 0),
+                'liquidity': company_data.get('liquidity_pct', 0),
+                'coverage': company_data.get('coverage_pct', 0),
+                'trust': company_data.get('sentiment_pct', 0)
+            }
+
+            # Calculate improvements for each dial
+            improvements = []
+            dial_names = {
+                'valuation': ('Valuation', weights.get('valuation', 0.25)),
+                'liquidity': ('Liquidity', weights.get('liquidity', 0.25)),
+                'coverage': ('Coverage', weights.get('coverage', 0.25)),
+                'trust': ('Trust', weights.get('sentiment', 0.25))
+            }
+
+            for dial, score in dial_scores.items():
+                dial_label, dial_weight = dial_names[dial]
+                classification = playbook['dial_classifications'][dial]
+
+                # Conservative improvement estimates based on classification
+                if classification == 'critical' and score < 40:
+                    min_improvement = 3
+                    max_improvement = 8
+                elif classification == 'low' or score < 50:
+                    min_improvement = 2
+                    max_improvement = 5
+                elif score < 70:
+                    min_improvement = 1
+                    max_improvement = 3
+                else:
+                    min_improvement = 0.5
+                    max_improvement = 2
+
+                # Calculate IRCI impact (dial improvement x dial weight)
+                min_irci_impact = min_improvement * dial_weight
+                max_irci_impact = max_improvement * dial_weight
+
+                # Calculate dollar value range
+                min_value = min_irci_impact * company_dollar_per_point
+                max_value = max_irci_impact * company_dollar_per_point
+
+                improvements.append({
+                    'dial': dial_label,
+                    'current_score': score,
+                    'classification': classification,
+                    'min_improvement': min_improvement,
+                    'max_improvement': max_improvement,
+                    'min_value': min_value,
+                    'max_value': max_value,
+                    'priority': 1 if classification in ['critical', 'low'] else 2 if score < 70 else 3
+                })
+
+            # Sort by priority
+            improvements.sort(key=lambda x: (x['priority'], -x['max_value']))
+
+            # Display improvements
+            for imp in improvements:
+                classification_marker = {
+                    'critical': '[CRITICAL]',
+                    'low': '[LOW]',
+                    'medium': '[MEDIUM]',
+                    'strong': '[STRONG]'
+                }.get(imp['classification'], '')
+
+                pdf.set_font('Arial', 'B', 10)
+                pdf.safe_multi_cell(
+                    0, 6,
+                    f"{imp['dial']} {classification_marker} - ${imp['min_value']/1e6:.0f}M to ${imp['max_value']/1e6:.0f}M"
+                )
+                pdf.set_font('Arial', '', 9)
+                pdf.safe_multi_cell(
+                    0, 5,
+                    f"Current Score: {imp['current_score']:.1f}% | "
+                    f"Improvement Range: +{imp['min_improvement']:.1f} to +{imp['max_improvement']:.1f} points"
+                )
+                pdf.ln(2)
+
+            pdf.set_font('Arial', 'I', 8)
+            pdf.safe_multi_cell(
+                0, 4,
+                f"$/IRCI Point for {ticker}: ${company_dollar_per_point:,.0f}. "
+                f"Improvement ranges based on peer analysis and classification severity. "
+                f"Values are R-squared scaled to reflect IR's partial influence on enterprise value."
+            )
 
     pdf.add_page()
 
