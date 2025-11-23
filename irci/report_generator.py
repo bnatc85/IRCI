@@ -320,6 +320,8 @@ def generate_pdf_report(
                 f"Improvement ranges based on peer analysis and classification severity. "
                 f"Values are R-squared scaled to reflect IR's partial influence on enterprise value."
             )
+            # Reset font to normal after italic section
+            pdf.set_font('Arial', '', 10)
 
     pdf.add_page()
 
@@ -470,6 +472,7 @@ def generate_pdf_report(
                     pdf.set_font('Arial', 'I', 8)
                     pdf.safe_multi_cell(0, 4, f"Source: {source}")
                     pdf.safe_multi_cell(0, 4, f"Sentiment: +{sentiment:.3f}")
+                    pdf.set_font('Arial', '', 9)  # Reset font after italic
                     pdf.ln(2)
             else:
                 pdf.body_text("No strongly positive news articles found in this period.")
@@ -498,6 +501,7 @@ def generate_pdf_report(
                     pdf.set_font('Arial', 'I', 8)
                     pdf.safe_multi_cell(0, 4, f"Source: {source}")
                     pdf.safe_multi_cell(0, 4, f"Sentiment: {sentiment:.3f}")
+                    pdf.set_font('Arial', '', 9)  # Reset font after italic
                     pdf.ln(2)
             else:
                 pdf.body_text("No strongly negative news articles found in this period.")
@@ -599,6 +603,7 @@ def generate_pdf_report(
             if rec.get('quick_win'):
                 pdf.set_font('Arial', 'I', 8)
                 pdf.safe_multi_cell(0, 4, '[Quick Win]')
+                pdf.set_font('Arial', '', 9)  # Reset font after italic
             pdf.ln(2)
 
     # Medium priority recommendations
@@ -626,6 +631,7 @@ def generate_pdf_report(
             if rec.get('quick_win'):
                 pdf.set_font('Arial', 'I', 8)
                 pdf.safe_multi_cell(0, 4, '[Quick Win]')
+                pdf.set_font('Arial', '', 9)  # Reset font after italic
             pdf.ln(2)
 
     # Quick Wins summary
@@ -670,6 +676,7 @@ def generate_pdf_report(
             pdf.safe_multi_cell(0, 4, description)
             pdf.set_font('Arial', 'I', 8)
             pdf.cell(0, 4, f"IRCI Impact: {irci_impact:+.3f} points", 0, 1)
+            pdf.set_font('Arial', '', 9)  # Reset font after italic
             pdf.ln(2)
 
     # 6. DETAILED METRICS BREAKDOWN
