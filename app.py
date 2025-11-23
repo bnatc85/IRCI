@@ -3359,7 +3359,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             ])
             st.dataframe(variance_df, use_container_width=True, hide_index=True)
 
-            st.info("💡 **Tip**: Use the sidebar to adjust weights based on these recommendations and re-run the analysis to see the impact.")
+            st.info("💡 **Tip**: Update weights in the sidebar based on these recommendations, or use the 'Auto-Optimize Weights' button to automatically apply the optimal values.")
 
         except Exception as e:
             st.warning(f"Could not compute weight recommendations: {str(e)}")
