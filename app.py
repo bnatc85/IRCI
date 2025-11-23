@@ -2917,9 +2917,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                   - Based on academic research: IR contributes 5-15% to firm value over long term
                   - Prevents unrealistic trillion-dollar values for large companies
                 - **Gap to Top (pts):** How many IRCI points behind the top performer
-                - **Potential $ Upside:** Dollar value if company reached top performer's IRCI (Gap × $/Point)
+                - **Potential $ Upside:** Total value opportunity from closing gap to top performer
+                  - Capped at **20% of enterprise value** to ensure realistic estimates
                   - Represents long-term structural positioning, not quarterly achievable gains
-                  - Capped at realistic percentages of enterprise value
                 """)
 
                 # Additional detailed metrics
@@ -3152,7 +3152,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 'sentiment': weight_trust / 100
             }
 
-            contrib_df = compute_dial_contribution(df_composite, weights=current_weights)
+            contrib_df = compute_dial_contribution(df_composite_filtered, weights=current_weights)
 
             # Summary metrics
             col1, col2, col3, col4 = st.columns(4)
@@ -3185,23 +3185,36 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
             # Detailed contribution table
             st.markdown("**Detailed Contribution Breakdown:**")
+
+            # Build column list conditionally to include quarter if present
+            contrib_cols = ['ticker']
+            contrib_rename = {'ticker': 'Ticker'}
+            contrib_format = {}
+
+            if 'quarter' in contrib_df.columns:
+                contrib_cols.append('quarter')
+                contrib_rename['quarter'] = 'Quarter'
+
+            contrib_cols.extend(['irci_composite_pct', 'val_contrib_abs', 'liq_contrib_abs', 'cov_contrib_abs', 'sent_contrib_abs', 'dominant_dial', 'weakest_dial'])
+            contrib_rename.update({
+                'irci_composite_pct': 'Composite %',
+                'val_contrib_abs': 'Val Points',
+                'liq_contrib_abs': 'Liq Points',
+                'cov_contrib_abs': 'Cov Points',
+                'sent_contrib_abs': 'Trust Points',
+                'dominant_dial': 'Strongest Dial',
+                'weakest_dial': 'Weakest Dial'
+            })
+            contrib_format = {
+                'Composite %': '{:.1f}%',
+                'Val Points': '{:.1f}',
+                'Liq Points': '{:.1f}',
+                'Cov Points': '{:.1f}',
+                'Trust Points': '{:.1f}'
+            }
+
             st.dataframe(
-                contrib_df[['ticker', 'irci_composite_pct', 'val_contrib_abs', 'liq_contrib_abs', 'cov_contrib_abs', 'sent_contrib_abs', 'dominant_dial', 'weakest_dial']].rename(columns={
-                    'ticker': 'Ticker',
-                    'irci_composite_pct': 'Composite %',
-                    'val_contrib_abs': 'Val Points',
-                    'liq_contrib_abs': 'Liq Points',
-                    'cov_contrib_abs': 'Cov Points',
-                    'sent_contrib_abs': 'Trust Points',
-                    'dominant_dial': 'Strongest Dial',
-                    'weakest_dial': 'Weakest Dial'
-                }).style.format({
-                    'Composite %': '{:.1f}%',
-                    'Val Points': '{:.1f}',
-                    'Liq Points': '{:.1f}',
-                    'Cov Points': '{:.1f}',
-                    'Trust Points': '{:.1f}'
-                }),
+                contrib_df[contrib_cols].rename(columns=contrib_rename).style.format(contrib_format),
                 use_container_width=True,
                 hide_index=True
             )
@@ -3940,7 +3953,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 for imp in improvements:
                     color = "🔴" if imp['classification'] == 'critical' else "🟠" if imp['classification'] == 'low' else "🟡" if imp['classification'] == 'medium' else "🟢"
 
-                    with st.expander(f"{color} **{imp['dial']}** - ${imp['min_value']/1e6:.0f}M to ${imp['max_value']/1e6:.0f}M potential value", expanded=imp['priority'] == 1):
+                    with st.expander(f"{color} **{imp['dial']}** — ${imp['min_value']/1e6:.0f}M to ${imp['max_value']/1e6:.0f}M potential value", expanded=imp['priority'] == 1):
                         col_left, col_right = st.columns([1, 1])
 
                         with col_left:
@@ -3959,7 +3972,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         st.markdown(f"""
                         **What this means:**
                         - By focusing on {imp['dial'].lower()} improvement initiatives next quarter, you could realistically gain **{imp['min_improvement']:.1f}-{imp['max_improvement']:.1f} points**
-                        - This translates to an estimated **${imp['min_value']/1e9:.2f}B - ${imp['max_value']/1e9:.2f}B** in enterprise value impact
+                        - This translates to an estimated **${imp['min_value']/1e6:.0f}M - ${imp['max_value']/1e6:.0f}M** in enterprise value impact
                         - See recommendations below for specific actions to achieve these improvements
 
                         **Key actions:** Review the {imp['dial'].split()[1]} recommendations in the sections below for concrete next steps.
