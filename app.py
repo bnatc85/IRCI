@@ -1608,7 +1608,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     else:
         tab1, tab2, tab3 = st.tabs(["📊 Composite Scores", "📉 Dial Breakdown", "📋 Detailed Metrics"])
 
-    st.markdown("**Advanced Tools**")
+    st.markdown("### 🔧 Action Tools")
     tab4, tab5, tab6, tab7 = st.tabs(["💵 Dollar Value", "📅 Event Timeline", "🎯 Playbook", "💬 AI Assistant"])
 
     # Trend Analysis tab (only for multi-quarter data)
