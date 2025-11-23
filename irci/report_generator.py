@@ -522,13 +522,24 @@ def generate_pdf_report(
     pdf.section_title('IRCI Composite Scores')
 
     # Sort peers by IRCI score
-    peer_comparison = df_composite[['ticker', 'irci_composite_pct']].sort_values(
+    # Include quarter column if present
+    cols = ['ticker', 'irci_composite_pct']
+    if 'quarter' in df_composite.columns:
+        cols.insert(1, 'quarter')
+
+    peer_comparison = df_composite[cols].sort_values(
         'irci_composite_pct', ascending=False
     )
 
     for idx, row in peer_comparison.iterrows():
         peer_ticker = row['ticker']
         peer_score = row['irci_composite_pct']
+
+        # Add quarter info if available
+        if 'quarter' in row.index and pd.notna(row['quarter']):
+            quarter_str = f" ({row['quarter']})"
+        else:
+            quarter_str = ""
 
         if peer_ticker == ticker:
             pdf.set_font('Arial', 'B', 10)
@@ -537,7 +548,7 @@ def generate_pdf_report(
             pdf.set_font('Arial', '', 10)
             marker = '    '
 
-        pdf.cell(0, 5, f"{marker}{peer_ticker}: {peer_score:.1f}%", 0, 1)
+        pdf.cell(0, 5, f"{marker}{peer_ticker}{quarter_str}: {peer_score:.1f}%", 0, 1)
 
     pdf.ln(5)
 
@@ -763,8 +774,10 @@ def generate_pdf_report(
     )
 
     pdf.section_title('Peer Group')
-    peer_list = ', '.join(df_composite['ticker'].tolist())
-    pdf.body_text(f"Analysis includes {len(df_composite)} companies: {peer_list}")
+    # Get unique tickers (in case of multi-quarter data)
+    unique_tickers = df_composite['ticker'].unique().tolist()
+    peer_list = ', '.join(sorted(unique_tickers))
+    pdf.body_text(f"Analysis includes {len(unique_tickers)} companies: {peer_list}")
 
     # Output PDF
     return bytes(pdf.output())
