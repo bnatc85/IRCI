@@ -3524,6 +3524,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 )
 
                 event_type_options = {
+                    # Major Corporate Events
                     'Investor Day': 'investor_day',
                     'Analyst Day': 'analyst_day',
                     'CEO Change': 'ceo_change',
@@ -3533,6 +3534,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     'Strategic Announcement': 'strategic_announcement',
                     'Dividend Announcement': 'dividend_announcement',
                     'Buyback Announcement': 'buyback_announcement',
+                    # Daily IR Activities
+                    '🌐 IR Website Improvement': 'ir_website_improvement',
+                    '📺 Advertising Campaign': 'advertising_campaign',
+                    '📰 Press Release Program': 'press_release_program',
+                    '📱 Social Media Campaign': 'social_media_campaign',
+                    '🎤 Conference Presentation': 'conference_presentation',
+                    '📊 Analyst Coverage Initiation': 'analyst_coverage_initiation',
+                    # Other
                     'Other': 'other'
                 }
 
@@ -4191,6 +4200,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
             with col_evt1:
                 scenario_event_type_options = {
+                    # Major Corporate Events
                     'Investor Day': 'investor_day',
                     'Analyst Day': 'analyst_day',
                     'CEO Change (Inside)': 'ceo_change_inside',
@@ -4203,6 +4213,13 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     'Dividend Increase': 'dividend_increase',
                     'Dividend Cut': 'dividend_cut',
                     'Buyback Announcement': 'buyback_announcement',
+                    # Daily IR Activities
+                    '🌐 IR Website Improvement': 'ir_website_improvement',
+                    '📺 Advertising Campaign': 'advertising_campaign',
+                    '📰 Press Release Program': 'press_release_program',
+                    '📱 Social Media Campaign': 'social_media_campaign',
+                    '🎤 Conference Presentation': 'conference_presentation',
+                    '📊 Analyst Coverage Initiation': 'analyst_coverage_initiation',
                 }
 
                 scenario_event_label = st.selectbox(
