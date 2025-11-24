@@ -739,16 +739,15 @@ if not show_results and not run_analysis:
 
     st.markdown("---")
 
-    # Important disclaimers - prominent placement
-    st.warning("""
-    ⚠️ **Important Disclaimers**
-
-    - **Fundamentals set value. IR determines how efficiently markets realize it.** IRCI measures the pathway to fair value, not fundamental business performance.
-    - IR's impact on share valuation is limited compared to business fundamentals, macroeconomic conditions, and industry trends.
-    - IRCI is a planning and diagnostic tool—not a guarantee of market outcomes.
-    - Dollar-per-point estimates are derived from historical peer relationships and should be treated as planning ranges, not promises.
-    - This tool is for authorized use only. Views expressed are those of the creators and not official positions of any affiliated organization.
-    """)
+    # Important disclaimers - collapsible for cleaner interface
+    with st.expander("⚠️ **Important Disclaimers**", expanded=False):
+        st.markdown("""
+        - **Fundamentals set value. IR determines how efficiently markets realize it.** IRCI measures the pathway to fair value, not fundamental business performance.
+        - IR's impact on share valuation is limited compared to business fundamentals, macroeconomic conditions, and industry trends.
+        - IRCI is a planning and diagnostic tool—not a guarantee of market outcomes.
+        - Dollar-per-point estimates are derived from historical peer relationships and should be treated as planning ranges, not promises.
+        - This tool is for authorized use only. Views expressed are those of the creators and not official positions of any affiliated organization.
+        """)
 
     # First-time user onboarding
     if 'first_visit' not in st.session_state:
@@ -791,20 +790,20 @@ if not show_results and not run_analysis:
 
     with template_col1:
         if st.button("📱 **Big Tech**\n\nAAPL, MSFT, GOOGL, META, AMZN", use_container_width=True):
-            st.session_state['ticker_selection'] = ['AAPL', 'MSFT', 'GOOGL', 'META', 'AMZN']
-            st.success("✓ Loaded Big Tech template! Click 'Run Analysis' in sidebar →")
+            st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
+            st.success("✓ Loaded Big Tech template! Scroll down and click 'Run Analysis' →")
             st.rerun()
 
     with template_col2:
         if st.button("🏦 **Financials**\n\nJPM, BAC, WFC, C, GS", use_container_width=True):
-            st.session_state['ticker_selection'] = ['JPM', 'BAC', 'WFC', 'C', 'GS']
-            st.success("✓ Loaded Financials template! Click 'Run Analysis' in sidebar →")
+            st.session_state['found_peers'] = 'JPM, BAC, WFC, C, GS'
+            st.success("✓ Loaded Financials template! Scroll down and click 'Run Analysis' →")
             st.rerun()
 
     with template_col3:
         if st.button("💉 **Healthcare**\n\nJNJ, PFE, UNH, ABBV, LLY", use_container_width=True):
-            st.session_state['ticker_selection'] = ['JNJ', 'PFE', 'UNH', 'ABBV', 'LLY']
-            st.success("✓ Loaded Healthcare template! Click 'Run Analysis' in sidebar →")
+            st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
+            st.success("✓ Loaded Healthcare template! Scroll down and click 'Run Analysis' →")
             st.rerun()
 
     st.markdown("---")
@@ -3491,7 +3490,15 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         from irci.coverage import _company_submissions, _cik_for_ticker
 
         # Get start/end dates for the selected quarter (for filtering events)
-        start_date, end_date = quarter_to_dates(selected_quarter)
+        if len(selected_quarters) == 1:
+            timeline_start_date, timeline_end_date = quarter_to_dates(selected_quarters[0])
+        else:
+            # Multi-quarter mode: use the first quarter for timeline display
+            timeline_start_date, timeline_end_date = quarter_to_dates(selected_quarters[0])
+
+        # Use the timeline dates for event filtering
+        start_date = timeline_start_date
+        end_date = timeline_end_date
 
         st.markdown("#### 📅 Event Timeline & Calendar")
         st.markdown("*Track events, filings, news, and their impact on IRCI scores*")
