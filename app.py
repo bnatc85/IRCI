@@ -397,15 +397,6 @@ with st.sidebar:
     )
     st.markdown("---")
 
-    # News file upload
-    st.markdown("### News Data")
-    st.info("📰 News articles are automatically fetched from FMP API for sentiment analysis")
-    uploaded_news = st.file_uploader(
-        "Or upload custom News CSV (optional override)",
-        type=["csv"],
-        help="CSV with columns: date, ticker, headline. If provided, this will override automatic fetching."
-    )
-
     # Weights configuration
     with st.expander("⚙️ Advanced: Dial Weights", expanded=True):
         st.markdown("**Customize composite score weights:**")
@@ -483,6 +474,16 @@ with st.sidebar:
         # Auto-optimize button
         if st.button("🎯 Auto-Optimize Weights", use_container_width=True, help="Find weights that maximize EV ~ IRCI regression R²"):
             st.session_state.optimize_weights = True
+
+    # News file upload
+    st.markdown("---")
+    st.markdown("### News Data")
+    st.info("📰 News articles are automatically fetched from FMP API for sentiment analysis")
+    uploaded_news = st.file_uploader(
+        "Or upload custom News CSV (optional override)",
+        type=["csv"],
+        help="CSV with columns: date, ticker, headline. If provided, this will override automatic fetching."
+    )
 
     # Save/Load session
     st.markdown("---")
@@ -1497,6 +1498,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     Focus on identifying the weakest dial and taking targeted action.
     """)
 
+    # Auto-optimize weights button (post-analysis)
+    col_opt1, col_opt2, col_opt3 = st.columns([2, 1, 2])
+    with col_opt2:
+        if st.button("🎯 Auto-Optimize Weights", key="optimize_post_analysis", use_container_width=True,
+                     help="Find weights that maximize EV ~ IRCI regression R² based on current results"):
+            st.session_state.optimize_weights = True
+            st.rerun()
+
     try:
         df_composite = st.session_state['df_composite']
         df_trust = st.session_state['df_trust']
@@ -1597,23 +1606,269 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 delta=None
             )
 
-    # Visualizations
-    st.markdown("### 📈 Visualizations")
-
-    # Two-row tab layout for better screen space utilization
-    st.markdown("**Core Analysis**")
-    # Add Trend Analysis tab if multi-quarter data is available
+    # Streamlined tab layout (max 5 tabs to prevent overflow)
     if is_multi_quarter:
-        tab_trend, tab1, tab2, tab3 = st.tabs(["📈 Trend Analysis", "📊 Composite Scores", "📉 Dial Breakdown", "📋 Detailed Metrics"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "📊 Company Analysis",
+            "📈 Trends",
+            "💵 Value Analysis",
+            "🎯 Playbook & Events",
+            "💬 AI Assistant"
+        ])
     else:
-        tab1, tab2, tab3 = st.tabs(["📊 Composite Scores", "📉 Dial Breakdown", "📋 Detailed Metrics"])
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "📊 Company Analysis",
+            "💵 Value Analysis",
+            "🎯 Playbook & Events",
+            "💬 AI Assistant"
+        ])
 
-    st.markdown("### 🔧 Action Tools")
-    tab4, tab5, tab6, tab7 = st.tabs(["💵 Dollar Value", "📅 Event Timeline", "🎯 Playbook", "💬 AI Assistant"])
+    # TAB 1: Company Analysis (Composite Scores + Dial Breakdown + Detailed Metrics)
+    with tab1:
+        # Composite Scores Bar Chart
+        st.markdown("### 📊 Composite Scores")
+        fig = px.bar(
+            display_df,
+            x='ticker',
+            y='irci_composite_pct',
+            title=f'IRCI Composite Scores - {selected_quarter}',
+            labels={'irci_composite_pct': 'Composite Score (%)', 'ticker': 'Company'},
+            color='irci_composite_pct',
+            color_continuous_scale='Viridis',
+            text='irci_composite_pct'
+        )
+        fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+        fig.update_layout(
+            showlegend=False,
+            height=400,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(30,33,48,0.5)',
+            font=dict(color='#fafafa'),
+            title_font=dict(color='#00d4ff'),
+            xaxis=dict(gridcolor='#2e3440'),
+            yaxis=dict(gridcolor='#2e3440')
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Trend Analysis tab (only for multi-quarter data)
+        st.markdown("---")
+
+        # Dial Breakdown Radar Chart
+        st.markdown("### 📉 Dial Breakdown")
+        selected_company = st.selectbox("Select company for dial breakdown:", display_df['ticker'].tolist())
+
+        company_data = display_df[display_df['ticker'] == selected_company].iloc[0]
+
+        categories = ['Valuation', 'Liquidity', 'Coverage', 'Trust']
+        values = [
+            company_data.get('valuation_pct', 0),
+            company_data.get('liquidity_pct', 0),
+            company_data.get('coverage_pct', 0),
+            company_data.get('sentiment_pct', 0)
+        ]
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatterpolar(
+            r=values,
+            theta=categories,
+            fill='toself',
+            name=selected_company,
+            line=dict(color='#00d4ff', width=2),
+            fillcolor='rgba(0, 212, 255, 0.3)'
+        ))
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 100],
+                    gridcolor='#2e3440',
+                    color='#fafafa'
+                ),
+                angularaxis=dict(
+                    gridcolor='#2e3440',
+                    color='#fafafa'
+                ),
+                bgcolor='rgba(30,33,48,0.5)'
+            ),
+            showlegend=True,
+            title=f'{selected_company} - Dial Breakdown',
+            title_font=dict(color='#00d4ff'),
+            height=500,
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#fafafa')
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Show metrics
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Valuation", f"{values[0]:.1f}%")
+        col2.metric("Liquidity", f"{values[1]:.1f}%")
+        col3.metric("Coverage", f"{values[2]:.1f}%")
+        col4.metric("Trust", f"{values[3]:.1f}%")
+
+        st.markdown("---")
+
+        # Detailed Metrics by Dial (using expanders for each dial)
+        st.markdown("### 📋 Detailed Metrics")
+
+        with st.expander("💰 Valuation Details", expanded=False):
+            # Include PEG ratio if available from Alpha Vantage
+            val_cols = ['ticker']
+            val_rename = {'ticker': 'Ticker'}
+
+            # Add quarter column if in multi-quarter mode
+            if 'quarter' in df_val.columns:
+                val_cols.append('quarter')
+                val_rename['quarter'] = 'Quarter'
+
+            val_cols.extend(['valuation_pct', 'ev_to_ebitda'])
+            val_rename.update({
+                'valuation_pct': 'Score %',
+                'ev_to_ebitda': 'EV/EBITDA'
+            })
+
+            if 'peg_ratio' in df_val.columns:
+                val_cols.append('peg_ratio')
+                val_rename['peg_ratio'] = 'PEG Ratio'
+
+            val_cols.extend(['peer_mean_excl_self', 'valuation_gap_pct', 'valuation_quartile'])
+            val_rename.update({
+                'peer_mean_excl_self': 'Peer Avg',
+                'valuation_gap_pct': 'Gap %',
+                'valuation_quartile': 'Quartile'
+            })
+
+            st.dataframe(
+                df_val[val_cols].rename(columns=val_rename),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            if 'peg_ratio' in df_val.columns:
+                st.caption("💡 **PEG Ratio** (Price/Earnings to Growth) from Alpha Vantage - Growth-adjusted valuation metric. Lower is generally better (typically <1.0 indicates undervalued relative to growth).")
+
+        with st.expander("💧 Liquidity Details", expanded=False):
+            # Build liquidity columns list
+            liq_cols = ['ticker']
+            liq_rename = {'ticker': 'Ticker'}
+
+            # Add quarter column if in multi-quarter mode
+            if 'quarter' in df_liq.columns:
+                liq_cols.append('quarter')
+                liq_rename['quarter'] = 'Quarter'
+
+            liq_cols.extend(['liquidity_pct', 'q_amihud_e6', 'q_spread_bps', 'q_turnover'])
+            liq_rename.update({
+                'liquidity_pct': 'Score %',
+                'q_amihud_e6': 'Amihud (×10⁶)',
+                'q_spread_bps': 'Spread (bps)',
+                'q_turnover': 'Turnover'
+            })
+
+            st.dataframe(
+                df_liq[liq_cols].rename(columns=liq_rename),
+                use_container_width=True,
+                hide_index=True
+            )
+
+        with st.expander("📊 Coverage Details", expanded=False):
+            # Calculate high-quality article counts
+            df_cov_display = df_cov.copy()
+            news_df = st.session_state.get('news_df', None)
+
+            if news_df is not None and not news_df.empty and 'domain' in news_df.columns:
+                from irci.config import Settings
+
+                # Load domain weights
+                s = Settings.load()
+                domain_weights = s.domain_weights or {}
+
+                # Define high-quality threshold (0.8 = top tier sources)
+                HIGH_QUALITY_THRESHOLD = 0.8
+
+                # Filter news for current quarter if multi-quarter mode
+                news_for_quarter = news_df.copy()
+                if is_multi_quarter and 'quarter' in news_df.columns:
+                    news_for_quarter = news_df[news_df['quarter'] == selected_quarter]
+
+                # Count high-quality articles per ticker
+                high_quality_counts = []
+                for ticker in df_cov_display['ticker']:
+                    ticker_news = news_for_quarter[news_for_quarter.get('ticker', '') == ticker] if 'ticker' in news_for_quarter.columns else news_for_quarter
+
+                    if not ticker_news.empty:
+                        # Normalize domains
+                        domains = ticker_news['domain'].astype(str).str.lower().str.removeprefix("www.")
+
+                        # Count articles from high-quality domains
+                        high_qual_count = sum(
+                            domain_weights.get(dom, 0.5) >= HIGH_QUALITY_THRESHOLD
+                            for dom in domains
+                        )
+                    else:
+                        high_qual_count = 0
+
+                    high_quality_counts.append(high_qual_count)
+
+                df_cov_display['high_quality_articles'] = high_quality_counts
+
+            # Display coverage details with high-quality article count if available
+            coverage_cols = ['ticker']
+            coverage_rename = {'ticker': 'Ticker'}
+
+            # Add quarter column if in multi-quarter mode
+            if 'quarter' in df_cov_display.columns:
+                coverage_cols.append('quarter')
+                coverage_rename['quarter'] = 'Quarter'
+
+            coverage_cols.extend(['coverage_pct', 'q_8k_count', 'q_days_to_10q'])
+            coverage_rename.update({
+                'coverage_pct': 'Score %',
+                'q_8k_count': '8-K Count',
+                'q_days_to_10q': 'Days to 10-Q/K'
+            })
+
+            if 'high_quality_articles' in df_cov_display.columns:
+                coverage_cols.append('high_quality_articles')
+                coverage_rename['high_quality_articles'] = 'High-Quality Articles'
+
+            st.dataframe(
+                df_cov_display[coverage_cols].rename(columns=coverage_rename),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            if 'high_quality_articles' in df_cov_display.columns:
+                st.caption("💡 **High-Quality Articles** = Articles from top-tier sources (WSJ, Bloomberg, Reuters, etc. with domain weight ≥ 0.8). These sources have higher credibility and reach.")
+
+        with st.expander("💭 Trust Details", expanded=False):
+            # Build trust columns list
+            trust_cols = ['ticker']
+            trust_rename = {'ticker': 'Ticker'}
+
+            # Add quarter column if in multi-quarter mode
+            if 'quarter' in df_trust.columns:
+                trust_cols.append('quarter')
+                trust_rename['quarter'] = 'Quarter'
+
+            trust_cols.extend(['trust_pct', 'p_event_calm', 'p_baseline_calm', 'p_media_tone', 'event_count', 'media_tone_n'])
+            trust_rename.update({
+                'trust_pct': 'Score %',
+                'p_event_calm': 'Event Calm %',
+                'p_baseline_calm': 'Baseline Calm %',
+                'p_media_tone': 'Media Tone %',
+                'event_count': 'Events',
+                'media_tone_n': 'Articles'
+            })
+
+            st.dataframe(
+                df_trust[trust_cols].rename(columns=trust_rename),
+                use_container_width=True,
+                hide_index=True
+            )
+
+    # TAB 2: Trend Analysis (only for multi-quarter data)
     if is_multi_quarter:
-        with tab_trend:
+        with tab2:
             st.markdown("#### IRCI Score Progression Over Time")
             st.caption("Track how each company's IRCI score has changed across quarters")
 
@@ -2280,247 +2535,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             else:
                 st.info("Need at least 2 quarters of data to generate forecasts. Select more quarters and re-run analysis.")
 
-    with tab1:
-        # Bar chart of composite scores
-        fig = px.bar(
-            display_df,
-            x='ticker',
-            y='irci_composite_pct',
-            title=f'IRCI Composite Scores - {selected_quarter}',
-            labels={'irci_composite_pct': 'Composite Score (%)', 'ticker': 'Company'},
-            color='irci_composite_pct',
-            color_continuous_scale='Viridis',
-            text='irci_composite_pct'
-        )
-        fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(
-            showlegend=False,
-            height=400,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(30,33,48,0.5)',
-            font=dict(color='#fafafa'),
-            title_font=dict(color='#00d4ff'),
-            xaxis=dict(gridcolor='#2e3440'),
-            yaxis=dict(gridcolor='#2e3440')
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    with tab2:
-        # Radar chart for each company
-        selected_company = st.selectbox("Select company for dial breakdown:", display_df['ticker'].tolist())
-
-        company_data = display_df[display_df['ticker'] == selected_company].iloc[0]
-
-        categories = ['Valuation', 'Liquidity', 'Coverage', 'Trust']
-        values = [
-            company_data.get('valuation_pct', 0),
-            company_data.get('liquidity_pct', 0),
-            company_data.get('coverage_pct', 0),
-            company_data.get('sentiment_pct', 0)
-        ]
-
-        fig = go.Figure()
-        fig.add_trace(go.Scatterpolar(
-            r=values,
-            theta=categories,
-            fill='toself',
-            name=selected_company,
-            line=dict(color='#00d4ff', width=2),
-            fillcolor='rgba(0, 212, 255, 0.3)'
-        ))
-        fig.update_layout(
-            polar=dict(
-                radialaxis=dict(
-                    visible=True,
-                    range=[0, 100],
-                    gridcolor='#2e3440',
-                    color='#fafafa'
-                ),
-                angularaxis=dict(
-                    gridcolor='#2e3440',
-                    color='#fafafa'
-                ),
-                bgcolor='rgba(30,33,48,0.5)'
-            ),
-            showlegend=True,
-            title=f'{selected_company} - Dial Breakdown',
-            title_font=dict(color='#00d4ff'),
-            height=500,
-            paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#fafafa')
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Show metrics
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Valuation", f"{values[0]:.1f}%")
-        col2.metric("Liquidity", f"{values[1]:.1f}%")
-        col3.metric("Coverage", f"{values[2]:.1f}%")
-        col4.metric("Trust", f"{values[3]:.1f}%")
-
-    with tab3:
-        # Detailed metrics by dial
-        st.markdown("#### 💰 Valuation Details")
-
-        # Include PEG ratio if available from Alpha Vantage
-        val_cols = ['ticker']
-        val_rename = {'ticker': 'Ticker'}
-
-        # Add quarter column if in multi-quarter mode
-        if 'quarter' in df_val.columns:
-            val_cols.append('quarter')
-            val_rename['quarter'] = 'Quarter'
-
-        val_cols.extend(['valuation_pct', 'ev_to_ebitda'])
-        val_rename.update({
-            'valuation_pct': 'Score %',
-            'ev_to_ebitda': 'EV/EBITDA'
-        })
-
-        if 'peg_ratio' in df_val.columns:
-            val_cols.append('peg_ratio')
-            val_rename['peg_ratio'] = 'PEG Ratio'
-
-        val_cols.extend(['peer_mean_excl_self', 'valuation_gap_pct', 'valuation_quartile'])
-        val_rename.update({
-            'peer_mean_excl_self': 'Peer Avg',
-            'valuation_gap_pct': 'Gap %',
-            'valuation_quartile': 'Quartile'
-        })
-
-        st.dataframe(
-            df_val[val_cols].rename(columns=val_rename),
-            use_container_width=True,
-            hide_index=True
-        )
-
-        if 'peg_ratio' in df_val.columns:
-            st.caption("💡 **PEG Ratio** (Price/Earnings to Growth) from Alpha Vantage - Growth-adjusted valuation metric. Lower is generally better (typically <1.0 indicates undervalued relative to growth).")
-
-        st.markdown("#### 💧 Liquidity Details")
-
-        # Build liquidity columns list
-        liq_cols = ['ticker']
-        liq_rename = {'ticker': 'Ticker'}
-
-        # Add quarter column if in multi-quarter mode
-        if 'quarter' in df_liq.columns:
-            liq_cols.append('quarter')
-            liq_rename['quarter'] = 'Quarter'
-
-        liq_cols.extend(['liquidity_pct', 'q_amihud_e6', 'q_spread_bps', 'q_turnover'])
-        liq_rename.update({
-            'liquidity_pct': 'Score %',
-            'q_amihud_e6': 'Amihud (×10⁶)',
-            'q_spread_bps': 'Spread (bps)',
-            'q_turnover': 'Turnover'
-        })
-
-        st.dataframe(
-            df_liq[liq_cols].rename(columns=liq_rename),
-            use_container_width=True,
-            hide_index=True
-        )
-
-        st.markdown("#### 📊 Coverage Details")
-
-        # Calculate high-quality article counts
-        df_cov_display = df_cov.copy()
-        news_df = st.session_state.get('news_df', None)
-
-        if news_df is not None and not news_df.empty and 'domain' in news_df.columns:
-            from irci.config import Settings
-
-            # Load domain weights
-            s = Settings.load()
-            domain_weights = s.domain_weights or {}
-
-            # Define high-quality threshold (0.8 = top tier sources)
-            HIGH_QUALITY_THRESHOLD = 0.8
-
-            # Filter news for current quarter if multi-quarter mode
-            news_for_quarter = news_df.copy()
-            if is_multi_quarter and 'quarter' in news_df.columns:
-                news_for_quarter = news_df[news_df['quarter'] == selected_quarter]
-
-            # Count high-quality articles per ticker
-            high_quality_counts = []
-            for ticker in df_cov_display['ticker']:
-                ticker_news = news_for_quarter[news_for_quarter.get('ticker', '') == ticker] if 'ticker' in news_for_quarter.columns else news_for_quarter
-
-                if not ticker_news.empty:
-                    # Normalize domains
-                    domains = ticker_news['domain'].astype(str).str.lower().str.removeprefix("www.")
-
-                    # Count articles from high-quality domains
-                    high_qual_count = sum(
-                        domain_weights.get(dom, 0.5) >= HIGH_QUALITY_THRESHOLD
-                        for dom in domains
-                    )
-                else:
-                    high_qual_count = 0
-
-                high_quality_counts.append(high_qual_count)
-
-            df_cov_display['high_quality_articles'] = high_quality_counts
-
-        # Display coverage details with high-quality article count if available
-        coverage_cols = ['ticker']
-        coverage_rename = {'ticker': 'Ticker'}
-
-        # Add quarter column if in multi-quarter mode
-        if 'quarter' in df_cov_display.columns:
-            coverage_cols.append('quarter')
-            coverage_rename['quarter'] = 'Quarter'
-
-        coverage_cols.extend(['coverage_pct', 'q_8k_count', 'q_days_to_10q'])
-        coverage_rename.update({
-            'coverage_pct': 'Score %',
-            'q_8k_count': '8-K Count',
-            'q_days_to_10q': 'Days to 10-Q/K'
-        })
-
-        if 'high_quality_articles' in df_cov_display.columns:
-            coverage_cols.append('high_quality_articles')
-            coverage_rename['high_quality_articles'] = 'High-Quality Articles'
-
-        st.dataframe(
-            df_cov_display[coverage_cols].rename(columns=coverage_rename),
-            use_container_width=True,
-            hide_index=True
-        )
-
-        if 'high_quality_articles' in df_cov_display.columns:
-            st.caption("💡 **High-Quality Articles** = Articles from top-tier sources (WSJ, Bloomberg, Reuters, etc. with domain weight ≥ 0.8). These sources have higher credibility and reach.")
-
-        st.markdown("#### 💭 Trust Details")
-
-        # Build trust columns list
-        trust_cols = ['ticker']
-        trust_rename = {'ticker': 'Ticker'}
-
-        # Add quarter column if in multi-quarter mode
-        if 'quarter' in df_trust.columns:
-            trust_cols.append('quarter')
-            trust_rename['quarter'] = 'Quarter'
-
-        trust_cols.extend(['trust_pct', 'p_event_calm', 'p_baseline_calm', 'p_media_tone', 'event_count', 'media_tone_n'])
-        trust_rename.update({
-            'trust_pct': 'Score %',
-            'p_event_calm': 'Event Calm %',
-            'p_baseline_calm': 'Baseline Calm %',
-            'p_media_tone': 'Media Tone %',
-            'event_count': 'Events',
-            'media_tone_n': 'Articles'
-        })
-
-        st.dataframe(
-            df_trust[trust_cols].rename(columns=trust_rename),
-            use_container_width=True,
-            hide_index=True
-        )
-
-    with tab4:
+    # TAB 3 (or TAB 2 if not multi-quarter): Value Analysis (Dollar Value)
+    value_tab = tab3 if is_multi_quarter else tab2
+    with value_tab:
         # Import insights module
         from irci.dial_insights import (
             compute_dollar_value_per_irci_point,
@@ -3364,7 +3381,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         except Exception as e:
             st.warning(f"Could not compute weight recommendations: {str(e)}")
 
-    with tab5:
+    # TAB 4 (or TAB 3 if not multi-quarter): Playbook & Events
+    playbook_tab = tab4 if is_multi_quarter else tab3
+    with playbook_tab:
+        # Create sub-tabs within this combined tab
+        subtab_playbook, subtab_events, subtab_whatif = st.tabs(["🎯 Playbook", "📅 Event Timeline", "🎲 What-If Scenarios"])
+
+    # Event Timeline sub-tab
+    with subtab_events:
         # Event Timeline / Calendar View
         from irci.event_timeline import (
             aggregate_timeline_events,
@@ -3393,6 +3417,117 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             display_df['ticker'].tolist(),
             key='timeline_ticker'
         )
+
+        # Manual Event Entry UI
+        with st.expander("➕ Add Custom Corporate Event"):
+            st.markdown("**Add events not captured automatically** (e.g., investor days, leadership changes, strategic announcements)")
+
+            col_evt1, col_evt2 = st.columns(2)
+
+            with col_evt1:
+                event_date = st.date_input(
+                    "Event Date",
+                    value=pd.to_datetime(end_date),
+                    key='custom_event_date'
+                )
+
+                event_type_options = {
+                    'Investor Day': 'investor_day',
+                    'Analyst Day': 'analyst_day',
+                    'CEO Change': 'ceo_change',
+                    'CFO Change': 'cfo_change',
+                    'Director Change': 'director_change',
+                    'Earnings Call': 'earnings_call',
+                    'Strategic Announcement': 'strategic_announcement',
+                    'Dividend Announcement': 'dividend_announcement',
+                    'Buyback Announcement': 'buyback_announcement',
+                    'Other': 'other'
+                }
+
+                event_type_label = st.selectbox(
+                    "Event Type",
+                    options=list(event_type_options.keys()),
+                    key='custom_event_type'
+                )
+
+            with col_evt2:
+                event_description = st.text_input(
+                    "Event Description",
+                    placeholder="e.g., Annual Investor Day in NYC",
+                    key='custom_event_description'
+                )
+
+                # Event-specific metadata
+                event_sentiment = st.slider(
+                    "Event Sentiment",
+                    min_value=-1.0,
+                    max_value=1.0,
+                    value=0.0,
+                    step=0.1,
+                    help="For strategic announcements: -1 (very negative) to +1 (very positive)",
+                    key='custom_event_sentiment'
+                )
+
+            # Additional metadata based on event type
+            event_metadata = {'sentiment': event_sentiment}
+
+            if event_type_label in ['CEO Change', 'CFO Change']:
+                col_meta1, col_meta2 = st.columns(2)
+                with col_meta1:
+                    succession_type = st.selectbox(
+                        "Succession Type",
+                        options=['planned_inside', 'outside', 'unknown'],
+                        help="Internal promotion vs. external hire",
+                        key='custom_succession_type'
+                    )
+                    event_metadata['succession_type'] = succession_type
+
+                with col_meta2:
+                    forced = st.checkbox("Forced Departure", key='custom_forced')
+                    event_metadata['forced'] = forced
+
+            elif event_type_label == 'Dividend Announcement':
+                dividend_change = st.number_input(
+                    "Dividend Change (%)",
+                    value=0.0,
+                    help="% change in dividend (positive = increase, negative = cut)",
+                    key='custom_dividend_change'
+                )
+                event_metadata['dividend_change_pct'] = dividend_change
+
+            # Store button
+            if st.button("➕ Add Event to Timeline", use_container_width=True):
+                # Initialize custom events in session state
+                if 'custom_events' not in st.session_state:
+                    st.session_state['custom_events'] = []
+
+                custom_event = {
+                    'ticker': selected_timeline_ticker,
+                    'date': pd.to_datetime(event_date),
+                    'event_type': event_type_options[event_type_label],
+                    'description': event_description or event_type_label,
+                    'event_metadata': event_metadata,
+                    'source': 'user_entry'
+                }
+
+                st.session_state['custom_events'].append(custom_event)
+                st.success(f"✅ Added {event_type_label} event for {selected_timeline_ticker} on {event_date}")
+                st.rerun()
+
+            # Display existing custom events
+            if 'custom_events' in st.session_state and st.session_state['custom_events']:
+                ticker_custom_events = [e for e in st.session_state['custom_events'] if e['ticker'] == selected_timeline_ticker]
+
+                if ticker_custom_events:
+                    st.markdown("**Custom Events for this Ticker:**")
+                    for idx, evt in enumerate(ticker_custom_events):
+                        col_del1, col_del2 = st.columns([4, 1])
+                        with col_del1:
+                            st.text(f"• {evt['date'].strftime('%Y-%m-%d')}: {evt['description']}")
+                        with col_del2:
+                            if st.button("🗑️", key=f"delete_event_{idx}"):
+                                st.session_state['custom_events'].remove(evt)
+                                st.rerun()
 
         try:
             # Initialize notes manager
@@ -3486,6 +3621,49 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 company_dollar_per_irci_pt=company_dollar_per_irci_pt
             )
 
+            # Merge custom events from session state
+            if 'custom_events' in st.session_state and st.session_state['custom_events']:
+                from irci.event_timeline import calculate_event_irci_impact
+
+                ticker_custom_events = [e for e in st.session_state['custom_events']
+                                       if e['ticker'] == selected_timeline_ticker]
+
+                custom_events_list = []
+                for evt in ticker_custom_events:
+                    # Calculate impact for this custom event
+                    impact = calculate_event_irci_impact(
+                        event_date=evt['date'].strftime('%Y-%m-%d'),
+                        event_type=evt['event_type'],
+                        df_composite=df_composite_filtered,
+                        df_val=df_val_filtered,
+                        ticker=selected_timeline_ticker,
+                        sentiment_score=evt['event_metadata'].get('sentiment', 0.0),
+                        weights=current_weights,
+                        company_dollar_per_irci_pt=company_dollar_per_irci_pt,
+                        event_metadata=evt['event_metadata']
+                    )
+
+                    custom_events_list.append({
+                        'date': pd.to_datetime(evt['date']),
+                        'event_type': evt['event_type'],
+                        'description': evt['description'],
+                        'headline': evt['description'],
+                        'sentiment_score': evt['event_metadata'].get('sentiment', 0.0),
+                        'irci_impact': impact['irci_impact'],
+                        'dollar_impact': impact['dollar_impact'],
+                        'impact_confidence': impact['confidence'],
+                        'affected_dials': ', '.join(impact['affected_dials']),
+                        'ticker': selected_timeline_ticker,
+                        'source': 'User Entry'
+                    })
+
+                if custom_events_list:
+                    custom_df = pd.DataFrame(custom_events_list)
+                    # Merge with timeline_df
+                    timeline_df = pd.concat([timeline_df, custom_df], ignore_index=True)
+                    # Sort by date
+                    timeline_df = timeline_df.sort_values('date')
+
             # Display impact summary
             st.markdown("**📊 Event Impact Summary**")
             impact_summary = create_impact_summary(timeline_df, selected_timeline_ticker)
@@ -3494,7 +3672,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             col1.metric("Total Events", impact_summary['total_events'])
             col2.metric(
                 "Total IRCI Impact",
-                f"{impact_summary['total_irci_impact']:+.2f} pts",
+                f"{impact_summary['total_irci_impact']:+.4f} pts",
                 help="Estimated cumulative impact on IRCI score from all events"
             )
             col3.metric(
@@ -3510,19 +3688,28 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             if not timeline_df.empty:
                 calendar_df = create_calendar_view(timeline_df, start_date, end_date)
 
+                # Format IRCI and dollar impacts as strings to ensure they display
+                calendar_display = calendar_df[['date', 'num_events', 'event_types', 'total_irci_impact', 'total_dollar_impact', 'headlines']].copy()
+                calendar_display['irci_formatted'] = calendar_display['total_irci_impact'].apply(
+                    lambda x: f"{x:+.5f} pts" if pd.notna(x) else "0.00000 pts"
+                )
+                calendar_display['dollar_formatted'] = calendar_display['total_dollar_impact'].apply(
+                    lambda x: f"${x:+,.0f}" if pd.notna(x) else "$0"
+                )
+
+                # Select and rename columns
+                calendar_display = calendar_display[['date', 'num_events', 'event_types', 'irci_formatted', 'dollar_formatted', 'headlines']].rename(columns={
+                    'date': 'Date',
+                    'num_events': '# Events',
+                    'event_types': 'Event Types',
+                    'irci_formatted': 'IRCI Impact',
+                    'dollar_formatted': '$ Impact',
+                    'headlines': 'Top Headlines'
+                })
+
                 # Display calendar as interactive table
                 st.dataframe(
-                    calendar_df[['date', 'num_events', 'event_types', 'total_irci_impact', 'total_dollar_impact', 'headlines']].rename(columns={
-                        'date': 'Date',
-                        'num_events': '# Events',
-                        'event_types': 'Event Types',
-                        'total_irci_impact': 'IRCI Impact (pts)',
-                        'total_dollar_impact': '$ Impact',
-                        'headlines': 'Top Headlines'
-                    }).style.format({
-                        'IRCI Impact (pts)': '{:+.2f}',
-                        '$ Impact': '${:+,.0f}'
-                    }),
+                    calendar_display,
                     use_container_width=True,
                     hide_index=True
                 )
@@ -3559,6 +3746,24 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                             return '📰'
                     elif event_type in ['10-Q', '10-K', '8-K']:
                         return '🔵'
+                    elif event_type == 'investor_day':
+                        return '🎯'
+                    elif event_type == 'analyst_day':
+                        return '📈'
+                    elif event_type == 'ceo_change':
+                        return '👔'
+                    elif event_type == 'cfo_change':
+                        return '💼'
+                    elif event_type == 'director_change':
+                        return '👥'
+                    elif event_type == 'earnings_call':
+                        return '📞'
+                    elif event_type == 'strategic_announcement':
+                        return '🎪'
+                    elif event_type == 'dividend_announcement':
+                        return '💵'
+                    elif event_type == 'buyback_announcement':
+                        return '🔄'
                     elif event_type == 'valuation_measurement':
                         return '💰'
                     elif event_type == 'liquidity_measurement':
@@ -3571,29 +3776,38 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                 display_timeline.insert(0, 'indicator', timeline_df.apply(get_color_indicator, axis=1))
 
-                # Rename columns
-                display_timeline = display_timeline.rename(columns={
+                # Format IRCI impact and dollar impact as strings to ensure they display
+                display_timeline['irci_impact_formatted'] = display_timeline['irci_impact'].apply(
+                    lambda x: f"{x:+.5f} pts" if pd.notna(x) else "0.00000 pts"
+                )
+                display_timeline['dollar_impact_formatted'] = display_timeline['dollar_impact'].apply(
+                    lambda x: f"${x:+,.0f}" if pd.notna(x) else "$0"
+                )
+
+                # Select and rename columns
+                display_timeline = display_timeline[['indicator', 'date', 'event_type', 'description', 'irci_impact_formatted', 'dollar_impact_formatted', 'affected_dials']].rename(columns={
                     'indicator': '',
                     'date': 'Date',
                     'event_type': 'Type',
                     'description': 'Description',
-                    'irci_impact': 'IRCI Impact',
-                    'dollar_impact': '$ Impact',
+                    'irci_impact_formatted': 'IRCI Impact',
+                    'dollar_impact_formatted': '$ Impact',
                     'affected_dials': 'Affected Dials'
                 })
 
-                # Format the dataframe
+                # Display the dataframe without style.format (since we already formatted as strings)
                 st.dataframe(
-                    display_timeline.style.format({
-                        'IRCI Impact': '{:+.2f}',
-                        '$ Impact': '${:+,.0f}'
-                    }),
+                    display_timeline,
                     use_container_width=True,
                     hide_index=True
                 )
 
                 st.caption("""
-                💡 **Event Indicators:** 🟢 Positive news | 🔴 Negative news | 🔵 SEC filings | 📰 Neutral news | 💰 Valuation | 💧 Liquidity | 📊 Coverage | 💭 Trust
+                💡 **Event Indicators:**
+                🟢 Positive news | 🔴 Negative news | 🔵 SEC filings | 📰 Neutral news |
+                🎯 Investor Day | 📈 Analyst Day | 👔 CEO Change | 💼 CFO Change | 👥 Director Change |
+                📞 Earnings Call | 🎪 Strategic Announcement | 💵 Dividend | 🔄 Buyback |
+                💰 Valuation | 💧 Liquidity | 📊 Coverage | 💭 Trust
                 """)
 
                 # Calculation methodology and proof section
@@ -3647,6 +3861,39 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                     **Why these values?** Coverage dial measures aggregate quarterly filing activity,
                     not individual filings. A typical company has 5-20 8-Ks per quarter.
+
+                    ---
+
+                    ### 🎯 Corporate Events Impact (Based on Academic Research)
+
+                    **Investor Day:**
+                    - Dial impacts: +2% Coverage, +1.5% Trust
+                    - Estimated CAR: +2.0% (conservative, research shows up to +30% appreciation)
+                    - Research: MZ Group 2024 study
+                    - IRCI impact: ~0.005 points (varies by weights)
+
+                    **CEO Change:**
+                    - Planned inside succession: +0.5% Trust, CAR +0.5%
+                    - Forced departure: -1% Trust, CAR -1.5%
+                    - Outside hire: -0.5% Trust, CAR -0.5%
+                    - Research: Clayton et al. (volatility increases), market reactions vary by type
+
+                    **CFO Change:**
+                    - Voluntary: -0.3% Trust, CAR -0.3%
+                    - Forced: -0.8% Trust, CAR -1.0%
+                    - Research: Negatively associated with earnings persistence
+
+                    **Strategic Announcements:**
+                    - Impact varies by sentiment (-1% to +1% Trust, +0.5% Coverage)
+                    - CAR ranges from -2% to +2% depending on announcement type
+
+                    **Dividend/Buyback:**
+                    - Dividend increase: +0.5% Trust, CAR +1.0%
+                    - Buyback announcement: +0.8% Trust, CAR +1.5%
+                    - Dividend cut: -0.8% Trust, CAR -2.0%
+
+                    **Note:** CAR (Cumulative Abnormal Return) estimates are based on event study methodology
+                    from academic literature. Individual company results may vary.
 
                     ---
 
@@ -3786,7 +4033,381 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             import traceback
             st.code(traceback.format_exc())
 
-    with tab6:
+    # What-If Scenarios sub-tab
+    with subtab_whatif:
+        st.markdown("#### 🎲 What-If Scenario Planner")
+        st.markdown("*Model hypothetical corporate events and see their projected impact on IRCI scores and enterprise value*")
+
+        st.info("""
+        💡 **How This Works**: Add hypothetical events (investor days, leadership changes, etc.) to see their projected impact.
+        - Uses the same research-based calculations as the Event Timeline
+        - Shows cumulative impact of multiple events
+        - Compare current state vs. with planned initiatives
+        - Plan your IR strategy and quantify expected outcomes
+        """)
+
+        # Company selector for what-if analysis
+        selected_whatif_ticker = st.selectbox(
+            "Select company for scenario planning:",
+            display_df['ticker'].tolist(),
+            key='whatif_ticker'
+        )
+
+        # Get current company data
+        company_data = df_composite_filtered[df_composite_filtered['ticker'] == selected_whatif_ticker].iloc[0]
+        current_irci = company_data['irci_composite_pct']
+        current_valuation_pct = company_data.get('valuation_pct', 0)
+        current_liquidity_pct = company_data.get('liquidity_pct', 0)
+        current_coverage_pct = company_data.get('coverage_pct', 0)
+        current_sentiment_pct = company_data.get('sentiment_pct', 0)
+
+        # Get current EV
+        ticker_val_data = df_val_filtered[df_val_filtered['ticker'] == selected_whatif_ticker]
+        current_ev = ticker_val_data['enterprise_value'].iloc[0] if not ticker_val_data.empty else 0
+
+        # Get company-specific $/IRCI point
+        whatif_dollar_per_irci_pt = None
+        try:
+            from irci.dial_insights import compute_dollar_value_per_irci_point
+            dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
+            if not dollar_value_df.empty:
+                ticker_dollar_data = dollar_value_df[dollar_value_df['ticker'] == selected_whatif_ticker]
+                if not ticker_dollar_data.empty:
+                    whatif_dollar_per_irci_pt = ticker_dollar_data['company_$/irci_pt'].iloc[0]
+        except Exception:
+            pass
+
+        # Display current state
+        st.markdown("---")
+        st.markdown("### 📊 Current State")
+        col_curr1, col_curr2, col_curr3, col_curr4 = st.columns(4)
+        col_curr1.metric("IRCI Composite", f"{current_irci:.1f}%")
+        col_curr2.metric("Enterprise Value", f"${current_ev/1e9:.2f}B" if current_ev > 0 else "N/A")
+        col_curr3.metric("$/IRCI Point", f"${whatif_dollar_per_irci_pt:,.0f}" if whatif_dollar_per_irci_pt else "N/A")
+        col_curr4.metric("Rank", f"#{company_data.get('rank', 'N/A')}" if 'rank' in company_data else "N/A")
+
+        # Initialize scenario events in session state
+        if 'scenario_events' not in st.session_state:
+            st.session_state['scenario_events'] = []
+
+        # Scenario Event Builder
+        st.markdown("---")
+        st.markdown("### ➕ Add Hypothetical Events to Scenario")
+
+        with st.expander("📝 Event Builder", expanded=len(st.session_state['scenario_events']) == 0):
+            col_evt1, col_evt2 = st.columns(2)
+
+            with col_evt1:
+                scenario_event_type_options = {
+                    'Investor Day': 'investor_day',
+                    'Analyst Day': 'analyst_day',
+                    'CEO Change (Inside)': 'ceo_change_inside',
+                    'CEO Change (Outside)': 'ceo_change_outside',
+                    'CEO Change (Forced)': 'ceo_change_forced',
+                    'CFO Change (Voluntary)': 'cfo_change_voluntary',
+                    'CFO Change (Forced)': 'cfo_change_forced',
+                    'Strategic Announcement (Positive)': 'strategic_positive',
+                    'Strategic Announcement (Negative)': 'strategic_negative',
+                    'Dividend Increase': 'dividend_increase',
+                    'Dividend Cut': 'dividend_cut',
+                    'Buyback Announcement': 'buyback_announcement',
+                }
+
+                scenario_event_label = st.selectbox(
+                    "Event Type",
+                    options=list(scenario_event_type_options.keys()),
+                    key='scenario_event_type'
+                )
+
+                scenario_event_description = st.text_input(
+                    "Event Description",
+                    placeholder=f"e.g., Plan {scenario_event_label}",
+                    value=scenario_event_label,
+                    key='scenario_event_description'
+                )
+
+            with col_evt2:
+                # Show expected impact preview
+                event_type_code = scenario_event_type_options[scenario_event_label]
+
+                # Map to base event type and metadata
+                if event_type_code == 'investor_day':
+                    base_type = 'investor_day'
+                    metadata = {}
+                    expected_car = "+2.0%"
+                    expected_dial = "+2% Cov, +1.5% Trust"
+                elif event_type_code == 'analyst_day':
+                    base_type = 'analyst_day'
+                    metadata = {}
+                    expected_car = "+1.5%"
+                    expected_dial = "+1.5% Cov, +1% Trust"
+                elif event_type_code == 'ceo_change_inside':
+                    base_type = 'ceo_change'
+                    metadata = {'succession_type': 'planned_inside', 'forced': False}
+                    expected_car = "+0.5%"
+                    expected_dial = "+0.5% Trust"
+                elif event_type_code == 'ceo_change_outside':
+                    base_type = 'ceo_change'
+                    metadata = {'succession_type': 'outside', 'forced': False}
+                    expected_car = "-0.5%"
+                    expected_dial = "-0.5% Trust"
+                elif event_type_code == 'ceo_change_forced':
+                    base_type = 'ceo_change'
+                    metadata = {'succession_type': 'unknown', 'forced': True}
+                    expected_car = "-1.5%"
+                    expected_dial = "-1% Trust"
+                elif event_type_code == 'cfo_change_voluntary':
+                    base_type = 'cfo_change'
+                    metadata = {'forced': False}
+                    expected_car = "-0.3%"
+                    expected_dial = "-0.3% Trust"
+                elif event_type_code == 'cfo_change_forced':
+                    base_type = 'cfo_change'
+                    metadata = {'forced': True}
+                    expected_car = "-1.0%"
+                    expected_dial = "-0.8% Trust"
+                elif event_type_code == 'strategic_positive':
+                    base_type = 'strategic_announcement'
+                    metadata = {'sentiment': 0.8, 'announcement_type': 'positive'}
+                    expected_car = "+1.6%"
+                    expected_dial = "+0.8% Trust, +0.5% Cov"
+                elif event_type_code == 'strategic_negative':
+                    base_type = 'strategic_announcement'
+                    metadata = {'sentiment': -0.8, 'announcement_type': 'negative'}
+                    expected_car = "-1.6%"
+                    expected_dial = "-0.8% Trust, +0.5% Cov"
+                elif event_type_code == 'dividend_increase':
+                    base_type = 'dividend_announcement'
+                    metadata = {'dividend_change_pct': 10}
+                    expected_car = "+1.0%"
+                    expected_dial = "+0.5% Trust"
+                elif event_type_code == 'dividend_cut':
+                    base_type = 'dividend_announcement'
+                    metadata = {'dividend_change_pct': -20}
+                    expected_car = "-2.0%"
+                    expected_dial = "-0.8% Trust"
+                elif event_type_code == 'buyback_announcement':
+                    base_type = 'buyback_announcement'
+                    metadata = {}
+                    expected_car = "+1.5%"
+                    expected_dial = "+0.8% Trust"
+                else:
+                    base_type = 'other'
+                    metadata = {}
+                    expected_car = "0%"
+                    expected_dial = "None"
+
+                st.metric("Expected CAR", expected_car, help="Cumulative Abnormal Return from research")
+                st.caption(f"**Dial Impact:** {expected_dial}")
+
+            if st.button("➕ Add Event to Scenario", use_container_width=True, key='add_scenario_event'):
+                from irci.event_timeline import calculate_event_irci_impact
+
+                # Get current weights
+                current_weights = {
+                    'valuation': weight_valuation / 100,
+                    'liquidity': weight_liquidity / 100,
+                    'coverage': weight_coverage / 100,
+                    'sentiment': weight_trust / 100
+                }
+
+                # Calculate impact
+                impact = calculate_event_irci_impact(
+                    event_date=pd.Timestamp.now().strftime('%Y-%m-%d'),
+                    event_type=base_type,
+                    df_composite=df_composite_filtered,
+                    df_val=df_val_filtered,
+                    ticker=selected_whatif_ticker,
+                    weights=current_weights,
+                    company_dollar_per_irci_pt=whatif_dollar_per_irci_pt,
+                    event_metadata=metadata
+                )
+
+                scenario_event = {
+                    'description': scenario_event_description,
+                    'event_type': base_type,
+                    'event_type_label': scenario_event_label,
+                    'irci_impact': impact['irci_impact'],
+                    'dollar_impact': impact['dollar_impact'],
+                    'affected_dials': impact['affected_dials'],
+                    'car_estimate': impact.get('car_estimate', 0),
+                    'confidence': impact['confidence']
+                }
+
+                st.session_state['scenario_events'].append(scenario_event)
+                st.success(f"✅ Added {scenario_event_label} to scenario!")
+                st.rerun()
+
+        # Display scenario events and cumulative impact
+        if st.session_state['scenario_events']:
+            st.markdown("---")
+            st.markdown("### 📋 Current Scenario Events")
+
+            scenario_df = pd.DataFrame(st.session_state['scenario_events'])
+
+            for idx, evt in enumerate(st.session_state['scenario_events']):
+                col_s1, col_s2, col_s3, col_s4, col_s5 = st.columns([3, 2, 2, 2, 1])
+
+                with col_s1:
+                    st.text(f"{idx+1}. {evt['description']}")
+                with col_s2:
+                    st.text(f"IRCI: {evt['irci_impact']:+.4f}")
+                with col_s3:
+                    st.text(f"$: ${evt['dollar_impact']:+,.0f}" if evt['dollar_impact'] != 0 else "$: N/A")
+                with col_s4:
+                    st.text(f"CAR: {evt['car_estimate']:+.1f}%")
+                with col_s5:
+                    if st.button("🗑️", key=f"delete_scenario_{idx}"):
+                        st.session_state['scenario_events'].pop(idx)
+                        st.rerun()
+
+            # Calculate cumulative impact
+            total_irci_impact = sum(evt['irci_impact'] for evt in st.session_state['scenario_events'])
+            total_dollar_impact = sum(evt['dollar_impact'] for evt in st.session_state['scenario_events'])
+            avg_car = sum(evt['car_estimate'] for evt in st.session_state['scenario_events']) / len(st.session_state['scenario_events'])
+
+            # Project new state
+            projected_irci = current_irci + total_irci_impact
+            projected_ev = current_ev + total_dollar_impact if current_ev > 0 else None
+
+            st.markdown("---")
+            st.markdown("### 🎯 Projected Impact Summary")
+
+            col_sum1, col_sum2, col_sum3 = st.columns(3)
+            col_sum1.metric(
+                "Total IRCI Impact",
+                f"{total_irci_impact:+.4f} pts",
+                help="Sum of all event impacts on IRCI composite score"
+            )
+            col_sum2.metric(
+                "Total Dollar Impact",
+                f"${total_dollar_impact:+,.0f}" if total_dollar_impact != 0 else "N/A",
+                help="Estimated change in enterprise value"
+            )
+            col_sum3.metric(
+                "Avg CAR",
+                f"{avg_car:+.1f}%",
+                help="Average Cumulative Abnormal Return across events"
+            )
+
+            # Before/After Comparison
+            st.markdown("---")
+            st.markdown("### 📊 Before vs. After Comparison")
+
+            col_comp1, col_comp2, col_comp3 = st.columns(3)
+
+            with col_comp1:
+                st.markdown("**Current State**")
+                st.metric("IRCI Score", f"{current_irci:.1f}%")
+                if current_ev > 0:
+                    st.metric("Enterprise Value", f"${current_ev/1e9:.2f}B")
+
+            with col_comp2:
+                st.markdown("**After Events**")
+                delta_irci = projected_irci - current_irci
+                st.metric("IRCI Score", f"{projected_irci:.1f}%", delta=f"{delta_irci:+.1f}")
+                if projected_ev:
+                    delta_ev_pct = ((projected_ev - current_ev) / current_ev) * 100
+                    st.metric("Enterprise Value", f"${projected_ev/1e9:.2f}B", delta=f"{delta_ev_pct:+.1f}%")
+
+            with col_comp3:
+                st.markdown("**Change**")
+                st.metric("IRCI Change", f"{total_irci_impact:+.4f} pts")
+                if total_dollar_impact != 0:
+                    st.metric("EV Change", f"${total_dollar_impact/1e9:+.2f}B")
+
+            # Visualization of dial changes
+            st.markdown("---")
+            st.markdown("### 🎨 Dial Impact Breakdown")
+
+            # Calculate dial-specific impacts
+            dial_impacts = {
+                'Valuation': 0,
+                'Liquidity': 0,
+                'Coverage': 0,
+                'Trust': 0
+            }
+
+            for evt in st.session_state['scenario_events']:
+                for dial in evt['affected_dials']:
+                    if dial in dial_impacts:
+                        dial_impacts[dial] += evt['irci_impact'] / len(evt['affected_dials'])
+
+            # Display as metrics
+            col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+            col_d1.metric("Valuation", f"{current_valuation_pct:.1f}%", delta=f"{dial_impacts['Valuation']:+.2f}" if dial_impacts['Valuation'] != 0 else None)
+            col_d2.metric("Liquidity", f"{current_liquidity_pct:.1f}%", delta=f"{dial_impacts['Liquidity']:+.2f}" if dial_impacts['Liquidity'] != 0 else None)
+            col_d3.metric("Coverage", f"{current_coverage_pct:.1f}%", delta=f"{dial_impacts['Coverage']:+.2f}" if dial_impacts['Coverage'] != 0 else None)
+            col_d4.metric("Trust", f"{current_sentiment_pct:.1f}%", delta=f"{dial_impacts['Trust']:+.2f}" if dial_impacts['Trust'] != 0 else None)
+
+            # Action buttons
+            st.markdown("---")
+            col_action1, col_action2, col_action3 = st.columns(3)
+
+            with col_action1:
+                if st.button("🗑️ Clear All Events", use_container_width=True):
+                    st.session_state['scenario_events'] = []
+                    st.rerun()
+
+            with col_action2:
+                if st.button("💾 Save Scenario", use_container_width=True):
+                    # Save to session state for later comparison
+                    if 'saved_scenarios' not in st.session_state:
+                        st.session_state['saved_scenarios'] = []
+
+                    scenario_name = f"Scenario {len(st.session_state['saved_scenarios']) + 1}"
+                    st.session_state['saved_scenarios'].append({
+                        'name': scenario_name,
+                        'ticker': selected_whatif_ticker,
+                        'events': st.session_state['scenario_events'].copy(),
+                        'total_irci_impact': total_irci_impact,
+                        'total_dollar_impact': total_dollar_impact
+                    })
+                    st.success(f"✅ Saved as '{scenario_name}'")
+
+            with col_action3:
+                if st.button("📋 Export to Notes", use_container_width=True):
+                    # Could export scenario as a formatted note
+                    st.info("💡 Feature coming soon: Export scenario to event timeline notes")
+
+            # Show research methodology
+            with st.expander("📚 Research Methodology & Sources"):
+                st.markdown("""
+                ### How What-If Impacts Are Calculated
+
+                This scenario planner uses the same research-based methodology as the Event Timeline:
+
+                **Event Impact Calculation:**
+                1. Each event type has a researched dial impact (e.g., Investor Day = +2% Coverage, +1.5% Trust)
+                2. Dial impacts are weighted by your current dial weights (default: 35/35/15/15)
+                3. Weighted impacts sum to IRCI composite impact
+                4. IRCI impact × company $/IRCI point = Dollar impact
+                5. CAR estimates from academic event studies
+
+                **Research Sources:**
+                - **Investor Days**: MZ Group 2024 (+30% average appreciation)
+                - **CEO Changes**: Clayton et al. (volatility analysis by succession type)
+                - **CFO Changes**: Earnings persistence research
+                - **CAR Methodology**: Event study literature (2,325 papers reviewed)
+
+                **Key Assumptions:**
+                - Impacts are additive (conservative)
+                - No interaction effects between events
+                - R²-scaled dollar impacts (accounts for other factors)
+                - Academic averages may vary by company/industry
+
+                **Best Practices:**
+                - Don't model more than 5-7 events per scenario (diminishing returns)
+                - Consider realistic timing (can't do 3 investor days per quarter)
+                - Use for planning, not prediction (markets are complex)
+                - Focus on relative impact comparison between scenarios
+                """)
+
+        else:
+            st.info("👆 Add events to your scenario using the Event Builder above to see projected impacts!")
+
+    # Playbook sub-tab
+    with subtab_playbook:
         # IR Playbook - Action recommendations based on dial scores
         st.markdown("#### 📋 IR Action Playbook")
         st.markdown("*Get specific action recommendations based on your IRCI dial performance*")
@@ -3953,7 +4574,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 for imp in improvements:
                     color = "🔴" if imp['classification'] == 'critical' else "🟠" if imp['classification'] == 'low' else "🟡" if imp['classification'] == 'medium' else "🟢"
 
-                    with st.expander(f"{color} **{imp['dial']}** — **${imp['min_value']/1e6:.0f}M to ${imp['max_value']/1e6:.0f}M** potential value", expanded=imp['priority'] == 1):
+                    with st.expander(f"{color} **{imp['dial']}** — **\${imp['min_value']/1e6:.0f}M to \${imp['max_value']/1e6:.0f}M** potential value", expanded=imp['priority'] == 1):
                         col_left, col_right = st.columns([1, 1])
 
                         with col_left:
@@ -3972,7 +4593,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         st.markdown(f"""
                         **What this means:**
                         - By focusing on {imp['dial'].lower()} improvement initiatives next quarter, you could realistically gain **{imp['min_improvement']:.1f}-{imp['max_improvement']:.1f} points**
-                        - This translates to an estimated **${imp['min_value']/1e6:.0f}M - ${imp['max_value']/1e6:.0f}M** in enterprise value impact
+                        - This translates to an estimated **\${imp['min_value']/1e6:.0f}M - \${imp['max_value']/1e6:.0f}M** in enterprise value impact
                         - See recommendations below for specific actions to achieve these improvements
 
                         **Key actions:** Review the {imp['dial'].split()[1]} recommendations in the sections below for concrete next steps.
@@ -3980,7 +4601,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                 st.caption(f"""
                 💡 **About these estimates:**
-                - $/IRCI Point for {playbook_ticker}: ${company_dollar_per_point:,.0f}
+                - $/IRCI Point for {playbook_ticker}: \${company_dollar_per_point:,.0f}
                 - Improvement ranges based on peer analysis and classification severity
                 - Critical/low scoring dials have higher improvement potential
                 - Values are R²-scaled to reflect IR's partial influence on enterprise value
@@ -4007,17 +4628,50 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 f"🟢 Low Priority ({playbook['priority_counts']['low']})"
             ])
 
+            def display_recommendation(rec):
+                """Helper function to display a recommendation with all evidence-backed fields"""
+                with st.container():
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.markdown(f"**{rec['action']}**")
+                    with col2:
+                        if rec.get('quick_win'):
+                            st.caption("⚡ Quick Win")
+
+                    st.markdown(f"*Category: {rec['category']}*")
+                    st.markdown(f"**What:** {rec.get('what', '')}")
+                    st.markdown(f"**How:** {rec['description']}")
+
+                    # Show evidence-backed details in an expander
+                    with st.expander("📊 Evidence & Impact Details"):
+                        if rec.get('evidence'):
+                            st.markdown(f"**📚 Research Evidence:**\n{rec['evidence']}")
+                            st.markdown("")
+
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            if rec.get('expected_impact'):
+                                st.markdown(f"**📈 Expected Impact:** {rec['expected_impact']}")
+                            if rec.get('timeframe'):
+                                st.markdown(f"**⏱️ Timeframe:** {rec['timeframe']}")
+
+                        with col_b:
+                            if rec.get('benchmark'):
+                                st.markdown(f"**🎯 Benchmark:** {rec['benchmark']}")
+
+                        if rec.get('tools'):
+                            st.markdown(f"**🛠️ Tools & Platforms:** {rec['tools']}")
+
+                        if rec.get('metrics'):
+                            st.markdown(f"**📊 Metrics to Track:** {rec['metrics']}")
+
+                    st.markdown("---")
+
             with priority_tabs[0]:
                 high_priority = [r for r in playbook['recommendations'] if r['priority'] == 'high']
                 if high_priority:
                     for rec in high_priority:
-                        with st.container():
-                            st.markdown(f"**{rec['action']}**")
-                            st.markdown(f"*Category: {rec['category']}*")
-                            st.markdown(rec['description'])
-                            if rec.get('quick_win'):
-                                st.caption("⚡ Quick Win")
-                            st.markdown("---")
+                        display_recommendation(rec)
                 else:
                     st.success("No high-priority action items. Great job!")
 
@@ -4025,13 +4679,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 medium_priority = [r for r in playbook['recommendations'] if r['priority'] == 'medium']
                 if medium_priority:
                     for rec in medium_priority:
-                        with st.container():
-                            st.markdown(f"**{rec['action']}**")
-                            st.markdown(f"*Category: {rec['category']}*")
-                            st.markdown(rec['description'])
-                            if rec.get('quick_win'):
-                                st.caption("⚡ Quick Win")
-                            st.markdown("---")
+                        display_recommendation(rec)
                 else:
                     st.info("No medium-priority items.")
 
@@ -4039,13 +4687,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 low_priority = [r for r in playbook['recommendations'] if r['priority'] == 'low']
                 if low_priority:
                     for rec in low_priority:
-                        with st.container():
-                            st.markdown(f"**{rec['action']}**")
-                            st.markdown(f"*Category: {rec['category']}*")
-                            st.markdown(rec['description'])
-                            if rec.get('quick_win'):
-                                st.caption("⚡ Quick Win")
-                            st.markdown("---")
+                        display_recommendation(rec)
                 else:
                     st.info("No low-priority items.")
 
@@ -4061,12 +4703,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     if category_recs:
                         for rec in category_recs:
                             priority_emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
-                            with st.container():
-                                st.markdown(f"{priority_emoji[rec['priority']]} **{rec['action']}**")
-                                st.markdown(rec['description'])
-                                if rec.get('quick_win'):
-                                    st.caption("⚡ Quick Win")
-                                st.markdown("---")
+                            st.markdown(f"{priority_emoji[rec['priority']]} Priority")
+                            display_recommendation(rec)
                     else:
                         st.success(f"Your {category} dial is performing well. No specific actions needed.")
 
@@ -4075,7 +4713,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             import traceback
             st.code(traceback.format_exc())
 
-    with tab7:
+    # TAB 5 (or TAB 4 if not multi-quarter): AI Assistant
+    ai_tab = tab5 if is_multi_quarter else tab4
+    with ai_tab:
         # AI Chatbot Assistant
         st.markdown("#### 💬 AI Assistant")
         st.markdown("*Ask questions about your IRCI results and get IR recommendations*")

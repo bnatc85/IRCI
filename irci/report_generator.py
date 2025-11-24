@@ -88,6 +88,7 @@ class IRCIReport(FPDF):
         self.cell(0, 10, f'IRCI Analysis Report - {self.ticker}', 0, 1, 'C')
         self.set_font('Arial', 'I', 8)
         self.cell(0, 5, f'Quarter: {self.quarter} | Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1, 'C')
+        self.set_font('Arial', '', 10)  # Reset to normal font
         self.ln(5)
 
     def footer(self):
@@ -95,6 +96,7 @@ class IRCIReport(FPDF):
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+        self.set_font('Arial', '', 10)  # Reset to normal font
 
     def chapter_title(self, title: str):
         """Add a chapter title"""
@@ -150,18 +152,32 @@ def generate_pdf_report(
     pdf = IRCIReport(ticker, quarter)
     pdf.add_page()
 
+    # Filter to the specific quarter if multi-quarter data is present
+    if 'quarter' in df_composite.columns:
+        df_composite_filtered = df_composite[df_composite['quarter'] == quarter].copy()
+        df_valuation_filtered = df_valuation[df_valuation['quarter'] == quarter].copy() if 'quarter' in df_valuation.columns else df_valuation
+        df_liquidity_filtered = df_liquidity[df_liquidity['quarter'] == quarter].copy() if 'quarter' in df_liquidity.columns else df_liquidity
+        df_coverage_filtered = df_coverage[df_coverage['quarter'] == quarter].copy() if 'quarter' in df_coverage.columns else df_coverage
+        df_trust_filtered = df_trust[df_trust['quarter'] == quarter].copy() if 'quarter' in df_trust.columns else df_trust
+    else:
+        df_composite_filtered = df_composite
+        df_valuation_filtered = df_valuation
+        df_liquidity_filtered = df_liquidity
+        df_coverage_filtered = df_coverage
+        df_trust_filtered = df_trust
+
     # Get company data
-    company_data = df_composite[df_composite['ticker'] == ticker].iloc[0]
+    company_data = df_composite_filtered[df_composite_filtered['ticker'] == ticker].iloc[0]
 
     # 1. EXECUTIVE SUMMARY
     pdf.chapter_title('1. Executive Summary')
 
     irci_score = company_data.get('irci_composite_pct', 0)
-    peer_avg = df_composite['irci_composite_pct'].mean()
-    peer_rank = int(df_composite['irci_composite_pct'].rank(ascending=False)[
-        df_composite['ticker'] == ticker
+    peer_avg = df_composite_filtered['irci_composite_pct'].mean()
+    peer_rank = int(df_composite_filtered['irci_composite_pct'].rank(ascending=False)[
+        df_composite_filtered['ticker'] == ticker
     ].iloc[0])
-    total_peers = len(df_composite)
+    total_peers = len(df_composite_filtered)  # Now counts unique companies in this quarter
 
     pdf.section_title('Overall Performance')
     pdf.body_text(
@@ -179,10 +195,10 @@ def generate_pdf_report(
     trust_score = company_data.get('sentiment_pct', 0)
 
     # Calculate averages for comparison
-    avg_valuation = df_composite['valuation_pct'].mean()
-    avg_liquidity = df_composite['liquidity_pct'].mean()
-    avg_coverage = df_composite['coverage_pct'].mean()
-    avg_trust = df_composite['sentiment_pct'].mean()
+    avg_valuation = df_composite_filtered['valuation_pct'].mean()
+    avg_liquidity = df_composite_filtered['liquidity_pct'].mean()
+    avg_coverage = df_composite_filtered['coverage_pct'].mean()
+    avg_trust = df_composite_filtered['sentiment_pct'].mean()
 
     pdf.body_text(
         f"Valuation:  {valuation_score:.1f}% ({classify_score(valuation_score)}) - Peer Avg: {avg_valuation:.1f}% ({valuation_score - avg_valuation:+.1f})\n"
@@ -293,17 +309,11 @@ def generate_pdf_report(
 
             # Display improvements
             for imp in improvements:
-                classification_marker = {
-                    'critical': '[CRITICAL]',
-                    'low': '[LOW]',
-                    'medium': '[MEDIUM]',
-                    'strong': '[STRONG]'
-                }.get(imp['classification'], '')
-
+                # Don't show classification markers, just the dial name and value range
                 pdf.set_font('Arial', 'B', 10)
                 pdf.safe_multi_cell(
                     0, 6,
-                    f"{imp['dial']} {classification_marker} - ${imp['min_value']/1e6:.0f}M to ${imp['max_value']/1e6:.0f}M"
+                    f"{imp['dial']} - ${imp['min_value']/1e6:.0f}M to ${imp['max_value']/1e6:.0f}M"
                 )
                 pdf.set_font('Arial', '', 9)
                 pdf.safe_multi_cell(
@@ -314,9 +324,11 @@ def generate_pdf_report(
                 pdf.ln(2)
 
             pdf.set_font('Arial', 'I', 8)
+            # Format dollar amount separately to avoid FPDF escaping issues
+            dollar_formatted = f"{company_dollar_per_point:,.0f}"
             pdf.safe_multi_cell(
                 0, 4,
-                f"$/IRCI Point for {ticker}: ${company_dollar_per_point:,.0f}. "
+                f"USD per IRCI Point for {ticker}: ${dollar_formatted}. "
                 f"Improvement ranges based on peer analysis and classification severity. "
                 f"Values are R-squared scaled to reflect IR's partial influence on enterprise value."
             )
@@ -330,7 +342,7 @@ def generate_pdf_report(
 
     # Valuation
     pdf.section_title('Valuation Dial ({:.1f}%)'.format(valuation_score))
-    val_data = df_valuation[df_valuation['ticker'] == ticker].iloc[0]
+    val_data = df_valuation_filtered[df_valuation_filtered['ticker'] == ticker].iloc[0]
 
     ev_ebitda = val_data['ev_to_ebitda'] if 'ev_to_ebitda' in val_data.index and pd.notna(val_data['ev_to_ebitda']) else None
     enterprise_value = val_data['enterprise_value'] if 'enterprise_value' in val_data.index and pd.notna(val_data['enterprise_value']) else None
@@ -347,7 +359,7 @@ def generate_pdf_report(
 
     # Liquidity
     pdf.section_title('Liquidity Dial ({:.1f}%)'.format(liquidity_score))
-    liq_data = df_liquidity[df_liquidity['ticker'] == ticker].iloc[0]
+    liq_data = df_liquidity_filtered[df_liquidity_filtered['ticker'] == ticker].iloc[0]
 
     avg_volume = liq_data['avg_volume'] if 'avg_volume' in liq_data.index and pd.notna(liq_data['avg_volume']) else None
     avg_spread = liq_data['avg_spread_pct'] if 'avg_spread_pct' in liq_data.index and pd.notna(liq_data['avg_spread_pct']) else None
@@ -369,7 +381,7 @@ def generate_pdf_report(
 
     # Coverage
     pdf.section_title('Coverage Dial ({:.1f}%)'.format(coverage_score))
-    cov_data = df_coverage[df_coverage['ticker'] == ticker].iloc[0]
+    cov_data = df_coverage_filtered[df_coverage_filtered['ticker'] == ticker].iloc[0]
 
     total_weighted = cov_data['total_weighted_articles'] if 'total_weighted_articles' in cov_data.index and pd.notna(cov_data['total_weighted_articles']) else None
     total_filings = cov_data['total_filings'] if 'total_filings' in cov_data.index and pd.notna(cov_data['total_filings']) else None
@@ -391,7 +403,7 @@ def generate_pdf_report(
 
     # Trust
     pdf.section_title('Trust Dial ({:.1f}%)'.format(trust_score))
-    trust_data = df_trust[df_trust['ticker'] == ticker].iloc[0]
+    trust_data = df_trust_filtered[df_trust_filtered['ticker'] == ticker].iloc[0]
 
     media_tone = trust_data['media_tone'] if 'media_tone' in trust_data.index and pd.notna(trust_data['media_tone']) else None
     sentiment_label = "N/A"
@@ -528,10 +540,10 @@ def generate_pdf_report(
     # Sort peers by IRCI score
     # Include quarter column if present
     cols = ['ticker', 'irci_composite_pct']
-    if 'quarter' in df_composite.columns:
+    if 'quarter' in df_composite_filtered.columns:
         cols.insert(1, 'quarter')
 
-    peer_comparison = df_composite[cols].sort_values(
+    peer_comparison = df_composite_filtered[cols].sort_values(
         'irci_composite_pct', ascending=False
     )
 
@@ -559,10 +571,10 @@ def generate_pdf_report(
     # Dial comparison
     pdf.section_title('Dial Score Comparison')
 
-    avg_valuation = df_composite['valuation_pct'].mean()
-    avg_liquidity = df_composite['liquidity_pct'].mean()
-    avg_coverage = df_composite['coverage_pct'].mean()
-    avg_trust = df_composite['sentiment_pct'].mean()
+    avg_valuation = df_composite_filtered['valuation_pct'].mean()
+    avg_liquidity = df_composite_filtered['liquidity_pct'].mean()
+    avg_coverage = df_composite_filtered['coverage_pct'].mean()
+    avg_trust = df_composite_filtered['sentiment_pct'].mean()
 
     pdf.body_text(
         f"Valuation:  {ticker} {valuation_score:.1f}% vs Peer Avg {avg_valuation:.1f}% ({valuation_score - avg_valuation:+.1f})\n"
@@ -594,17 +606,53 @@ def generate_pdf_report(
             pdf.set_font('Arial', 'B', 10)
             # Use safe_multi_cell for wrapping long titles
             pdf.safe_multi_cell(0, 6, f"{i}. {rec['action']} ({rec['category']})")
+
             # Add "what" field if present
             if rec.get('what'):
                 pdf.set_font('Arial', 'I', 9)
                 pdf.safe_multi_cell(0, 5, f"What: {rec['what']}")
+
+            # Description
             pdf.set_font('Arial', '', 9)
-            pdf.safe_multi_cell(0, 5, rec['description'])
+            pdf.safe_multi_cell(0, 5, f"How: {rec['description']}")
+
+            # Evidence-backed fields
+            if rec.get('expected_impact'):
+                pdf.set_font('Arial', 'B', 8)
+                pdf.safe_multi_cell(0, 4, f"Expected Impact: {rec['expected_impact']}")
+
+            if rec.get('timeframe'):
+                pdf.set_font('Arial', 'B', 8)
+                pdf.safe_multi_cell(0, 4, f"Timeframe: {rec['timeframe']}")
+
+            if rec.get('tools'):
+                pdf.set_font('Arial', 'B', 8)
+                pdf.safe_multi_cell(0, 4, f"Tools: ")
+                pdf.set_font('Arial', '', 8)
+                pdf.safe_multi_cell(0, 4, rec['tools'])
+
+            if rec.get('metrics'):
+                pdf.set_font('Arial', 'B', 8)
+                pdf.safe_multi_cell(0, 4, f"Metrics: ")
+                pdf.set_font('Arial', '', 8)
+                pdf.safe_multi_cell(0, 4, rec['metrics'])
+
+            if rec.get('benchmark'):
+                pdf.set_font('Arial', 'B', 8)
+                pdf.safe_multi_cell(0, 4, f"Benchmark: ")
+                pdf.set_font('Arial', '', 8)
+                pdf.safe_multi_cell(0, 4, rec['benchmark'])
+
+            if rec.get('evidence'):
+                pdf.set_font('Arial', 'I', 8)
+                pdf.safe_multi_cell(0, 4, f"Research: {rec['evidence']}")
+
             if rec.get('quick_win'):
                 pdf.set_font('Arial', 'I', 8)
                 pdf.safe_multi_cell(0, 4, '[Quick Win]')
-                pdf.set_font('Arial', '', 9)  # Reset font after italic
-            pdf.ln(2)
+
+            pdf.set_font('Arial', '', 9)  # Reset font
+            pdf.ln(3)
 
     # Medium priority recommendations
     medium_priority = [r for r in playbook['recommendations'] if r['priority'] == 'medium']
@@ -622,17 +670,53 @@ def generate_pdf_report(
             pdf.set_font('Arial', 'B', 10)
             # Use safe_multi_cell for wrapping long titles
             pdf.safe_multi_cell(0, 6, f"{i}. {rec['action']} ({rec['category']})")
+
             # Add "what" field if present
             if rec.get('what'):
                 pdf.set_font('Arial', 'I', 9)
                 pdf.safe_multi_cell(0, 5, f"What: {rec['what']}")
+
+            # Description
             pdf.set_font('Arial', '', 9)
-            pdf.safe_multi_cell(0, 5, rec['description'])
+            pdf.safe_multi_cell(0, 5, f"How: {rec['description']}")
+
+            # Evidence-backed fields
+            if rec.get('expected_impact'):
+                pdf.set_font('Arial', 'B', 8)
+                pdf.safe_multi_cell(0, 4, f"Expected Impact: {rec['expected_impact']}")
+
+            if rec.get('timeframe'):
+                pdf.set_font('Arial', 'B', 8)
+                pdf.safe_multi_cell(0, 4, f"Timeframe: {rec['timeframe']}")
+
+            if rec.get('tools'):
+                pdf.set_font('Arial', 'B', 8)
+                pdf.safe_multi_cell(0, 4, f"Tools: ")
+                pdf.set_font('Arial', '', 8)
+                pdf.safe_multi_cell(0, 4, rec['tools'])
+
+            if rec.get('metrics'):
+                pdf.set_font('Arial', 'B', 8)
+                pdf.safe_multi_cell(0, 4, f"Metrics: ")
+                pdf.set_font('Arial', '', 8)
+                pdf.safe_multi_cell(0, 4, rec['metrics'])
+
+            if rec.get('benchmark'):
+                pdf.set_font('Arial', 'B', 8)
+                pdf.safe_multi_cell(0, 4, f"Benchmark: ")
+                pdf.set_font('Arial', '', 8)
+                pdf.safe_multi_cell(0, 4, rec['benchmark'])
+
+            if rec.get('evidence'):
+                pdf.set_font('Arial', 'I', 8)
+                pdf.safe_multi_cell(0, 4, f"Research: {rec['evidence']}")
+
             if rec.get('quick_win'):
                 pdf.set_font('Arial', 'I', 8)
                 pdf.safe_multi_cell(0, 4, '[Quick Win]')
-                pdf.set_font('Arial', '', 9)  # Reset font after italic
-            pdf.ln(2)
+
+            pdf.set_font('Arial', '', 9)  # Reset font
+            pdf.ln(3)
 
     # Quick Wins summary
     if playbook['quick_wins']:
@@ -652,6 +736,10 @@ def generate_pdf_report(
             pdf.set_font('Arial', 'B', 9)
             # Use safe_multi_cell for wrapping
             pdf.safe_multi_cell(0, 5, f"{i}. {rec['action']}")
+            # Add description
+            pdf.set_font('Arial', '', 9)
+            pdf.safe_multi_cell(0, 4, f"   {rec['description']}")
+            pdf.ln(1)
 
     # 5. TIMELINE HIGHLIGHTS
     if timeline_df is not None and not timeline_df.empty:
@@ -690,7 +778,7 @@ def generate_pdf_report(
         pdf.body_text(f"Enterprise Value: ${ev/1e9:.2f} billion")
 
         # Show percentile within peer group
-        ev_percentile = (df_composite['enterprise_value'] < ev).sum() / len(df_composite) * 100
+        ev_percentile = (df_composite_filtered['enterprise_value'] < ev).sum() / len(df_composite_filtered) * 100
         pdf.body_text(f"EV Percentile: {ev_percentile:.1f}% (larger than {ev_percentile:.0f}% of peers)")
 
     # Company vs Peer Averages - Detailed
@@ -715,8 +803,8 @@ def generate_pdf_report(
         ('Coverage', 'coverage_pct'),
         ('Trust', 'sentiment_pct')
     ]:
-        if dial_col in df_composite.columns:
-            dial_data = df_composite[dial_col]
+        if dial_col in df_composite_filtered.columns:
+            dial_data = df_composite_filtered[dial_col]
             dial_min = dial_data.min()
             dial_max = dial_data.max()
             dial_median = dial_data.median()
@@ -781,8 +869,8 @@ def generate_pdf_report(
     )
 
     pdf.section_title('Peer Group')
-    # Get unique tickers (in case of multi-quarter data)
-    unique_tickers = df_composite['ticker'].unique().tolist()
+    # Get unique tickers for the selected quarter
+    unique_tickers = df_composite_filtered['ticker'].unique().tolist()
     peer_list = ', '.join(sorted(unique_tickers))
     pdf.body_text(f"Analysis includes {len(unique_tickers)} companies: {peer_list}")
 

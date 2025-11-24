@@ -281,7 +281,8 @@ def calculate_event_irci_impact(
     ticker: str,
     sentiment_score: Optional[float] = None,
     weights: Optional[Dict[str, float]] = None,
-    company_dollar_per_irci_pt: Optional[float] = None
+    company_dollar_per_irci_pt: Optional[float] = None,
+    event_metadata: Optional[Dict] = None
 ) -> Dict[str, float]:
     """
     Estimate the impact of an event on IRCI score and dollar value.
@@ -290,21 +291,27 @@ def calculate_event_irci_impact(
     - For news: use sentiment score to estimate impact on trust dial
     - For filings: positive impact on coverage dial
     - For EV changes: direct impact on valuation dial
+    - For investor days: major positive impact on coverage and trust (CAR +0.5% to +5%)
+    - For leadership changes: impact on trust/governance based on succession type
+    - For strategic announcements: varies by type
 
     Args:
         event_date: Date of the event
-        event_type: Type of event ('news', '8-K', '10-Q', '10-K', etc.)
+        event_type: Type of event ('news', '8-K', '10-Q', '10-K', 'investor_day', 'ceo_change', etc.)
         df_composite: Composite scores DataFrame
         df_val: Valuation DataFrame
         ticker: Stock ticker
         sentiment_score: Sentiment score for news (-1 to 1)
         weights: Dial weights dict with keys: valuation, liquidity, coverage, sentiment
         company_dollar_per_irci_pt: Company-specific $/IRCI point from regression
+        event_metadata: Additional event metadata (succession_type, announcement_type, etc.)
 
     Returns:
     - irci_impact: estimated change in IRCI composite score
     - dollar_impact: estimated change in enterprise value
     - confidence: 0-1 scale confidence in the estimate
+    - affected_dials: list of dials affected
+    - car_estimate: Cumulative Abnormal Return estimate (%)
     """
     # Default weights if not provided
     if weights is None:
@@ -315,11 +322,16 @@ def calculate_event_irci_impact(
             'sentiment': 0.15
         }
 
+    # Initialize event metadata if not provided
+    if event_metadata is None:
+        event_metadata = {}
+
     impact = {
         'irci_impact': 0.0,
         'dollar_impact': 0.0,
         'confidence': 0.0,
-        'affected_dials': []
+        'affected_dials': [],
+        'car_estimate': 0.0  # Cumulative Abnormal Return estimate (%)
     }
 
     # Get current IRCI score and EV
@@ -367,6 +379,143 @@ def calculate_event_irci_impact(
         impact['confidence'] = 0.7  # Higher confidence for direct measurements
         impact['affected_dials'] = ['Valuation']
         # This would need time-series EV data to calculate actual change
+
+    elif event_type == 'investor_day':
+        # Investor Days - Major IR engagement event
+        # Research: Average CAR +0.5% to +5%, average +30% appreciation in case studies (MZ Group 2024)
+        # Impacts: Coverage (IR engagement) and Trust (transparency/confidence)
+        coverage_weight = weights.get('coverage', 0.15)
+        trust_weight = weights.get('sentiment', 0.15)
+
+        # Conservative estimate: +2% to coverage dial, +1.5% to trust dial
+        coverage_dial_impact = 0.02  # 2% improvement
+        trust_dial_impact = 0.015    # 1.5% improvement
+
+        impact['irci_impact'] = (coverage_dial_impact * coverage_weight) + (trust_dial_impact * trust_weight)
+        impact['affected_dials'] = ['Coverage', 'Trust']
+        impact['confidence'] = 0.6  # Medium-high confidence (well-researched event type)
+        impact['car_estimate'] = 2.0  # Conservative 2% CAR estimate
+
+    elif event_type == 'analyst_day':
+        # Similar to investor_day but slightly lower impact
+        coverage_weight = weights.get('coverage', 0.15)
+        trust_weight = weights.get('sentiment', 0.15)
+
+        coverage_dial_impact = 0.015  # 1.5% improvement
+        trust_dial_impact = 0.01      # 1% improvement
+
+        impact['irci_impact'] = (coverage_dial_impact * coverage_weight) + (trust_dial_impact * trust_weight)
+        impact['affected_dials'] = ['Coverage', 'Trust']
+        impact['confidence'] = 0.5
+        impact['car_estimate'] = 1.5
+
+    elif event_type == 'ceo_change':
+        # CEO Turnover - Impact varies significantly by succession type
+        # Research: Forced = negative returns, Voluntary inside = small positive, Outside = higher volatility
+        trust_weight = weights.get('sentiment', 0.15)
+
+        succession_type = event_metadata.get('succession_type', 'unknown')
+        forced = event_metadata.get('forced', False)
+
+        if succession_type == 'planned_inside' and not forced:
+            # Planned internal succession - small positive signal
+            trust_dial_impact = 0.005  # +0.5% to trust
+            impact['confidence'] = 0.4
+            impact['car_estimate'] = 0.5  # Small positive CAR
+        elif forced:
+            # Forced turnover - negative signal (governance concerns)
+            trust_dial_impact = -0.01  # -1% to trust
+            impact['confidence'] = 0.5
+            impact['car_estimate'] = -1.5  # Negative CAR
+        elif succession_type == 'outside':
+            # Outside succession - uncertainty/volatility
+            trust_dial_impact = -0.005  # -0.5% to trust
+            impact['confidence'] = 0.4
+            impact['car_estimate'] = -0.5
+        else:
+            # Unknown type - assume neutral to slightly negative
+            trust_dial_impact = -0.003
+            impact['confidence'] = 0.3
+            impact['car_estimate'] = 0.0
+
+        impact['irci_impact'] = trust_dial_impact * trust_weight
+        impact['affected_dials'] = ['Trust']
+
+    elif event_type == 'cfo_change':
+        # CFO Turnover - Generally negative for earnings quality perception
+        # Research: Negatively associated with earnings persistence, increases accrual management concerns
+        trust_weight = weights.get('sentiment', 0.15)
+
+        forced = event_metadata.get('forced', False)
+
+        if forced:
+            trust_dial_impact = -0.008  # -0.8% to trust (earnings quality concern)
+            impact['car_estimate'] = -1.0
+        else:
+            trust_dial_impact = -0.003  # -0.3% to trust (mild concern)
+            impact['car_estimate'] = -0.3
+
+        impact['irci_impact'] = trust_dial_impact * trust_weight
+        impact['affected_dials'] = ['Trust']
+        impact['confidence'] = 0.3
+
+    elif event_type == 'earnings_call':
+        # Earnings calls - positive coverage signal (already partially captured via 10-Q/10-K)
+        coverage_weight = weights.get('coverage', 0.15)
+
+        dial_impact = 0.002  # Small positive (0.2%)
+        impact['irci_impact'] = dial_impact * coverage_weight
+        impact['affected_dials'] = ['Coverage']
+        impact['confidence'] = 0.2
+        impact['car_estimate'] = 0.0  # Neutral (depends on actual results)
+
+    elif event_type == 'strategic_announcement':
+        # M&A, restructuring, major initiatives
+        # Impact highly variable - use metadata sentiment if available
+        announcement_type = event_metadata.get('announcement_type', 'unknown')
+        announcement_sentiment = event_metadata.get('sentiment', 0.0)  # -1 to +1
+
+        trust_weight = weights.get('sentiment', 0.15)
+        coverage_weight = weights.get('coverage', 0.15)
+
+        # Strategic announcements impact both trust and coverage
+        trust_dial_impact = announcement_sentiment * 0.01  # -1% to +1%
+        coverage_dial_impact = 0.005  # +0.5% (any announcement increases visibility)
+
+        impact['irci_impact'] = (trust_dial_impact * trust_weight) + (coverage_dial_impact * coverage_weight)
+        impact['affected_dials'] = ['Trust', 'Coverage']
+        impact['confidence'] = 0.4
+        impact['car_estimate'] = announcement_sentiment * 2.0  # -2% to +2% CAR
+
+    elif event_type == 'dividend_announcement':
+        # Dividend announcements - generally positive for trust/stability
+        trust_weight = weights.get('sentiment', 0.15)
+
+        dividend_change = event_metadata.get('dividend_change_pct', 0.0)
+
+        if dividend_change > 0:
+            trust_dial_impact = 0.005  # +0.5% for increase
+            impact['car_estimate'] = 1.0
+        elif dividend_change < 0:
+            trust_dial_impact = -0.008  # -0.8% for decrease/cut
+            impact['car_estimate'] = -2.0
+        else:
+            trust_dial_impact = 0.002  # +0.2% for maintaining
+            impact['car_estimate'] = 0.0
+
+        impact['irci_impact'] = trust_dial_impact * trust_weight
+        impact['affected_dials'] = ['Trust']
+        impact['confidence'] = 0.4
+
+    elif event_type == 'buyback_announcement':
+        # Share buyback announcements - positive signal
+        trust_weight = weights.get('sentiment', 0.15)
+
+        trust_dial_impact = 0.008  # +0.8% (capital allocation confidence)
+        impact['irci_impact'] = trust_dial_impact * trust_weight
+        impact['affected_dials'] = ['Trust']
+        impact['confidence'] = 0.5
+        impact['car_estimate'] = 1.5  # Positive CAR
 
     # Calculate dollar impact using company-specific $/IRCI point from regression
     # NOTE: company_dollar_per_irci_pt should already be R²-scaled from dial_insights.py
