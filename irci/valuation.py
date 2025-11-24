@@ -6,6 +6,7 @@ import requests
 from requests import HTTPError
 import os
 import time
+import yfinance as yf
 
 from .config import Settings
 from .logging import get_logger
@@ -309,6 +310,60 @@ def ttm_ebitda_from_fmp(symbol: str, apikey: str, as_of: Optional[pd.Timestamp] 
         log.warning(f"FMP EBITDA fetch failed for {symbol}: {e}")
         return {"symbol": symbol, "as_of": as_of, "ttm_ebitda": np.nan, "method": f"FMP error: {str(e)[:50]}"}
 
+def get_ev_ebitda_from_yahoo(symbol: str) -> dict:
+    """
+    Backup source: Get EV and EBITDA directly from Yahoo Finance.
+    Yahoo often has pre-calculated values that can fill gaps.
+
+    Returns dict with 'enterprise_value', 'ebitda', 'ev_to_ebitda', 'method'
+    """
+    try:
+        ticker = yf.Ticker(symbol)
+        info = ticker.info
+
+        # Get EV and EBITDA from Yahoo's summary data
+        ev = info.get('enterpriseValue')
+        ebitda = info.get('ebitda')
+
+        # Yahoo sometimes has the ratio pre-calculated
+        ev_ebitda_ratio = info.get('enterpriseToEbitda')
+
+        # If we have both EV and EBITDA, calculate ratio
+        if ev and ebitda and ebitda != 0:
+            calculated_ratio = ev / ebitda
+            method = "Yahoo Finance (EV & EBITDA)"
+        elif ev_ebitda_ratio:
+            # Use pre-calculated ratio
+            calculated_ratio = ev_ebitda_ratio
+            method = "Yahoo Finance (ratio)"
+            # Try to derive EBITDA if we have EV and ratio
+            if ev and not ebitda:
+                ebitda = ev / ev_ebitda_ratio
+        else:
+            return {
+                "enterprise_value": ev if ev else np.nan,
+                "ebitda": ebitda if ebitda else np.nan,
+                "ev_to_ebitda": np.nan,
+                "method": "Yahoo Finance (incomplete)"
+            }
+
+        log.info(f"Yahoo Finance provided EV/EBITDA for {symbol}: {calculated_ratio:.2f}x")
+        return {
+            "enterprise_value": float(ev) if ev else np.nan,
+            "ebitda": float(ebitda) if ebitda else np.nan,
+            "ev_to_ebitda": float(calculated_ratio) if calculated_ratio else np.nan,
+            "method": method
+        }
+
+    except Exception as e:
+        log.warning(f"Yahoo Finance fetch failed for {symbol}: {e}")
+        return {
+            "enterprise_value": np.nan,
+            "ebitda": np.nan,
+            "ev_to_ebitda": np.nan,
+            "method": f"Yahoo error: {str(e)[:50]}"
+        }
+
 def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: str = "hybrid") -> pd.DataFrame:
     """
     EV (FMP enterprise-values if allowed, else components) + SEC TTM EBITDA → EV/EBITDA
@@ -356,7 +411,7 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
                 # Guard against unbound locals later
                 ev_date, ev_val = asof, np.nan
 
-        # 2) EBITDA (SEC TTM first, then FMP backup) as of ev_date
+        # 2) EBITDA (SEC TTM first, then FMP backup, then Yahoo Finance) as of ev_date
         sec = ttm_ebitda_from_sec(sym, as_of=ev_date, s=s)
         ebitda = sec["ttm_ebitda"]
         ebitda_method = sec["method"]
@@ -368,7 +423,24 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
             ebitda = fmp_ebitda_result["ttm_ebitda"]
             ebitda_method = fmp_ebitda_result["method"]
 
+        # Calculate ratio
         ratio = np.nan if (pd.isna(ebitda) or ebitda == 0.0) else ev_val / ebitda
+
+        # If we STILL don't have EV/EBITDA after all attempts, try Yahoo Finance as final backup
+        if pd.isna(ratio) or pd.isna(ev_val) or pd.isna(ebitda):
+            log.info(f"Primary sources failed for {sym}, trying Yahoo Finance as final backup...")
+            yahoo_data = get_ev_ebitda_from_yahoo(sym)
+
+            # Use Yahoo data if it's better than what we have
+            if not pd.isna(yahoo_data["ev_to_ebitda"]):
+                ratio = yahoo_data["ev_to_ebitda"]
+                ebitda_method = yahoo_data["method"]
+
+                # Also update EV and EBITDA if they're better
+                if pd.isna(ev_val) and not pd.isna(yahoo_data["enterprise_value"]):
+                    ev_val = yahoo_data["enterprise_value"]
+                if pd.isna(ebitda) and not pd.isna(yahoo_data["ebitda"]):
+                    ebitda = yahoo_data["ebitda"]
 
         # 3) PEG ratio from Alpha Vantage (with rate limiting)
         peg_ratio = get_alpha_vantage_peg(sym)
