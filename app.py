@@ -1576,11 +1576,11 @@ elif run_analysis:
 
         ✅ Successfully analyzed **{len(tickers)} companies** across **{len(all_quarters_results)} quarter(s)**
 
-        📊 Scroll down to see your results, or jump to:
-        - [Rankings & Scores](#composite-ranking)
-        - [Peer Comparison](#peer-comparison)
-        - [Dial Analysis](#dial-insights)
-        - [Trends](#trend-analysis) (multi-quarter mode)
+        📊 Scroll down to see [Rankings & Peer Comparison](#composite-ranking), then explore the tabs below for:
+        - **📊 Company Analysis** - Detailed dial breakdowns and metrics
+        - **📈 Trends** - Multi-quarter progression (if analyzing multiple quarters)
+        - **💵 Value Analysis** - Dollar impact insights
+        - **🎯 Playbook & Events** - Action recommendations and timeline
         """)
     else:
         st.error("❌ No quarters were successfully analyzed.")
@@ -3827,6 +3827,10 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     'headlines': 'Top Headlines'
                 })
 
+                # Ensure numeric columns are actually numeric for proper sorting
+                calendar_display['IRCI Impact'] = pd.to_numeric(calendar_display['IRCI Impact'], errors='coerce')
+                calendar_display['$ Impact'] = pd.to_numeric(calendar_display['$ Impact'], errors='coerce')
+
                 # Display calendar as interactive table with column config for formatting
                 st.dataframe(
                     calendar_display,
@@ -3834,14 +3838,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     hide_index=True,
                     column_config={
                         "IRCI Impact": st.column_config.NumberColumn(
-                            "IRCI Impact",
+                            "IRCI Impact (pts)",
                             help="Total IRCI impact (points)",
-                            format="%.5f pts"
+                            format="%.5f"
                         ),
                         "$ Impact": st.column_config.NumberColumn(
                             "$ Impact",
                             help="Total dollar impact",
-                            format="$%,.0f"
+                            format="$,.0f"
                         ),
                     }
                 )
@@ -3919,6 +3923,10 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     'affected_dials': 'Affected Dials'
                 })
 
+                # Ensure numeric columns are actually numeric for proper sorting
+                display_timeline['IRCI Impact'] = pd.to_numeric(display_timeline['IRCI Impact'], errors='coerce')
+                display_timeline['$ Impact'] = pd.to_numeric(display_timeline['$ Impact'], errors='coerce')
+
                 # Display the dataframe with column config for proper formatting while keeping numeric sorting
                 st.dataframe(
                     display_timeline,
@@ -3926,14 +3934,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     hide_index=True,
                     column_config={
                         "IRCI Impact": st.column_config.NumberColumn(
-                            "IRCI Impact",
+                            "IRCI Impact (pts)",
                             help="Individual event IRCI impact (points)",
-                            format="%.5f pts"
+                            format="%.5f"
                         ),
                         "$ Impact": st.column_config.NumberColumn(
                             "$ Impact",
                             help="Individual event dollar impact",
-                            format="$%,.0f"
+                            format="$,.0f"
                         ),
                     }
                 )
