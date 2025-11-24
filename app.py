@@ -780,7 +780,7 @@ if not show_results and not run_analysis:
                     st.session_state['first_visit'] = False
                     st.rerun()
             with col2:
-                st.markdown("[📖 Read Full Guide](#how-it-works)")
+                st.caption("📖 For the full guide, scroll down to the **'How It Works'** tab")
 
     # Quick Start Templates
     st.markdown("### 🎯 Quick Start Templates")
