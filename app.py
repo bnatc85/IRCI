@@ -1563,7 +1563,7 @@ elif run_analysis:
             st.session_state['selected_quarters'] = selected_quarters  # Store list of quarters analyzed
 
         # Success animation and summary
-        st.balloons()  # Celebratory animation!
+        st.snow()  # Celebratory animation - more professional/minimal than balloons
         st.success(f"""
         🎉 **Analysis Complete!**
 
