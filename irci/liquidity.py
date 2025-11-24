@@ -2,6 +2,7 @@
 from __future__ import annotations
 import numpy as np
 import pandas as pd
+import yfinance as yf
 
 from .config import Settings
 from .logging import get_logger
@@ -44,7 +45,7 @@ def roll_spread_proxy(df: pd.DataFrame, window: int = 20) -> pd.Series:
     return spread.rename("roll_spread")
 
 def _market_cap_series(symbol: str, s: Settings, df_prices: pd.DataFrame, end: str | None) -> pd.Series:
-    """Daily market cap series (FMP → fallback price×shares from SEC)."""
+    """Daily market cap series (FMP → SEC price×shares → Yahoo Finance)."""
     try:
         mc = fmp_market_cap(symbol, s.fmp_api_key, limit=400)  # has 'marketCap'
         mc = mc.sort_index()
@@ -54,9 +55,23 @@ def _market_cap_series(symbol: str, s: Settings, df_prices: pd.DataFrame, end: s
         as_of_ts = pd.to_datetime(end, utc=True) if end else pd.Timestamp.utcnow(tz="UTC")
         so = shares_outstanding_from_sec(symbol, as_of_ts, s=s).get("shares_outstanding")
         if not so or so <= 0:
-            log.warning(f"shares outstanding missing for {symbol}; returning NaN market cap series")
-            # Return NaN series instead of raising error to allow partial analysis
-            series = pd.Series(np.nan, index=df_prices.index, name="marketCap")
+            log.warning(f"shares outstanding missing for {symbol}; trying Yahoo Finance as final backup")
+            # Try Yahoo Finance as final backup
+            try:
+                ticker = yf.Ticker(symbol)
+                info = ticker.info
+                yahoo_mc = info.get('marketCap')
+
+                if yahoo_mc and yahoo_mc > 0:
+                    # Yahoo gives current market cap - use it as a constant for the period
+                    log.info(f"Yahoo Finance provided market cap for {symbol}: ${yahoo_mc:,.0f}")
+                    series = pd.Series(float(yahoo_mc), index=df_prices.index, name="marketCap")
+                else:
+                    log.warning(f"Yahoo Finance market cap unavailable for {symbol}; returning NaN series")
+                    series = pd.Series(np.nan, index=df_prices.index, name="marketCap")
+            except Exception as e_yahoo:
+                log.warning(f"Yahoo Finance fetch failed for {symbol}: {e_yahoo}; returning NaN series")
+                series = pd.Series(np.nan, index=df_prices.index, name="marketCap")
         else:
             series = (df_prices["adj_close"].astype(float) * float(so)).rename("marketCap")
     series.index = _utc_index(series.index)
