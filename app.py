@@ -476,7 +476,6 @@ with st.sidebar:
             st.session_state.optimize_weights = True
 
     # News file upload
-    st.markdown("---")
     with st.expander("📰 Advanced: News Data", expanded=False):
         st.info("News articles are automatically fetched from FMP API for sentiment analysis")
         uploaded_news = st.file_uploader(
@@ -486,7 +485,6 @@ with st.sidebar:
         )
 
     # Save/Load session
-    st.markdown("---")
     with st.expander("💾 Advanced: Save/Load Progress", expanded=False):
         # Save session
         if st.button("💾 Save Session", use_container_width=True, help="Save current analysis results to file"):
