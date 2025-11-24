@@ -398,7 +398,7 @@ with st.sidebar:
     st.markdown("---")
 
     # Weights configuration
-    with st.expander("⚙️ Advanced: Dial Weights", expanded=True):
+    with st.expander("⚙️ Advanced: Dial Weights", expanded=False):
         st.markdown("**Customize composite score weights:**")
         st.caption("Type exact percentages or use 🎯 Auto-Optimize")
 
