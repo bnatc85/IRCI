@@ -1553,7 +1553,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         df_cov_filtered = df_cov[df_cov['quarter'] == selected_quarter].copy() if 'quarter' in df_cov.columns else df_cov
         df_liq_filtered = df_liq[df_liq['quarter'] == selected_quarter].copy() if 'quarter' in df_liq.columns else df_liq
 
-        st.info(f"💡 **Multi-Quarter Mode:** Displaying results for **{selected_quarter}**. Scroll down to see trend analysis across all {len(available_quarters)} quarters.")
+        st.info(f"💡 **Multi-Quarter Mode:** Displaying results for **{selected_quarter}**. Click the **'Trends'** tab to see analysis across all {len(available_quarters)} quarters.")
     else:
         # Single quarter data - use directly
         selected_quarter = quarters_analyzed[0] if quarters_analyzed else "Current"
