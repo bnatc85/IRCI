@@ -298,7 +298,7 @@ st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuatio
 
 # Sidebar
 with st.sidebar:
-    st.image("IRCI_icon_primary.png", use_container_width=True)
+    st.image("IRCI_icon_primary.png", width=200)
     st.markdown("### Analysis Configuration")
 
     # Peer discovery section
