@@ -779,6 +779,14 @@ if not show_results and not run_analysis:
             with col2:
                 st.caption("📖 For the full guide, scroll down to the **'How It Works'** tab")
 
+    # Ready to start message
+    st.info("""
+    👈 **Ready to start?**
+    1. Use a quick template below OR select companies in the sidebar
+    2. Choose your quarter(s)
+    3. Click **'Run Analysis'** to generate your IRCI report!
+    """)
+
     # Quick Start Templates
     st.markdown("### 🎯 Quick Start Templates")
     st.caption("Click a template to pre-fill peer companies and start analyzing immediately")
@@ -805,15 +813,8 @@ if not show_results and not run_analysis:
 
     st.markdown("---")
 
-    # Improved empty state message
-    if 'df_composite' not in st.session_state or st.session_state['df_composite'] is None:
-        st.info("""
-        👈 **Ready to start?**
-        1. Use a quick template above OR select companies in the sidebar
-        2. Choose your quarter(s)
-        3. Click **'Run Analysis'** to generate your IRCI report!
-        """)
-    else:
+    # Show success message if analysis is already loaded
+    if 'df_composite' in st.session_state and st.session_state['df_composite'] is not None:
         st.success("✓ Analysis loaded! Scroll down to view results or select a new peer group above to start fresh.")
 
     # Comprehensive About & Methodology - collapsed by default for cleaner interface
