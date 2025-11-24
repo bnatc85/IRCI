@@ -1166,8 +1166,8 @@ elif run_analysis:
     else:
         st.markdown(f"## 🔄 Running Analysis for {len(selected_quarters)} Quarters...")
 
-    # Add analysis time estimate
-    estimated_time = len(selected_quarters) * len(tickers) * 10  # ~10 seconds per ticker per quarter
+    # Add analysis time estimate (conservative)
+    estimated_time = len(selected_quarters) * len(tickers) * 25  # ~25 seconds per ticker per quarter (conservative)
     st.caption(f"⏱️ Estimated time: ~{estimated_time} seconds | Analyzing {len(tickers)} companies across {len(selected_quarters)} quarter(s)")
 
     # Store results for all quarters
