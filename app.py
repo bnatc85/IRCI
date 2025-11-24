@@ -3814,30 +3814,36 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             if not timeline_df.empty:
                 calendar_df = create_calendar_view(timeline_df, start_date, end_date)
 
-                # Format IRCI and dollar impacts as strings to ensure they display
+                # Keep numeric columns for proper sorting
                 calendar_display = calendar_df[['date', 'num_events', 'event_types', 'total_irci_impact', 'total_dollar_impact', 'headlines']].copy()
-                calendar_display['irci_formatted'] = calendar_display['total_irci_impact'].apply(
-                    lambda x: f"{x:+.5f} pts" if pd.notna(x) else "0.00000 pts"
-                )
-                calendar_display['dollar_formatted'] = calendar_display['total_dollar_impact'].apply(
-                    lambda x: f"${x:+,.0f}" if pd.notna(x) else "$0"
-                )
 
-                # Select and rename columns
-                calendar_display = calendar_display[['date', 'num_events', 'event_types', 'irci_formatted', 'dollar_formatted', 'headlines']].rename(columns={
+                # Rename columns
+                calendar_display = calendar_display.rename(columns={
                     'date': 'Date',
                     'num_events': '# Events',
                     'event_types': 'Event Types',
-                    'irci_formatted': 'IRCI Impact',
-                    'dollar_formatted': '$ Impact',
+                    'total_irci_impact': 'IRCI Impact',
+                    'total_dollar_impact': '$ Impact',
                     'headlines': 'Top Headlines'
                 })
 
-                # Display calendar as interactive table
+                # Display calendar as interactive table with column config for formatting
                 st.dataframe(
                     calendar_display,
                     use_container_width=True,
-                    hide_index=True
+                    hide_index=True,
+                    column_config={
+                        "IRCI Impact": st.column_config.NumberColumn(
+                            "IRCI Impact",
+                            help="Total IRCI impact (points)",
+                            format="%.5f pts"
+                        ),
+                        "$ Impact": st.column_config.NumberColumn(
+                            "$ Impact",
+                            help="Total dollar impact",
+                            format="$%,.0f"
+                        ),
+                    }
                 )
 
                 st.caption("""
@@ -3902,30 +3908,34 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                 display_timeline.insert(0, 'indicator', timeline_df.apply(get_color_indicator, axis=1))
 
-                # Format IRCI impact and dollar impact as strings to ensure they display
-                display_timeline['irci_impact_formatted'] = display_timeline['irci_impact'].apply(
-                    lambda x: f"{x:+.5f} pts" if pd.notna(x) else "0.00000 pts"
-                )
-                display_timeline['dollar_impact_formatted'] = display_timeline['dollar_impact'].apply(
-                    lambda x: f"${x:+,.0f}" if pd.notna(x) else "$0"
-                )
-
-                # Select and rename columns
-                display_timeline = display_timeline[['indicator', 'date', 'event_type', 'description', 'irci_impact_formatted', 'dollar_impact_formatted', 'affected_dials']].rename(columns={
+                # Keep numeric columns for proper sorting
+                display_timeline = display_timeline[['indicator', 'date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'affected_dials']].rename(columns={
                     'indicator': '',
                     'date': 'Date',
                     'event_type': 'Type',
                     'description': 'Description',
-                    'irci_impact_formatted': 'IRCI Impact',
-                    'dollar_impact_formatted': '$ Impact',
+                    'irci_impact': 'IRCI Impact',
+                    'dollar_impact': '$ Impact',
                     'affected_dials': 'Affected Dials'
                 })
 
-                # Display the dataframe without style.format (since we already formatted as strings)
+                # Display the dataframe with column config for proper formatting while keeping numeric sorting
                 st.dataframe(
                     display_timeline,
                     use_container_width=True,
-                    hide_index=True
+                    hide_index=True,
+                    column_config={
+                        "IRCI Impact": st.column_config.NumberColumn(
+                            "IRCI Impact",
+                            help="Individual event IRCI impact (points)",
+                            format="%.5f pts"
+                        ),
+                        "$ Impact": st.column_config.NumberColumn(
+                            "$ Impact",
+                            help="Individual event dollar impact",
+                            format="$%,.0f"
+                        ),
+                    }
                 )
 
                 st.caption("""
@@ -4369,8 +4379,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 }
 
                 st.session_state['scenario_events'].append(scenario_event)
-                st.success(f"✅ Added {scenario_event_label} to scenario!")
-                st.rerun()
+                st.success(f"✅ Added {scenario_event_label} to scenario! Scroll down to see updated results.")
 
         # Display scenario events and cumulative impact
         if st.session_state['scenario_events']:
