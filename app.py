@@ -298,7 +298,10 @@ st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuatio
 
 # Sidebar
 with st.sidebar:
-    st.image("IRCI_icon_primary.png", width=200)
+    # Center the icon
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image("IRCI_icon_primary.png", width=200)
     st.markdown("### Analysis Configuration")
 
     # Peer discovery section
@@ -777,7 +780,7 @@ if not show_results and not run_analysis:
                     st.session_state['first_visit'] = False
                     st.rerun()
             with col2:
-                st.caption("📖 For the full guide, scroll down to the **'How It Works'** tab")
+                st.caption("📖 For more details, check out the **Documentation & Background** section below")
 
     # Ready to start message
     st.info("""
