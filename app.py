@@ -4038,7 +4038,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                             ticker_trust = df_trust[df_trust['ticker'] == selected_timeline_ticker]
                             if not ticker_trust.empty:
                                 actual_trust_score = ticker_trust['trust_pct'].iloc[0] if 'trust_pct' in ticker_trust.columns else None
-                                media_tone = ticker_trust['media_tone'].iloc[0] if 'media_tone' in ticker_trust.columns else None
+                                media_tone = ticker_trust['p_media_tone'].iloc[0] if 'p_media_tone' in ticker_trust.columns else None
 
                                 # Format values, handling None
                                 trust_score_str = f"{actual_trust_score:.1f}%" if actual_trust_score is not None else "N/A"
