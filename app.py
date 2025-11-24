@@ -750,7 +750,75 @@ if not show_results and not run_analysis:
     - This tool is for authorized use only. Views expressed are those of the creators and not official positions of any affiliated organization.
     """)
 
-    st.info("👈 Configure your analysis in the sidebar and click **Run Analysis** to start")
+    # First-time user onboarding
+    if 'first_visit' not in st.session_state:
+        st.session_state['first_visit'] = True
+
+    if st.session_state.get('first_visit', False):
+        with st.expander("👋 **Welcome! Take a 2-Minute Tour**", expanded=True):
+            st.markdown("""
+            ### Get Started in 3 Easy Steps:
+
+            **1. Choose Your Peer Group** 👥
+            - Use quick templates below OR manually select companies in the sidebar
+            - Pick 2-5 similar companies for the best comparison
+
+            **2. Select Time Period** 📅
+            - Choose one or multiple quarters to analyze
+            - Recent quarters (2024Q3+) have better news coverage data
+
+            **3. Run Analysis** 🚀
+            - Click the big "Run Analysis" button in the sidebar
+            - Takes ~30-60 seconds depending on company count
+            - Get instant IRCI scores, peer rankings, and actionable insights
+
+            **💡 Tip:** Start with a quick template below to see IRCI in action!
+            """)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✓ Got it! Hide this message"):
+                    st.session_state['first_visit'] = False
+                    st.rerun()
+            with col2:
+                st.markdown("[📖 Read Full Guide](#how-it-works)")
+
+    # Quick Start Templates
+    st.markdown("### 🎯 Quick Start Templates")
+    st.caption("Click a template to pre-fill peer companies and start analyzing immediately")
+
+    template_col1, template_col2, template_col3 = st.columns(3)
+
+    with template_col1:
+        if st.button("📱 **Big Tech**\n\nAAPL, MSFT, GOOGL, META, AMZN", use_container_width=True):
+            st.session_state['ticker_selection'] = ['AAPL', 'MSFT', 'GOOGL', 'META', 'AMZN']
+            st.success("✓ Loaded Big Tech template! Click 'Run Analysis' in sidebar →")
+            st.rerun()
+
+    with template_col2:
+        if st.button("🏦 **Financials**\n\nJPM, BAC, WFC, C, GS", use_container_width=True):
+            st.session_state['ticker_selection'] = ['JPM', 'BAC', 'WFC', 'C', 'GS']
+            st.success("✓ Loaded Financials template! Click 'Run Analysis' in sidebar →")
+            st.rerun()
+
+    with template_col3:
+        if st.button("💉 **Healthcare**\n\nJNJ, PFE, UNH, ABBV, LLY", use_container_width=True):
+            st.session_state['ticker_selection'] = ['JNJ', 'PFE', 'UNH', 'ABBV', 'LLY']
+            st.success("✓ Loaded Healthcare template! Click 'Run Analysis' in sidebar →")
+            st.rerun()
+
+    st.markdown("---")
+
+    # Improved empty state message
+    if 'df_composite' not in st.session_state or st.session_state['df_composite'] is None:
+        st.info("""
+        👈 **Ready to start?**
+        1. Use a quick template above OR select companies in the sidebar
+        2. Choose your quarter(s)
+        3. Click **'Run Analysis'** to generate your IRCI report!
+        """)
+    else:
+        st.success("✓ Analysis loaded! Scroll down to view results or select a new peer group above to start fresh.")
 
     # Comprehensive About & Methodology
     tabs = st.tabs(["📖 How It Works", "🎯 About IRCI", "👥 Team", "🔬 Validation"])
@@ -1097,6 +1165,10 @@ elif run_analysis:
     else:
         st.markdown(f"## 🔄 Running Analysis for {len(selected_quarters)} Quarters...")
 
+    # Add analysis time estimate
+    estimated_time = len(selected_quarters) * len(tickers) * 10  # ~10 seconds per ticker per quarter
+    st.caption(f"⏱️ Estimated time: ~{estimated_time} seconds | Analyzing {len(tickers)} companies across {len(selected_quarters)} quarter(s)")
+
     # Store results for all quarters
     all_quarters_results = {}
 
@@ -1109,7 +1181,7 @@ elif run_analysis:
         if len(selected_quarters) > 1:
             st.markdown(f"### 📊 Quarter {quarter_idx + 1}/{len(selected_quarters)}: **{selected_quarter}** ({start_date} to {end_date})")
 
-        progress_bar = st.progress(0)
+        progress_bar = st.progress(0, text="🚀 Initializing analysis...")
         status_text = st.empty()
 
         try:
@@ -1308,8 +1380,8 @@ elif run_analysis:
                 quarter_end_dt = quarter_end_dt.tz_localize(None)
 
             # 1. Trust
-            status_text.text("Running Trust analysis...")
-            progress_bar.progress(10)
+            progress_bar.progress(10, text="💭 Analyzing Trust dial (sentiment & event stability)...")
+            status_text.text(f"⏳ Step 1/5: Computing trust scores for {len(tickers)} companies")
             df_trust = trust_snapshot(
                 tickers,
                 start=start_date,
@@ -1323,10 +1395,12 @@ elif run_analysis:
                     df_trust["quarter_end"] = quarter_end_dt
                 # Force timezone-naive by normalizing to date
                 df_trust["quarter_end"] = pd.to_datetime(pd.to_datetime(df_trust["quarter_end"]).dt.date)
-            progress_bar.progress(30)
+            progress_bar.progress(30, text="✓ Trust analysis complete")
+            status_text.text("✓ Trust dial computed successfully")
 
             # 2. Valuation
-            status_text.text("Running Valuation analysis...")
+            progress_bar.progress(35, text="💰 Analyzing Valuation dial (EV/EBITDA peer comparison)...")
+            status_text.text(f"⏳ Step 2/5: Computing valuation metrics for {len(tickers)} companies")
             df_val = valuation_snapshot(
                 tickers,
                 as_of=end_date
@@ -1336,10 +1410,12 @@ elif run_analysis:
                     df_val["quarter_end"] = quarter_end_dt
                 # Force timezone-naive by normalizing to date
                 df_val["quarter_end"] = pd.to_datetime(pd.to_datetime(df_val["quarter_end"]).dt.date)
-            progress_bar.progress(50)
+            progress_bar.progress(50, text="✓ Valuation analysis complete")
+            status_text.text("✓ Valuation dial computed successfully")
 
             # 3. Coverage
-            status_text.text("Running Coverage analysis...")
+            progress_bar.progress(55, text="📊 Analyzing Coverage dial (SEC filings & media visibility)...")
+            status_text.text(f"⏳ Step 3/5: Analyzing coverage metrics for {len(tickers)} companies")
             df_cov = coverage_snapshot(
                 tickers,
                 as_of=end_date,
@@ -1350,10 +1426,12 @@ elif run_analysis:
                     df_cov["quarter_end"] = quarter_end_dt
                 # Force timezone-naive by normalizing to date
                 df_cov["quarter_end"] = pd.to_datetime(pd.to_datetime(df_cov["quarter_end"]).dt.date)
-            progress_bar.progress(70)
+            progress_bar.progress(70, text="✓ Coverage analysis complete")
+            status_text.text("✓ Coverage dial computed successfully")
 
             # 4. Liquidity
-            status_text.text("Running Liquidity analysis...")
+            progress_bar.progress(75, text="💧 Analyzing Liquidity dial (market microstructure)...")
+            status_text.text(f"⏳ Step 4/5: Computing liquidity metrics for {len(tickers)} companies")
             rows = []
             for sym in tickers:
                 try:
@@ -1372,10 +1450,12 @@ elif run_analysis:
                 if "quarter_end" in df_liq.columns:
                     df_liq["quarter_end"] = pd.to_datetime(pd.to_datetime(df_liq["quarter_end"]).dt.date)
                 df_liq = add_liquidity_percentile(df_liq)
-            progress_bar.progress(85)
+            progress_bar.progress(85, text="✓ Liquidity analysis complete")
+            status_text.text("✓ Liquidity dial computed successfully")
 
             # 5. Composite
-            status_text.text("Computing composite scores...")
+            progress_bar.progress(90, text="🎯 Computing final composite IRCI scores...")
+            status_text.text(f"⏳ Step 5/5: Combining all dials into IRCI composite")
 
             # Final timezone normalization - ensure ALL quarter_end columns are timezone-naive
             def strip_timezone(df):
@@ -1402,8 +1482,8 @@ elif run_analysis:
                     'trust': weight_trust / 100
                 }
             )
-            progress_bar.progress(100)
-            status_text.text(f"✓ Analysis complete for {selected_quarter}!")
+            progress_bar.progress(100, text="🎉 Analysis complete!")
+            status_text.text(f"✅ Successfully analyzed {len(tickers)} companies for {selected_quarter}")
 
             # Store results for this quarter
             all_quarters_results[selected_quarter] = {
@@ -1481,7 +1561,19 @@ elif run_analysis:
             st.session_state['run_time'] = datetime.now()
             st.session_state['selected_quarters'] = selected_quarters  # Store list of quarters analyzed
 
-        st.success(f"✅ Analysis complete for {len(all_quarters_results)} quarter(s)!")
+        # Success animation and summary
+        st.balloons()  # Celebratory animation!
+        st.success(f"""
+        🎉 **Analysis Complete!**
+
+        ✅ Successfully analyzed **{len(tickers)} companies** across **{len(all_quarters_results)} quarter(s)**
+
+        📊 Scroll down to see your results, or jump to:
+        - [Rankings & Scores](#composite-ranking)
+        - [Peer Comparison](#peer-comparison)
+        - [Dial Analysis](#dial-insights)
+        - [Trends](#trend-analysis) (multi-quarter mode)
+        """)
     else:
         st.error("❌ No quarters were successfully analyzed.")
         st.stop()
