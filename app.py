@@ -477,118 +477,117 @@ with st.sidebar:
 
     # News file upload
     st.markdown("---")
-    st.markdown("### News Data")
-    st.info("📰 News articles are automatically fetched from FMP API for sentiment analysis")
-    uploaded_news = st.file_uploader(
-        "Or upload custom News CSV (optional override)",
-        type=["csv"],
-        help="CSV with columns: date, ticker, headline. If provided, this will override automatic fetching."
-    )
+    with st.expander("📰 Advanced: News Data", expanded=False):
+        st.info("News articles are automatically fetched from FMP API for sentiment analysis")
+        uploaded_news = st.file_uploader(
+            "Or upload custom News CSV (optional override)",
+            type=["csv"],
+            help="CSV with columns: date, ticker, headline. If provided, this will override automatic fetching."
+        )
 
     # Save/Load session
     st.markdown("---")
-    st.markdown("### 💾 Save/Load Progress")
-
-    # Save session
-    if st.button("💾 Save Session", use_container_width=True, help="Save current analysis results to file"):
-        if 'df_composite' in st.session_state:
-            import pickle
-            from datetime import datetime
-
-            # Prepare session data
-            session_data = {
-                'df_composite': st.session_state.get('df_composite'),
-                'df_trust': st.session_state.get('df_trust'),
-                'df_val': st.session_state.get('df_val'),
-                'df_cov': st.session_state.get('df_cov'),
-                'df_liq': st.session_state.get('df_liq'),
-                'news_df': st.session_state.get('news_df'),
-                'weight_liquidity': st.session_state.get('weight_liquidity'),
-                'weight_valuation': st.session_state.get('weight_valuation'),
-                'weight_coverage': st.session_state.get('weight_coverage'),
-                'weight_trust': st.session_state.get('weight_trust'),
-                'selected_quarters': st.session_state.get('selected_quarters', selected_quarters),
-                'tickers': tickers,
-                'saved_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
-
-            # Serialize to bytes
-            session_bytes = pickle.dumps(session_data)
-
-            # Create filename based on quarters analyzed
-            quarters_str = "_".join(st.session_state.get('selected_quarters', selected_quarters)) if st.session_state.get('selected_quarters') else "multi"
-
-            # Offer download
-            st.download_button(
-                label="📥 Download Session File",
-                data=session_bytes,
-                file_name=f"irci_session_{quarters_str}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl",
-                mime="application/octet-stream",
-                use_container_width=True
-            )
-        else:
-            st.warning("No analysis results to save. Run an analysis first!")
-
-    # Load session - only show uploader if we don't have results yet
-    # This prevents the uploader from blocking the view after loading
-    if 'df_composite' not in st.session_state or st.session_state.get('df_composite') is None:
-        uploaded_session = st.file_uploader(
-            "📤 Load Previous Session",
-            type=["pkl"],
-            help="Upload a previously saved session file",
-            key="session_uploader"
-        )
-
-        if uploaded_session is not None:
-            try:
+    with st.expander("💾 Advanced: Save/Load Progress", expanded=False):
+        # Save session
+        if st.button("💾 Save Session", use_container_width=True, help="Save current analysis results to file"):
+            if 'df_composite' in st.session_state:
                 import pickle
-                session_data = pickle.load(uploaded_session)
-
-                # Restore session state
-                st.session_state['df_composite'] = session_data.get('df_composite')
-                st.session_state['df_trust'] = session_data.get('df_trust')
-                st.session_state['df_val'] = session_data.get('df_val')
-                st.session_state['df_cov'] = session_data.get('df_cov')
-                st.session_state['df_liq'] = session_data.get('df_liq')
-                st.session_state['news_df'] = session_data.get('news_df')
-                st.session_state['weight_liquidity'] = session_data.get('weight_liquidity', 35)
-                st.session_state['weight_valuation'] = session_data.get('weight_valuation', 35)
-                st.session_state['weight_coverage'] = session_data.get('weight_coverage', 15)
-                st.session_state['weight_trust'] = session_data.get('weight_trust', 15)
-                st.session_state['run_time'] = datetime.now()
-
-                # Verify data was loaded
-                if st.session_state['df_composite'] is not None:
-                    num_companies = len(st.session_state['df_composite'])
-                    st.success(f"✓ Session loaded! Saved on {session_data.get('saved_at', 'unknown date')}. Analysis for {num_companies} companies is ready.")
-                    st.rerun()
-                else:
-                    st.warning("⚠️ Session loaded but no analysis data found. The session file may be incomplete.")
-
-            except Exception as e:
-                st.error(f"Failed to load session: {str(e)}")
-    else:
-        # Show info that session is already loaded with option to clear
-        st.info("📊 Session data is loaded. Results are displayed!")
-        if st.button("🔄 Clear Session (to load different file)", use_container_width=True):
-            # Clear all analysis data
-            for key in ['df_composite', 'df_trust', 'df_val', 'df_cov', 'df_liq', 'news_df']:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
-
-    # Debug info (for troubleshooting)
-    with st.expander("🔍 Session Debug Info"):
-        st.write("**Session State Keys:**", list(st.session_state.keys()))
-        if 'df_composite' in st.session_state:
-            df_comp = st.session_state['df_composite']
-            if df_comp is not None:
-                st.write(f"✓ df_composite exists: {len(df_comp)} rows")
-                st.write("Columns:", list(df_comp.columns))
+                from datetime import datetime
+    
+                # Prepare session data
+                session_data = {
+                    'df_composite': st.session_state.get('df_composite'),
+                    'df_trust': st.session_state.get('df_trust'),
+                    'df_val': st.session_state.get('df_val'),
+                    'df_cov': st.session_state.get('df_cov'),
+                    'df_liq': st.session_state.get('df_liq'),
+                    'news_df': st.session_state.get('news_df'),
+                    'weight_liquidity': st.session_state.get('weight_liquidity'),
+                    'weight_valuation': st.session_state.get('weight_valuation'),
+                    'weight_coverage': st.session_state.get('weight_coverage'),
+                    'weight_trust': st.session_state.get('weight_trust'),
+                    'selected_quarters': st.session_state.get('selected_quarters', selected_quarters),
+                    'tickers': tickers,
+                    'saved_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+    
+                # Serialize to bytes
+                session_bytes = pickle.dumps(session_data)
+    
+                # Create filename based on quarters analyzed
+                quarters_str = "_".join(st.session_state.get('selected_quarters', selected_quarters)) if st.session_state.get('selected_quarters') else "multi"
+    
+                # Offer download
+                st.download_button(
+                    label="📥 Download Session File",
+                    data=session_bytes,
+                    file_name=f"irci_session_{quarters_str}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl",
+                    mime="application/octet-stream",
+                    use_container_width=True
+                )
             else:
-                st.write("❌ df_composite is None")
+                st.warning("No analysis results to save. Run an analysis first!")
+    
+        # Load session - only show uploader if we don't have results yet
+        # This prevents the uploader from blocking the view after loading
+        if 'df_composite' not in st.session_state or st.session_state.get('df_composite') is None:
+            uploaded_session = st.file_uploader(
+                "📤 Load Previous Session",
+                type=["pkl"],
+                help="Upload a previously saved session file",
+                key="session_uploader"
+            )
+    
+            if uploaded_session is not None:
+                try:
+                    import pickle
+                    session_data = pickle.load(uploaded_session)
+    
+                    # Restore session state
+                    st.session_state['df_composite'] = session_data.get('df_composite')
+                    st.session_state['df_trust'] = session_data.get('df_trust')
+                    st.session_state['df_val'] = session_data.get('df_val')
+                    st.session_state['df_cov'] = session_data.get('df_cov')
+                    st.session_state['df_liq'] = session_data.get('df_liq')
+                    st.session_state['news_df'] = session_data.get('news_df')
+                    st.session_state['weight_liquidity'] = session_data.get('weight_liquidity', 35)
+                    st.session_state['weight_valuation'] = session_data.get('weight_valuation', 35)
+                    st.session_state['weight_coverage'] = session_data.get('weight_coverage', 15)
+                    st.session_state['weight_trust'] = session_data.get('weight_trust', 15)
+                    st.session_state['run_time'] = datetime.now()
+    
+                    # Verify data was loaded
+                    if st.session_state['df_composite'] is not None:
+                        num_companies = len(st.session_state['df_composite'])
+                        st.success(f"✓ Session loaded! Saved on {session_data.get('saved_at', 'unknown date')}. Analysis for {num_companies} companies is ready.")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Session loaded but no analysis data found. The session file may be incomplete.")
+    
+                except Exception as e:
+                    st.error(f"Failed to load session: {str(e)}")
         else:
-            st.write("❌ df_composite not in session_state")
+            # Show info that session is already loaded with option to clear
+            st.info("📊 Session data is loaded. Results are displayed!")
+            if st.button("🔄 Clear Session (to load different file)", use_container_width=True):
+                # Clear all analysis data
+                for key in ['df_composite', 'df_trust', 'df_val', 'df_cov', 'df_liq', 'news_df']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.rerun()
+    
+        # Debug info (for troubleshooting)
+        with st.expander("🔍 Session Debug Info"):
+            st.write("**Session State Keys:**", list(st.session_state.keys()))
+            if 'df_composite' in st.session_state:
+                df_comp = st.session_state['df_composite']
+                if df_comp is not None:
+                    st.write(f"✓ df_composite exists: {len(df_comp)} rows")
+                    st.write("Columns:", list(df_comp.columns))
+                else:
+                    st.write("❌ df_composite is None")
+            else:
+                st.write("❌ df_composite not in session_state")
 
     # Contact information
     st.markdown("""
@@ -754,7 +753,7 @@ if not show_results and not run_analysis:
         st.session_state['first_visit'] = True
 
     if st.session_state.get('first_visit', False):
-        with st.expander("👋 **Welcome! Take a 2-Minute Tour**", expanded=True):
+        with st.expander("👋 **Welcome! Take a 2-Minute Tour**", expanded=False):
             st.markdown("""
             ### Get Started in 3 Easy Steps:
 
