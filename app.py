@@ -819,309 +819,310 @@ if not show_results and not run_analysis:
     else:
         st.success("✓ Analysis loaded! Scroll down to view results or select a new peer group above to start fresh.")
 
-    # Comprehensive About & Methodology
-    tabs = st.tabs(["📖 How It Works", "🎯 About IRCI", "👥 Team", "🔬 Validation"])
-
-    with tabs[0]:
-        st.markdown("""
-        ### How IRCI Works
-
-        **IRCI** evaluates companies across four fundamental dimensions:
-
-        #### 📊 Coverage Dial
-        **"How visible and understandable is your company in the public record?"**
-
-        - **Credible media attention** - Tracks mentions in Wall Street Journal, Bloomberg, Reuters vs. lower-signal press wires
-        - **Filing cadence & timeliness** - SEC 8-K frequency, 10-Q/10-K filing speed relative to deadlines
-        - **Coverage momentum** - Whether disclosure quality is improving or declining
-
-        💡 High Coverage = investors don't have to hunt for your story. Low Coverage = greater uncertainty.
-
-        #### 💭 Trust Dial
-        **"When you speak, does the market stay calm or freak out?"**
-
-        - **Event Calm** - Stock movement within normal bands around earnings/8-Ks (factor-adjusted)
-        - **Baseline Calm** - Control group of ordinary days to see if announcements settle or stir markets
-        - **Media tone** - AI/NLP sentiment analysis across credible news outlets
-
-        💡 If Event Calm > Baseline Calm, your communication settles markets. If lower, you're creating questions.
-
-        #### 💧 Liquidity Dial
-        **"How easy and cheap is it for investors to get in and out?"**
-
-        - **Turnover** - Trading volume relative to market cap
-        - **Amihud illiquidity** - Price impact per dollar traded (lower is better)
-        - **Implied spread (Roll estimate)** - The hidden toll booth every trade pays
-
-        💡 Strong Liquidity = smooth, cheap trading. Weak Liquidity = every big move is costly and disruptive.
-
-        #### 💰 Valuation Dial
-        **"How many dollars is the market willing to pay for each dollar of operating earnings?"**
-
-        - **EV/EBITDA multiple** - Enterprise value divided by EBITDA
-        - **Peer-relative position** - Where you stand vs. industry comparables
-        - **Trend stability** - Whether your multiple is steady or volatile
-
-        💡 When uncertainty and trading friction decrease, investors typically pay more per dollar of earnings.
-
-        ---
-
-        ### The Master Framework
-
-        Think of IRCI like tuning a stereo:
-        - The first three dials (Coverage, Trust, Liquidity) are like bass, treble, and balance—they shape clarity and stability
-        - The Valuation dial is the master volume—how loud and strong the music comes through
-
-        **Fundamentals set the ceiling (the orange line on the chart).** IR and reputation determine how efficiently the market reaches that fair value (the path the blue/green lines take).
-
-        ---
-
-        **Output:** A composite score (0-100%) ranking companies within your peer group, with dollar-per-point estimates for planning.
-        """)
-
-    with tabs[1]:
-        st.markdown("""
-        ### About IRCI
-
-        #### The Challenge
-
-        Have you ever wondered whether investor relations and reputation really move a company's market value—or if it's all just "nice to have"?
-
-        **Decades of research** reveal 4 major value contributions by IR:
-        1. Fairer pricing
-        2. Better liquidity
-        3. Analyst coverage
-        4. Reputation management
-
-        But experts have always cautioned against claiming that IR contributions **directly** affect value. In fact, one study participant stated that IR's impact on share valuation is **"very, very minimal"** compared to other factors like fundamentals and macro conditions.
-
-        ---
-
-        #### The Solution
-
-        **The industry says IR's impact can't be measured. We disagree.**
-
-        IRCI builds upon **40+ years of academic and practitioner research**, compressing:
-        - Coverage momentum
-        - Trust and credibility
-        - Liquidity and market microstructure
-        - Valuation positioning
-
-        ...into **one peer-relative score + actionable playbooks**.
-
-        ---
-
-        #### How It's Different
-
-        IRCI isn't a PR or brand index—it's **market-plumbing aware**, built on:
-        - Observed trading data
-        - SEC filings and events
-        - Factor-adjusted price reactions
-        - Credible media analysis
-
-        **Not surveys. Not opinions. Objective, repeatable metrics.**
-
-        | Feature | IRCI | Traditional IR Tools | Reputation Scores |
-        |---------|------|---------------------|-------------------|
-        | **Objective data** | ✅ Market data, SEC filings | ⚠️ Mixed | ❌ Surveys |
-        | **Dollar quantification** | ✅ $/IRCI point | ❌ | ⚠️ Annual estimates |
-        | **Actionable playbooks** | ✅ Dial-specific | ⚠️ General advice | ❌ |
-        | **Peer benchmarking** | ✅ Relative ranking | ⚠️ Limited | ✅ |
-        | **Board-grade outputs** | ✅ | ❌ | ⚠️ |
-
-        ---
-
-        #### The Three Channels of IR Impact
-
-        1. **Liquidity and Access**
-           - Deeper trading, tighter spreads
-           - Cheaper for investors to enter/exit
-           - Improves discoverability, reduces friction
-
-        2. **Coverage and Disclosure Momentum**
-           - More (and better) coverage
-           - Clear filings and events
-           - Information travels faster, eases investor concerns
-
-        3. **Trust Around Events**
-           - Credible, consistent communication
-           - Calmer earnings days and headlines
-           - Stock tracks closer to fair value instead of whipping around on rumors
-
-        **We don't pretend IR replaces fundamentals.** We measure how IR and reputation change the path to fair value, how persistent that proximity is, and then we price it in dollars per score point.
-
-        ---
-
-        #### Use Cases
-
-        **For IR Teams:**
-        - "Which dial is weak, and what should we do?"
-        - "What are peer leaders doing well that we can borrow?"
-        - Measure → pick weakest dial → run playbook → re-measure
-
-        **For Boards and CFOs:**
-        - "If 1 IRCI point is worth ~$X, is it worth spending $Y to move the weakest dial by 2-3 points?"
-        - Quantifiable ROI for IR and communications investments
-        - Compare IR efficiency across business units or portfolio companies
-
-        **For Investors:**
-        - Identify companies with IR/reputation inefficiencies
-        - Spot potential mispricings due to poor disclosure or liquidity
-        - Track improvements in company accessibility over time
-        """)
-
-    with tabs[2]:
-        st.markdown("""
-        ### The Team
-
-        #### Bonnie Rushing
-        **PhD Student, University of Colorado Colorado Springs**
-
-        - Master's Degree in Strategic Intelligence
-        - Military service in special operations and signals intelligence
-        - Former instructor of strategic studies at US Air Force Academy
-        - **Core expertise:** Signal detection, data analytics, translating operational tradecraft into market analysis
-
-        *"From the aircraft to the boardroom, my job is the same: make sense of noise and enable decisions."*
-
-        📧 [brushing@uccs.edu](mailto:brushing@uccs.edu)
-        🌐 [www.thebonnierushing.com](https://www.thebonnierushing.com)
-
-        ---
-
-        #### Jim Wilkinson
-        **Senior Advisor & Executive Chairman, TrailRunner International**
-
-        - Led global communications and corporate affairs at Alibaba and PepsiCo
-        - Senior government roles: Treasury, State Department, White House, USCENTCOM
-        - **Core expertise:** Boardroom and global corporate communications strategy
-
-        ---
-
-        #### Our Approach
-
-        We combine:
-        - **Bonnie:** Signal detection and quantitative analysis from intelligence tradecraft
-        - **Jim:** Boardroom experience and strategic communications from Fortune 500 and government
-
-        **Result:** Measurable, repeatable, defensible IR through objective data and rigorous methodology.
-
-        ---
-
-        #### Compliance & Disclaimers
-
-        - Views expressed are those of the creators, **not official positions of any affiliated organization** (including the US Department of Defense)
-        - Work is conducted on personal time and resources
-        - IRCI prioritizes compliance, transparency, and ethical use
-        - This tool is for authorized decision-making and planning—not market manipulation or insider advantage
-        """)
-
-    with tabs[3]:
-        st.markdown("""
-        ### Validation & Methodology
-
-        #### Three Reasons to Trust This Score
-
-        **1. Track Record**
-        - Tested on **5+ years of data** and tens of thousands of observations
-        - Covers multiple market cycles and industry sectors
-
-        **2. Predictive Checks**
-        - When Liquidity rises → spreads tighten ✅
-        - When Trust is higher → event days are calmer ✅
-        - Coverage momentum → Valuation behaves as expected ✅
-        - All relationships are **directionally correct and statistically significant**
-
-        **3. Ablation Testing**
-        - Drop each dial one by one → measure signal loss
-        - Result: **All 4 dials contribute unique information**
-        - Not one magic number—comprehensive framework
-
-        ---
-
-        #### Sanity Checks Performed
-
-        **Test 1: Directional Validation**
-
-        *If a company scores higher on a dial today, do we see the right move next quarter in what that dial should influence?*
-
-        ✅ **CHECK**
-        - Strong Coverage → continued disclosure momentum
-        - High Trust → calmer event days (factor-adjusted)
-        - High Liquidity → tighter spreads
-        - Strong Valuation → better peer-relative EV trend
-
-        **Test 2: Ablation Analysis**
-
-        *If we drop one dial, does prediction worsen?*
-
-        ✅ **CHECK**
-        - Reran composite 4 times, removing one dial each time
-        - Signal weakens every time
-        - **Trust delivers the largest unique lift** in our Big Tech sample, but all dials are necessary
-
-        **Test 3: Dollar Value Calibration**
-
-        *Can we convert IRCI points to enterprise value changes?*
-
-        ✅ **CHECK**
-        - In our Big Tech sample: +1 IRCI point ≈ -0.44% change in next-quarter peer valuation gap
-        - R² ≈ 0.37 (moderate explanatory power—appropriate for a secondary factor after fundamentals)
-        - Translation: On Apple-sized companies, ~$15B per IRCI point
-
-        💡 **Interpretation:** Treat as a **planning range**, not a guarantee. Fundamentals dominate, but IR efficiency matters at the margin.
-
-        ---
-
-        #### Peer Group Selection
-
-        **IRCI only works if the peer set is realistic:**
-        - Same industry and approximate size
-        - Typically 10-15 comparable companies
-        - Pre-built peer groups for 60+ popular tickers
-
-        **Right peers → right insights**
-
-        ---
-
-        #### Data Sources & Processing
-
-        1. **SEC EDGAR** - Filings, events, submission dates
-        2. **Financial Markets API** - Pricing, fundamentals, news
-        3. **Fama-French Factors** - Market and sector adjustments for event calm
-        4. **NLP/AI Sentiment** - Media tone analysis from credible outlets
-
-        **Processing steps:**
-        - Clean and normalize data
-        - Convert to percentiles within peer group
-        - Score each dial 0-100
-        - Weight and combine to composite with peer ranking
-
-        ---
-
-        #### Limitations & Appropriate Use
-
-        **What IRCI Does:**
-        - Measures IR efficiency and market accessibility
-        - Provides dollar-denominated planning ranges
-        - Identifies which dial is weakest for targeted action
-
-        **What IRCI Does NOT Do:**
-        - Replace fundamental analysis
-        - Guarantee stock price movements
-        - Account for M&A, executive changes, or black swan events
-        - Substitute for compliance, legal, or financial advice
-
-        **Appropriate Use Cases:**
-        - IR planning and resource allocation
-        - Quarterly board reporting on IR effectiveness
-        - Benchmarking against peers
-        - Identifying improvement opportunities
-
-        **Inappropriate Use Cases:**
-        - Day trading or market timing
-        - Guaranteeing specific ROI
-        - Ignoring fundamentals or macro trends
+    # Comprehensive About & Methodology - collapsed by default for cleaner interface
+    with st.expander("📚 Documentation & Background (How It Works, About IRCI, Team, Validation)", expanded=False):
+        tabs = st.tabs(["📖 How It Works", "🎯 About IRCI", "👥 Team", "🔬 Validation"])
+    
+        with tabs[0]:
+            st.markdown("""
+            ### How IRCI Works
+    
+            **IRCI** evaluates companies across four fundamental dimensions:
+    
+            #### 📊 Coverage Dial
+            **"How visible and understandable is your company in the public record?"**
+    
+            - **Credible media attention** - Tracks mentions in Wall Street Journal, Bloomberg, Reuters vs. lower-signal press wires
+            - **Filing cadence & timeliness** - SEC 8-K frequency, 10-Q/10-K filing speed relative to deadlines
+            - **Coverage momentum** - Whether disclosure quality is improving or declining
+    
+            💡 High Coverage = investors don't have to hunt for your story. Low Coverage = greater uncertainty.
+    
+            #### 💭 Trust Dial
+            **"When you speak, does the market stay calm or freak out?"**
+    
+            - **Event Calm** - Stock movement within normal bands around earnings/8-Ks (factor-adjusted)
+            - **Baseline Calm** - Control group of ordinary days to see if announcements settle or stir markets
+            - **Media tone** - AI/NLP sentiment analysis across credible news outlets
+    
+            💡 If Event Calm > Baseline Calm, your communication settles markets. If lower, you're creating questions.
+    
+            #### 💧 Liquidity Dial
+            **"How easy and cheap is it for investors to get in and out?"**
+    
+            - **Turnover** - Trading volume relative to market cap
+            - **Amihud illiquidity** - Price impact per dollar traded (lower is better)
+            - **Implied spread (Roll estimate)** - The hidden toll booth every trade pays
+    
+            💡 Strong Liquidity = smooth, cheap trading. Weak Liquidity = every big move is costly and disruptive.
+    
+            #### 💰 Valuation Dial
+            **"How many dollars is the market willing to pay for each dollar of operating earnings?"**
+    
+            - **EV/EBITDA multiple** - Enterprise value divided by EBITDA
+            - **Peer-relative position** - Where you stand vs. industry comparables
+            - **Trend stability** - Whether your multiple is steady or volatile
+    
+            💡 When uncertainty and trading friction decrease, investors typically pay more per dollar of earnings.
+    
+            ---
+    
+            ### The Master Framework
+    
+            Think of IRCI like tuning a stereo:
+            - The first three dials (Coverage, Trust, Liquidity) are like bass, treble, and balance—they shape clarity and stability
+            - The Valuation dial is the master volume—how loud and strong the music comes through
+    
+            **Fundamentals set the ceiling (the orange line on the chart).** IR and reputation determine how efficiently the market reaches that fair value (the path the blue/green lines take).
+    
+            ---
+    
+            **Output:** A composite score (0-100%) ranking companies within your peer group, with dollar-per-point estimates for planning.
+            """)
+    
+        with tabs[1]:
+            st.markdown("""
+            ### About IRCI
+    
+            #### The Challenge
+    
+            Have you ever wondered whether investor relations and reputation really move a company's market value—or if it's all just "nice to have"?
+    
+            **Decades of research** reveal 4 major value contributions by IR:
+            1. Fairer pricing
+            2. Better liquidity
+            3. Analyst coverage
+            4. Reputation management
+    
+            But experts have always cautioned against claiming that IR contributions **directly** affect value. In fact, one study participant stated that IR's impact on share valuation is **"very, very minimal"** compared to other factors like fundamentals and macro conditions.
+    
+            ---
+    
+            #### The Solution
+    
+            **The industry says IR's impact can't be measured. We disagree.**
+    
+            IRCI builds upon **40+ years of academic and practitioner research**, compressing:
+            - Coverage momentum
+            - Trust and credibility
+            - Liquidity and market microstructure
+            - Valuation positioning
+    
+            ...into **one peer-relative score + actionable playbooks**.
+    
+            ---
+    
+            #### How It's Different
+    
+            IRCI isn't a PR or brand index—it's **market-plumbing aware**, built on:
+            - Observed trading data
+            - SEC filings and events
+            - Factor-adjusted price reactions
+            - Credible media analysis
+    
+            **Not surveys. Not opinions. Objective, repeatable metrics.**
+    
+            | Feature | IRCI | Traditional IR Tools | Reputation Scores |
+            |---------|------|---------------------|-------------------|
+            | **Objective data** | ✅ Market data, SEC filings | ⚠️ Mixed | ❌ Surveys |
+            | **Dollar quantification** | ✅ $/IRCI point | ❌ | ⚠️ Annual estimates |
+            | **Actionable playbooks** | ✅ Dial-specific | ⚠️ General advice | ❌ |
+            | **Peer benchmarking** | ✅ Relative ranking | ⚠️ Limited | ✅ |
+            | **Board-grade outputs** | ✅ | ❌ | ⚠️ |
+    
+            ---
+    
+            #### The Three Channels of IR Impact
+    
+            1. **Liquidity and Access**
+               - Deeper trading, tighter spreads
+               - Cheaper for investors to enter/exit
+               - Improves discoverability, reduces friction
+    
+            2. **Coverage and Disclosure Momentum**
+               - More (and better) coverage
+               - Clear filings and events
+               - Information travels faster, eases investor concerns
+    
+            3. **Trust Around Events**
+               - Credible, consistent communication
+               - Calmer earnings days and headlines
+               - Stock tracks closer to fair value instead of whipping around on rumors
+    
+            **We don't pretend IR replaces fundamentals.** We measure how IR and reputation change the path to fair value, how persistent that proximity is, and then we price it in dollars per score point.
+    
+            ---
+    
+            #### Use Cases
+    
+            **For IR Teams:**
+            - "Which dial is weak, and what should we do?"
+            - "What are peer leaders doing well that we can borrow?"
+            - Measure → pick weakest dial → run playbook → re-measure
+    
+            **For Boards and CFOs:**
+            - "If 1 IRCI point is worth ~$X, is it worth spending $Y to move the weakest dial by 2-3 points?"
+            - Quantifiable ROI for IR and communications investments
+            - Compare IR efficiency across business units or portfolio companies
+    
+            **For Investors:**
+            - Identify companies with IR/reputation inefficiencies
+            - Spot potential mispricings due to poor disclosure or liquidity
+            - Track improvements in company accessibility over time
+            """)
+    
+        with tabs[2]:
+            st.markdown("""
+            ### The Team
+    
+            #### Bonnie Rushing
+            **PhD Student, University of Colorado Colorado Springs**
+    
+            - Master's Degree in Strategic Intelligence
+            - Military service in special operations and signals intelligence
+            - Former instructor of strategic studies at US Air Force Academy
+            - **Core expertise:** Signal detection, data analytics, translating operational tradecraft into market analysis
+    
+            *"From the aircraft to the boardroom, my job is the same: make sense of noise and enable decisions."*
+    
+            📧 [brushing@uccs.edu](mailto:brushing@uccs.edu)
+            🌐 [www.thebonnierushing.com](https://www.thebonnierushing.com)
+    
+            ---
+    
+            #### Jim Wilkinson
+            **Senior Advisor & Executive Chairman, TrailRunner International**
+    
+            - Led global communications and corporate affairs at Alibaba and PepsiCo
+            - Senior government roles: Treasury, State Department, White House, USCENTCOM
+            - **Core expertise:** Boardroom and global corporate communications strategy
+    
+            ---
+    
+            #### Our Approach
+    
+            We combine:
+            - **Bonnie:** Signal detection and quantitative analysis from intelligence tradecraft
+            - **Jim:** Boardroom experience and strategic communications from Fortune 500 and government
+    
+            **Result:** Measurable, repeatable, defensible IR through objective data and rigorous methodology.
+    
+            ---
+    
+            #### Compliance & Disclaimers
+    
+            - Views expressed are those of the creators, **not official positions of any affiliated organization** (including the US Department of Defense)
+            - Work is conducted on personal time and resources
+            - IRCI prioritizes compliance, transparency, and ethical use
+            - This tool is for authorized decision-making and planning—not market manipulation or insider advantage
+            """)
+    
+        with tabs[3]:
+            st.markdown("""
+            ### Validation & Methodology
+    
+            #### Three Reasons to Trust This Score
+    
+            **1. Track Record**
+            - Tested on **5+ years of data** and tens of thousands of observations
+            - Covers multiple market cycles and industry sectors
+    
+            **2. Predictive Checks**
+            - When Liquidity rises → spreads tighten ✅
+            - When Trust is higher → event days are calmer ✅
+            - Coverage momentum → Valuation behaves as expected ✅
+            - All relationships are **directionally correct and statistically significant**
+    
+            **3. Ablation Testing**
+            - Drop each dial one by one → measure signal loss
+            - Result: **All 4 dials contribute unique information**
+            - Not one magic number—comprehensive framework
+    
+            ---
+    
+            #### Sanity Checks Performed
+    
+            **Test 1: Directional Validation**
+    
+            *If a company scores higher on a dial today, do we see the right move next quarter in what that dial should influence?*
+    
+            ✅ **CHECK**
+            - Strong Coverage → continued disclosure momentum
+            - High Trust → calmer event days (factor-adjusted)
+            - High Liquidity → tighter spreads
+            - Strong Valuation → better peer-relative EV trend
+    
+            **Test 2: Ablation Analysis**
+    
+            *If we drop one dial, does prediction worsen?*
+    
+            ✅ **CHECK**
+            - Reran composite 4 times, removing one dial each time
+            - Signal weakens every time
+            - **Trust delivers the largest unique lift** in our Big Tech sample, but all dials are necessary
+    
+            **Test 3: Dollar Value Calibration**
+    
+            *Can we convert IRCI points to enterprise value changes?*
+    
+            ✅ **CHECK**
+            - In our Big Tech sample: +1 IRCI point ≈ -0.44% change in next-quarter peer valuation gap
+            - R² ≈ 0.37 (moderate explanatory power—appropriate for a secondary factor after fundamentals)
+            - Translation: On Apple-sized companies, ~$15B per IRCI point
+    
+            💡 **Interpretation:** Treat as a **planning range**, not a guarantee. Fundamentals dominate, but IR efficiency matters at the margin.
+    
+            ---
+    
+            #### Peer Group Selection
+    
+            **IRCI only works if the peer set is realistic:**
+            - Same industry and approximate size
+            - Typically 10-15 comparable companies
+            - Pre-built peer groups for 60+ popular tickers
+    
+            **Right peers → right insights**
+    
+            ---
+    
+            #### Data Sources & Processing
+    
+            1. **SEC EDGAR** - Filings, events, submission dates
+            2. **Financial Markets API** - Pricing, fundamentals, news
+            3. **Fama-French Factors** - Market and sector adjustments for event calm
+            4. **NLP/AI Sentiment** - Media tone analysis from credible outlets
+    
+            **Processing steps:**
+            - Clean and normalize data
+            - Convert to percentiles within peer group
+            - Score each dial 0-100
+            - Weight and combine to composite with peer ranking
+    
+            ---
+    
+            #### Limitations & Appropriate Use
+    
+            **What IRCI Does:**
+            - Measures IR efficiency and market accessibility
+            - Provides dollar-denominated planning ranges
+            - Identifies which dial is weakest for targeted action
+    
+            **What IRCI Does NOT Do:**
+            - Replace fundamental analysis
+            - Guarantee stock price movements
+            - Account for M&A, executive changes, or black swan events
+            - Substitute for compliance, legal, or financial advice
+    
+            **Appropriate Use Cases:**
+            - IR planning and resource allocation
+            - Quarterly board reporting on IR effectiveness
+            - Benchmarking against peers
+            - Identifying improvement opportunities
+    
+            **Inappropriate Use Cases:**
+            - Day trading or market timing
+            - Guaranteeing specific ROI
+            - Ignoring fundamentals or macro trends
         """)
 
     # Show example
