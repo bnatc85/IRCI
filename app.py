@@ -1626,8 +1626,17 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             num_companies = len(df_composite[df_composite['quarter'] == unique_quarters[0]])
             st.markdown(f"### Quarters: {', '.join(unique_quarters)} | Companies: {num_companies} | Run: {st.session_state['run_time'].strftime('%Y-%m-%d %H:%M')}")
         else:
-            # Single quarter data
-            quarter_str = quarters_analyzed[0] if quarters_analyzed else "N/A"
+            # Single quarter data - try to get quarter from session state, or derive from data
+            if quarters_analyzed:
+                quarter_str = quarters_analyzed[0]
+            elif 'as_of' in df_val.columns and not df_val['as_of'].empty:
+                # Derive quarter from as_of date in valuation data
+                as_of_date = pd.to_datetime(df_val['as_of'].iloc[0])
+                year = as_of_date.year
+                quarter = f"Q{(as_of_date.month - 1) // 3 + 1}"
+                quarter_str = f"{year}{quarter}"
+            else:
+                quarter_str = "N/A"
             st.markdown(f"### Quarter: {quarter_str} | Companies: {len(df_composite)} | Run: {st.session_state['run_time'].strftime('%Y-%m-%d %H:%M')}")
     except Exception as e:
         st.error(f"❌ Error displaying results: {str(e)}")
