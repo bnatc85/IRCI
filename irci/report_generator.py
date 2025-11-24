@@ -200,12 +200,46 @@ def generate_pdf_report(
     avg_coverage = df_composite_filtered['coverage_pct'].mean()
     avg_trust = df_composite_filtered['sentiment_pct'].mean()
 
+    # Format each dial individually for better readability
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 6, "[$] VALUATION", 0, 1)
+    pdf.set_font('Arial', '', 10)
     pdf.body_text(
-        f"Valuation:  {valuation_score:.1f}% ({classify_score(valuation_score)}) - Peer Avg: {avg_valuation:.1f}% ({valuation_score - avg_valuation:+.1f})\n"
-        f"Liquidity:  {liquidity_score:.1f}% ({classify_score(liquidity_score)}) - Peer Avg: {avg_liquidity:.1f}% ({liquidity_score - avg_liquidity:+.1f})\n"
-        f"Coverage:   {coverage_score:.1f}% ({classify_score(coverage_score)}) - Peer Avg: {avg_coverage:.1f}% ({coverage_score - avg_coverage:+.1f})\n"
-        f"Trust:      {trust_score:.1f}% ({classify_score(trust_score)}) - Peer Avg: {avg_trust:.1f}% ({trust_score - avg_trust:+.1f})"
+        f"Score: {valuation_score:.1f}% ({classify_score(valuation_score)})\n"
+        f"Peer Average: {avg_valuation:.1f}%\n"
+        f"vs Peers: {valuation_score - avg_valuation:+.1f} points"
     )
+    pdf.ln(2)
+
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 6, "[~] LIQUIDITY", 0, 1)
+    pdf.set_font('Arial', '', 10)
+    pdf.body_text(
+        f"Score: {liquidity_score:.1f}% ({classify_score(liquidity_score)})\n"
+        f"Peer Average: {avg_liquidity:.1f}%\n"
+        f"vs Peers: {liquidity_score - avg_liquidity:+.1f} points"
+    )
+    pdf.ln(2)
+
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 6, "[#] COVERAGE", 0, 1)
+    pdf.set_font('Arial', '', 10)
+    pdf.body_text(
+        f"Score: {coverage_score:.1f}% ({classify_score(coverage_score)})\n"
+        f"Peer Average: {avg_coverage:.1f}%\n"
+        f"vs Peers: {coverage_score - avg_coverage:+.1f} points"
+    )
+    pdf.ln(2)
+
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 6, "[*] TRUST", 0, 1)
+    pdf.set_font('Arial', '', 10)
+    pdf.body_text(
+        f"Score: {trust_score:.1f}% ({classify_score(trust_score)})\n"
+        f"Peer Average: {avg_trust:.1f}%\n"
+        f"vs Peers: {trust_score - avg_trust:+.1f} points"
+    )
+    pdf.ln(2)
 
     # Identify strengths and weaknesses
     pdf.section_title('Key Strengths and Weaknesses')
@@ -341,7 +375,7 @@ def generate_pdf_report(
     pdf.chapter_title('2. Detailed Dial Analysis')
 
     # Valuation
-    pdf.section_title('Valuation Dial ({:.1f}%)'.format(valuation_score))
+    pdf.section_title('[$] Valuation Dial ({:.1f}%)'.format(valuation_score))
     val_data = df_valuation_filtered[df_valuation_filtered['ticker'] == ticker].iloc[0]
 
     ev_ebitda = val_data['ev_to_ebitda'] if 'ev_to_ebitda' in val_data.index and pd.notna(val_data['ev_to_ebitda']) else None
@@ -358,7 +392,7 @@ def generate_pdf_report(
         pdf.body_text(f"TTM EBITDA: ${ttm_ebitda/1e9:.2f}B")
 
     # Liquidity
-    pdf.section_title('Liquidity Dial ({:.1f}%)'.format(liquidity_score))
+    pdf.section_title('[~] Liquidity Dial ({:.1f}%)'.format(liquidity_score))
     liq_data = df_liquidity_filtered[df_liquidity_filtered['ticker'] == ticker].iloc[0]
 
     avg_volume = liq_data['avg_volume'] if 'avg_volume' in liq_data.index and pd.notna(liq_data['avg_volume']) else None
@@ -380,7 +414,7 @@ def generate_pdf_report(
     pdf.body_text("\nThese metrics are combined and percentile-ranked against peers to create the Liquidity dial score.")
 
     # Coverage
-    pdf.section_title('Coverage Dial ({:.1f}%)'.format(coverage_score))
+    pdf.section_title('[#] Coverage Dial ({:.1f}%)'.format(coverage_score))
     cov_data = df_coverage_filtered[df_coverage_filtered['ticker'] == ticker].iloc[0]
 
     total_weighted = cov_data['total_weighted_articles'] if 'total_weighted_articles' in cov_data.index and pd.notna(cov_data['total_weighted_articles']) else None
@@ -402,7 +436,7 @@ def generate_pdf_report(
     pdf.body_text("\nThe Coverage dial rewards both quantity and quality of media attention, plus regulatory disclosure frequency.")
 
     # Trust
-    pdf.section_title('Trust Dial ({:.1f}%)'.format(trust_score))
+    pdf.section_title('[*] Trust Dial ({:.1f}%)'.format(trust_score))
     trust_data = df_trust_filtered[df_trust_filtered['ticker'] == ticker].iloc[0]
 
     media_tone = trust_data['media_tone'] if 'media_tone' in trust_data.index and pd.notna(trust_data['media_tone']) else None
@@ -577,10 +611,10 @@ def generate_pdf_report(
     avg_trust = df_composite_filtered['sentiment_pct'].mean()
 
     pdf.body_text(
-        f"Valuation:  {ticker} {valuation_score:.1f}% vs Peer Avg {avg_valuation:.1f}% ({valuation_score - avg_valuation:+.1f})\n"
-        f"Liquidity:  {ticker} {liquidity_score:.1f}% vs Peer Avg {avg_liquidity:.1f}% ({liquidity_score - avg_liquidity:+.1f})\n"
-        f"Coverage:   {ticker} {coverage_score:.1f}% vs Peer Avg {avg_coverage:.1f}% ({coverage_score - avg_coverage:+.1f})\n"
-        f"Trust:      {ticker} {trust_score:.1f}% vs Peer Avg {avg_trust:.1f}% ({trust_score - avg_trust:+.1f})"
+        f"[$] Valuation:  {ticker} {valuation_score:.1f}% vs Peer Avg {avg_valuation:.1f}% ({valuation_score - avg_valuation:+.1f})\n"
+        f"[~] Liquidity:  {ticker} {liquidity_score:.1f}% vs Peer Avg {avg_liquidity:.1f}% ({liquidity_score - avg_liquidity:+.1f})\n"
+        f"[#] Coverage:   {ticker} {coverage_score:.1f}% vs Peer Avg {avg_coverage:.1f}% ({coverage_score - avg_coverage:+.1f})\n"
+        f"[*] Trust:      {ticker} {trust_score:.1f}% vs Peer Avg {avg_trust:.1f}% ({trust_score - avg_trust:+.1f})"
     )
 
     pdf.add_page()
@@ -594,7 +628,7 @@ def generate_pdf_report(
     # High priority recommendations
     high_priority = [r for r in playbook['recommendations'] if r['priority'] == 'high']
     if high_priority:
-        pdf.section_title('High Priority Actions')
+        pdf.section_title('[!!!] High Priority Actions')
         pdf.body_text(
             "HIGH PRIORITY actions address critical weaknesses or opportunities with significant impact. "
             "These should be actioned immediately with dedicated resources and executive sponsorship. "
@@ -658,7 +692,7 @@ def generate_pdf_report(
     medium_priority = [r for r in playbook['recommendations'] if r['priority'] == 'medium']
     if medium_priority:
         pdf.add_page()
-        pdf.section_title('Medium Priority Actions')
+        pdf.section_title('[!!] Medium Priority Actions')
         pdf.body_text(
             "MEDIUM PRIORITY actions improve performance in areas where you're meeting baseline standards "
             "but have room for optimization. These should be planned into your quarterly IR roadmap. "
@@ -721,7 +755,7 @@ def generate_pdf_report(
     # Quick Wins summary
     if playbook['quick_wins']:
         pdf.add_page()
-        pdf.section_title('Quick Wins Summary')
+        pdf.section_title('[>] Quick Wins Summary')
         pdf.body_text(
             f"QUICK WINS are actions that can be implemented quickly (within 1-2 weeks) with minimal resources "
             f"but deliver immediate visible impact. These are ideal for building momentum and demonstrating progress "
@@ -786,10 +820,10 @@ def generate_pdf_report(
 
     peer_metrics = []
     peer_metrics.append(f"IRCI Composite: {ticker} {irci_score:.1f}% vs Avg {peer_avg:.1f}%")
-    peer_metrics.append(f"Valuation Dial: {ticker} {valuation_score:.1f}% vs Avg {avg_valuation:.1f}%")
-    peer_metrics.append(f"Liquidity Dial: {ticker} {liquidity_score:.1f}% vs Avg {avg_liquidity:.1f}%")
-    peer_metrics.append(f"Coverage Dial: {ticker} {coverage_score:.1f}% vs Avg {avg_coverage:.1f}%")
-    peer_metrics.append(f"Trust Dial: {ticker} {trust_score:.1f}% vs Avg {avg_trust:.1f}%")
+    peer_metrics.append(f"[$] Valuation Dial: {ticker} {valuation_score:.1f}% vs Avg {avg_valuation:.1f}%")
+    peer_metrics.append(f"[~] Liquidity Dial: {ticker} {liquidity_score:.1f}% vs Avg {avg_liquidity:.1f}%")
+    peer_metrics.append(f"[#] Coverage Dial: {ticker} {coverage_score:.1f}% vs Avg {avg_coverage:.1f}%")
+    peer_metrics.append(f"[*] Trust Dial: {ticker} {trust_score:.1f}% vs Avg {avg_trust:.1f}%")
 
     pdf.body_text("\n".join(peer_metrics))
 
@@ -797,11 +831,11 @@ def generate_pdf_report(
     pdf.section_title('Score Distribution Analysis')
 
     dial_stats = []
-    for dial_name, dial_col in [
-        ('Valuation', 'valuation_pct'),
-        ('Liquidity', 'liquidity_pct'),
-        ('Coverage', 'coverage_pct'),
-        ('Trust', 'sentiment_pct')
+    for dial_name, dial_col, icon in [
+        ('Valuation', 'valuation_pct', '[$]'),
+        ('Liquidity', 'liquidity_pct', '[~]'),
+        ('Coverage', 'coverage_pct', '[#]'),
+        ('Trust', 'sentiment_pct', '[*]')
     ]:
         if dial_col in df_composite_filtered.columns:
             dial_data = df_composite_filtered[dial_col]
@@ -811,7 +845,7 @@ def generate_pdf_report(
             company_score = company_data.get(dial_col, 0)
 
             dial_stats.append(
-                f"{dial_name}: Range {dial_min:.1f}%-{dial_max:.1f}%, "
+                f"{icon} {dial_name}: Range {dial_min:.1f}%-{dial_max:.1f}%, "
                 f"Median {dial_median:.1f}%, "
                 f"{ticker} {company_score:.1f}%"
             )
