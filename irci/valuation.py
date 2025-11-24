@@ -261,6 +261,54 @@ def estimate_ev_from_components(symbol: str, apikey: str, as_of_ts: pd.Timestamp
     log.info(f"EV components for {symbol}: MC={mc_val:,.0f} Debt={debt:,.0f} Cash={cash:,.0f} → EV={ev:,.0f} @ {as_of_used.date()} ({bs_method})")
     return as_of_used, ev
 
+def ttm_ebitda_from_fmp(symbol: str, apikey: str, as_of: Optional[pd.Timestamp] = None) -> dict:
+    """
+    Backup EBITDA source from FMP income statement.
+    Returns TTM EBITDA by summing last 4 quarters.
+    """
+    url = f"https://financialmodelingprep.com/api/v3/income-statement/{symbol}?period=quarter&limit=16&apikey={apikey}"
+    log.info(f"GET {url.replace(apikey, '***')}")
+    try:
+        js = _get_json(url)
+        if not isinstance(js, list) or not js:
+            raise ValueError(f"No income statement data for {symbol}")
+        df = pd.DataFrame(js)
+        if "date" not in df.columns:
+            raise ValueError("Unexpected payload for income-statement")
+
+        df["date"] = pd.to_datetime(df["date"], utc=True)
+        df = df.sort_values("date")
+
+        # Filter to on-or-before as_of if specified
+        if as_of is not None:
+            as_of_naive = _naive_utc_ts(as_of)
+            df.index = _naive_utc_index(df["date"])
+            df = df[df.index <= as_of_naive]
+
+        if len(df) < 4:
+            return {"symbol": symbol, "as_of": as_of, "ttm_ebitda": np.nan, "method": "FMP (insufficient quarters)"}
+
+        # Try to get EBITDA directly, or calculate from operating income + D&A
+        if "ebitda" in df.columns:
+            ttm_ebitda = df["ebitda"].tail(4).sum()
+            method = "FMP EBITDA"
+        elif "operatingIncome" in df.columns and "depreciationAndAmortization" in df.columns:
+            df["calc_ebitda"] = df["operatingIncome"] + df["depreciationAndAmortization"].fillna(0)
+            ttm_ebitda = df["calc_ebitda"].tail(4).sum()
+            method = "FMP (OpInc + D&A)"
+        elif "operatingIncome" in df.columns:
+            ttm_ebitda = df["operatingIncome"].tail(4).sum()
+            method = "FMP Operating Income (fallback)"
+        else:
+            return {"symbol": symbol, "as_of": as_of, "ttm_ebitda": np.nan, "method": "FMP unavailable"}
+
+        latest_date = df["date"].iloc[-1]
+        return {"symbol": symbol, "as_of": latest_date, "ttm_ebitda": float(ttm_ebitda), "method": method}
+
+    except Exception as e:
+        log.warning(f"FMP EBITDA fetch failed for {symbol}: {e}")
+        return {"symbol": symbol, "as_of": as_of, "ttm_ebitda": np.nan, "method": f"FMP error: {str(e)[:50]}"}
+
 def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: str = "hybrid") -> pd.DataFrame:
     """
     EV (FMP enterprise-values if allowed, else components) + SEC TTM EBITDA → EV/EBITDA
@@ -308,9 +356,18 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
                 # Guard against unbound locals later
                 ev_date, ev_val = asof, np.nan
 
-        # 2) EBITDA (SEC TTM) as of ev_date
+        # 2) EBITDA (SEC TTM first, then FMP backup) as of ev_date
         sec = ttm_ebitda_from_sec(sym, as_of=ev_date, s=s)
         ebitda = sec["ttm_ebitda"]
+        ebitda_method = sec["method"]
+
+        # If SEC EBITDA failed or returned NaN, try FMP as backup
+        if pd.isna(ebitda) or ebitda == 0.0:
+            log.info(f"SEC EBITDA unavailable for {sym}, trying FMP backup...")
+            fmp_ebitda_result = ttm_ebitda_from_fmp(sym, s.fmp_api_key, as_of=ev_date)
+            ebitda = fmp_ebitda_result["ttm_ebitda"]
+            ebitda_method = fmp_ebitda_result["method"]
+
         ratio = np.nan if (pd.isna(ebitda) or ebitda == 0.0) else ev_val / ebitda
 
         # 3) PEG ratio from Alpha Vantage (with rate limiting)
@@ -325,7 +382,7 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
             "enterprise_value": ev_val,
             "ttm_ebitda": ebitda,
             "ev_to_ebitda": ratio,
-            "ebitda_method": sec.get("method"),
+            "ebitda_method": ebitda_method,
             "peg_ratio": peg_ratio,
         })
 
