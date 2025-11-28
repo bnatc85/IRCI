@@ -325,7 +325,7 @@ def show_intro_modal():
     ### Get Started in 3 Easy Steps:
 
     **1. Choose Your Peer Group** 👥
-    - Use quick templates OR manually select companies in the sidebar
+    - Use quick templates below OR manually select companies in the sidebar
     - Pick 2-5 similar companies for the best comparison
 
     **2. Select Time Period** 📅
@@ -337,20 +337,40 @@ def show_intro_modal():
     - Takes ~30-60 seconds depending on company count
     - Get instant IRCI scores, peer rankings, and actionable insights
 
-    **💡 Tip:** Start with a quick template to see IRCI in action!
+    **💡 Tip:** Start with a quick template below to see IRCI in action!
     """)
 
     st.markdown("---")
 
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        if st.button("🚀 Get Started", use_container_width=True, type="primary"):
+    # Quick Start Templates
+    st.markdown("### 🎯 Quick Start Templates")
+    st.caption("Click a template to pre-fill peer companies and start analyzing immediately")
+
+    template_col1, template_col2, template_col3 = st.columns(3)
+
+    with template_col1:
+        if st.button("📱 **Big Tech**\n\nAAPL, MSFT, GOOGL, META, AMZN", use_container_width=True, key="modal_big_tech"):
+            st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
             st.session_state['show_intro'] = False
             st.rerun()
-    with col2:
-        if st.button("⏭️ Skip", use_container_width=True):
+
+    with template_col2:
+        if st.button("🏦 **Financials**\n\nJPM, BAC, WFC, C, GS", use_container_width=True, key="modal_financials"):
+            st.session_state['found_peers'] = 'JPM, BAC, WFC, C, GS'
             st.session_state['show_intro'] = False
             st.rerun()
+
+    with template_col3:
+        if st.button("💉 **Healthcare**\n\nJNJ, PFE, UNH, ABBV, LLY", use_container_width=True, key="modal_healthcare"):
+            st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
+            st.session_state['show_intro'] = False
+            st.rerun()
+
+    st.markdown("---")
+
+    if st.button("🚀 Get Started", use_container_width=True, type="primary"):
+        st.session_state['show_intro'] = False
+        st.rerun()
 
 # Initialize intro state
 if 'show_intro' not in st.session_state:
@@ -865,40 +885,6 @@ if not show_results and not run_analysis:
         - Dollar-per-point estimates are derived from historical peer relationships and should be treated as planning ranges, not promises.
         - This tool is for authorized use only. Views expressed are those of the creators and not official positions of any affiliated organization.
         """)
-
-    # Ready to start message
-    st.info("""
-    👈 **Ready to start?**
-    1. Use a quick template below OR select companies in the sidebar
-    2. Choose your quarter(s)
-    3. Click **'Run Analysis'** to generate your IRCI report!
-    """)
-
-    # Quick Start Templates
-    st.markdown("### 🎯 Quick Start Templates")
-    st.caption("Click a template to pre-fill peer companies and start analyzing immediately")
-
-    template_col1, template_col2, template_col3 = st.columns(3)
-
-    with template_col1:
-        if st.button("📱 **Big Tech**\n\nAAPL, MSFT, GOOGL, META, AMZN", use_container_width=True):
-            st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
-            st.success("✓ Loaded Big Tech template! Scroll down and click 'Run Analysis' →")
-            st.rerun()
-
-    with template_col2:
-        if st.button("🏦 **Financials**\n\nJPM, BAC, WFC, C, GS", use_container_width=True):
-            st.session_state['found_peers'] = 'JPM, BAC, WFC, C, GS'
-            st.success("✓ Loaded Financials template! Scroll down and click 'Run Analysis' →")
-            st.rerun()
-
-    with template_col3:
-        if st.button("💉 **Healthcare**\n\nJNJ, PFE, UNH, ABBV, LLY", use_container_width=True):
-            st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
-            st.success("✓ Loaded Healthcare template! Scroll down and click 'Run Analysis' →")
-            st.rerun()
-
-    st.markdown("---")
 
     # Show success message if analysis is already loaded
     if 'df_composite' in st.session_state and st.session_state['df_composite'] is not None:
