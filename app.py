@@ -297,7 +297,12 @@ st.markdown('<div class="main-header">IRCI Analysis Platform</div>', unsafe_allo
 st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuation Analysis</div>', unsafe_allow_html=True)
 
 # Access Code Gate
-ACCESS_CODE = "Melissa2019"  # Change this to your desired access code
+# Try to get access code from Streamlit secrets (for production)
+# Fall back to hardcoded value for local development
+try:
+    ACCESS_CODE = st.secrets.get("ACCESS_CODE", "Melissa2019")
+except:
+    ACCESS_CODE = "Melissa2019"  # Fallback for local development
 
 @st.dialog("🔐 Access Code Required", width="small")
 def show_access_gate():
