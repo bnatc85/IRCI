@@ -5460,6 +5460,7 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #666; font-size: 0.9rem;'>
     IRCI Analysis Platform v0.1.0 | Powered by Streamlit |
-    <a href='https://github.com/anthropics/claude-code' target='_blank'>Documentation</a>
+    <a href='https://github.com/anthropics/claude-code' target='_blank'>Documentation</a><br>
+    <span style='font-size: 0.85rem; color: #888;'>Patent Pending</span>
 </div>
 """, unsafe_allow_html=True)
