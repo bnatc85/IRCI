@@ -296,12 +296,83 @@ st.markdown("""
 st.markdown('<div class="main-header">IRCI Analysis Platform</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuation Analysis</div>', unsafe_allow_html=True)
 
+# Welcome Intro Modal
+@st.dialog("Welcome to IRCI! 👋", width="large")
+def show_intro_modal():
+    # YouTube video embed with autoplay
+    st.markdown("""
+    ### 📹 Introduction to IRCI
+    """)
+
+    # YouTube video embed - replace VIDEO_ID with your actual YouTube video ID
+    youtube_video_id = "YOUR_VIDEO_ID_HERE"  # Replace this with your actual YouTube video ID
+    st.markdown(f"""
+    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; background: #000;">
+        <iframe
+            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+            src="https://www.youtube.com/embed/{youtube_video_id}?autoplay=1&mute=1"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+        </iframe>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # 2-Minute Tour content
+    st.markdown("""
+    ### Get Started in 3 Easy Steps:
+
+    **1. Choose Your Peer Group** 👥
+    - Use quick templates OR manually select companies in the sidebar
+    - Pick 2-5 similar companies for the best comparison
+
+    **2. Select Time Period** 📅
+    - Choose one or multiple quarters to analyze
+    - Recent quarters (2024Q3+) have better news coverage data
+
+    **3. Run Analysis** 🚀
+    - Click the big "Run Analysis" button in the sidebar
+    - Takes ~30-60 seconds depending on company count
+    - Get instant IRCI scores, peer rankings, and actionable insights
+
+    **💡 Tip:** Start with a quick template to see IRCI in action!
+    """)
+
+    st.markdown("---")
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("🚀 Get Started", use_container_width=True, type="primary"):
+            st.session_state['show_intro'] = False
+            st.rerun()
+    with col2:
+        if st.button("⏭️ Skip", use_container_width=True):
+            st.session_state['show_intro'] = False
+            st.rerun()
+
+# Initialize intro state
+if 'show_intro' not in st.session_state:
+    st.session_state['show_intro'] = True
+
+# Show intro modal on first visit
+if st.session_state.get('show_intro', False):
+    show_intro_modal()
+
 # Sidebar
 with st.sidebar:
     # Center the icon
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.image("IRCI_icon_primary.png", width=200)
+
+    # Welcome Tour button
+    if st.button("👋 Show Welcome Tour", use_container_width=True):
+        st.session_state['show_intro'] = True
+        st.rerun()
+
+    st.markdown("---")
 
     # Navigation at the top (only show after analysis is run)
     if st.session_state.get('df_composite') is not None:
@@ -794,39 +865,6 @@ if not show_results and not run_analysis:
         - Dollar-per-point estimates are derived from historical peer relationships and should be treated as planning ranges, not promises.
         - This tool is for authorized use only. Views expressed are those of the creators and not official positions of any affiliated organization.
         """)
-
-    # First-time user onboarding
-    if 'first_visit' not in st.session_state:
-        st.session_state['first_visit'] = True
-
-    if st.session_state.get('first_visit', False):
-        with st.expander("👋 **Welcome! Take a 2-Minute Tour**", expanded=False):
-            st.markdown("""
-            ### Get Started in 3 Easy Steps:
-
-            **1. Choose Your Peer Group** 👥
-            - Use quick templates below OR manually select companies in the sidebar
-            - Pick 2-5 similar companies for the best comparison
-
-            **2. Select Time Period** 📅
-            - Choose one or multiple quarters to analyze
-            - Recent quarters (2024Q3+) have better news coverage data
-
-            **3. Run Analysis** 🚀
-            - Click the big "Run Analysis" button in the sidebar
-            - Takes ~30-60 seconds depending on company count
-            - Get instant IRCI scores, peer rankings, and actionable insights
-
-            **💡 Tip:** Start with a quick template below to see IRCI in action!
-            """)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("✓ Got it! Hide this message"):
-                    st.session_state['first_visit'] = False
-                    st.rerun()
-            with col2:
-                st.caption("📖 For more details, check out the **Documentation & Background** section below")
 
     # Ready to start message
     st.info("""
