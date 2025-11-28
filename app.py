@@ -296,6 +296,46 @@ st.markdown("""
 st.markdown('<div class="main-header">IRCI Analysis Platform</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuation Analysis</div>', unsafe_allow_html=True)
 
+# Access Code Gate
+ACCESS_CODE = "IRCI2025"  # Change this to your desired access code
+
+@st.dialog("🔐 Access Code Required", width="small")
+def show_access_gate():
+    st.markdown("""
+    ### Welcome to IRCI
+
+    This platform is currently in private beta. Please enter your access code to continue.
+    """)
+
+    access_code_input = st.text_input(
+        "Access Code",
+        type="password",
+        placeholder="Enter your access code",
+        help="Contact the IRCI team if you need an access code"
+    )
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("Submit", use_container_width=True, type="primary"):
+            if access_code_input == ACCESS_CODE:
+                st.session_state['authenticated'] = True
+                st.rerun()
+            else:
+                st.error("❌ Invalid access code. Please try again.")
+
+    with col2:
+        if st.button("Cancel", use_container_width=True):
+            st.stop()
+
+# Initialize authentication state
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
+
+# Show access gate if not authenticated
+if not st.session_state.get('authenticated', False):
+    show_access_gate()
+    st.stop()  # Stop execution if not authenticated
+
 # Welcome Intro Modal
 @st.dialog("Welcome to IRCI! 👋", width="large")
 def show_intro_modal():
