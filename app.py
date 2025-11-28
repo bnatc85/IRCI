@@ -1533,7 +1533,7 @@ elif run_analysis:
                     'liquidity': weight_liquidity / 100,
                     'valuation': weight_valuation / 100,
                     'coverage': weight_coverage / 100,
-                    'trust': weight_trust / 100
+                    'sentiment': weight_trust / 100
                 }
             )
             progress_bar.progress(100, text="🎉 Analysis complete!")
