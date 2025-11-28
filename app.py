@@ -302,6 +302,51 @@ with st.sidebar:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.image("IRCI_icon_primary.png", width=200)
+
+    # Navigation at the top
+    st.markdown("### 🧭 Navigation")
+
+    # Initialize navigation state
+    if 'selected_section' not in st.session_state:
+        st.session_state['selected_section'] = "📊 Company Analysis"
+    if 'selected_subsection' not in st.session_state:
+        st.session_state['selected_subsection'] = "🎯 Playbook"
+
+    # Main sections (buttons)
+    if st.button("📊 Company Analysis", use_container_width=True, type="primary" if st.session_state['selected_section'] == "📊 Company Analysis" else "secondary"):
+        st.session_state['selected_section'] = "📊 Company Analysis"
+        st.rerun()
+
+    # Trends section (only show if multi-quarter data)
+    if st.session_state.get('is_multi_quarter', False):
+        if st.button("📈 Trends", use_container_width=True, type="primary" if st.session_state['selected_section'] == "📈 Trends" else "secondary"):
+            st.session_state['selected_section'] = "📈 Trends"
+            st.rerun()
+
+    if st.button("💵 Value Analysis", use_container_width=True, type="primary" if st.session_state['selected_section'] == "💵 Value Analysis" else "secondary"):
+        st.session_state['selected_section'] = "💵 Value Analysis"
+        st.rerun()
+
+    # Playbook & Events with sub-sections
+    with st.expander("🎯 Playbook & Events", expanded=st.session_state['selected_section'] == "🎯 Playbook & Events"):
+        if st.button("🎯 Playbook", use_container_width=True, key="nav_playbook"):
+            st.session_state['selected_section'] = "🎯 Playbook & Events"
+            st.session_state['selected_subsection'] = "🎯 Playbook"
+            st.rerun()
+        if st.button("📅 Event Timeline", use_container_width=True, key="nav_events"):
+            st.session_state['selected_section'] = "🎯 Playbook & Events"
+            st.session_state['selected_subsection'] = "📅 Event Timeline"
+            st.rerun()
+        if st.button("📋 Plan", use_container_width=True, key="nav_plan"):
+            st.session_state['selected_section'] = "🎯 Playbook & Events"
+            st.session_state['selected_subsection'] = "📋 Plan"
+            st.rerun()
+
+    if st.button("💬 AI Assistant", use_container_width=True, type="primary" if st.session_state['selected_section'] == "💬 AI Assistant" else "secondary"):
+        st.session_state['selected_section'] = "💬 AI Assistant"
+        st.rerun()
+
+    st.markdown("---")
     st.markdown("### Analysis Configuration")
 
     # Peer discovery section
@@ -1645,6 +1690,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
     # Handle single vs multi-quarter data
     is_multi_quarter = 'quarter' in df_composite.columns
+    st.session_state['is_multi_quarter'] = is_multi_quarter
     if is_multi_quarter:
         # Multi-quarter data - let user select which quarter to view
         available_quarters = sorted(df_composite['quarter'].unique(), reverse=True)
@@ -1715,39 +1761,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 delta=None
             )
 
-    # Left sidebar navigation instead of tabs
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🧭 Navigation")
-
-    # Initialize navigation state
-    if 'selected_section' not in st.session_state:
-        st.session_state['selected_section'] = "📊 Company Analysis"
-
-    # Navigation options based on multi-quarter mode
-    if is_multi_quarter:
-        nav_options = [
-            "📊 Company Analysis",
-            "📈 Trends",
-            "💵 Value Analysis",
-            "🎯 Playbook & Events",
-            "💬 AI Assistant"
-        ]
-    else:
-        nav_options = [
-            "📊 Company Analysis",
-            "💵 Value Analysis",
-            "🎯 Playbook & Events",
-            "💬 AI Assistant"
-        ]
-
-    selected_section = st.sidebar.radio(
-        "Select Section",
-        nav_options,
-        key='main_navigation',
-        label_visibility="collapsed"
-    )
-
-    st.session_state['selected_section'] = selected_section
+    # Get current section from session state (navigation is at top of sidebar now)
+    selected_section = st.session_state.get('selected_section', "📊 Company Analysis")
 
     # SECTION 1: Company Analysis (Composite Scores + Dial Breakdown + Detailed Metrics)
     if selected_section == "📊 Company Analysis":
@@ -3507,11 +3522,11 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
     # SECTION 4 (or SECTION 3 if not multi-quarter): Playbook & Events
     if selected_section == "🎯 Playbook & Events":
-        # Create sub-tabs within this combined tab
-        subtab_playbook, subtab_events, subtab_whatif = st.tabs(["🎯 Playbook", "📅 Event Timeline", "📋 Plan"])
+        # Get selected subsection from session state
+        selected_subsection = st.session_state.get('selected_subsection', "🎯 Playbook")
 
-        # Event Timeline sub-tab
-        with subtab_events:
+        # Event Timeline subsection
+        if selected_subsection == "📅 Event Timeline":
             # Event Timeline / Calendar View
             from irci.event_timeline import (
                 aggregate_timeline_events,
@@ -4191,8 +4206,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 import traceback
                 st.code(traceback.format_exc())
     
-        # What-If Scenarios sub-tab
-        with subtab_whatif:
+        # Plan subsection (What-If Scenarios)
+        elif selected_subsection == "📋 Plan":
             st.markdown("#### 🎲 What-If Scenario Planner")
             st.markdown("*Model hypothetical corporate events and see their projected impact on IRCI scores and enterprise value*")
     
@@ -4770,8 +4785,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             else:
                 st.info("👆 Add events to your scenario using the Event Builder above to see projected impacts!")
     
-        # Playbook sub-tab
-        with subtab_playbook:
+        # Playbook subsection
+        elif selected_subsection == "🎯 Playbook":
             # IR Playbook - Action recommendations based on dial scores
             st.markdown("#### 📋 IR Action Playbook")
             st.markdown("*Get specific action recommendations based on your IRCI dial performance*")
