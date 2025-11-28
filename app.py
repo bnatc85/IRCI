@@ -296,6 +296,18 @@ st.markdown("""
 st.markdown('<div class="main-header">IRCI Analysis Platform</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuation Analysis</div>', unsafe_allow_html=True)
 
+# Scroll to top functionality
+if st.session_state.get('scroll_to_top', False):
+    st.markdown(
+        """
+        <script>
+            window.parent.document.querySelector('section.main').scrollTo(0, 0);
+        </script>
+        """,
+        unsafe_allow_html=True
+    )
+    st.session_state['scroll_to_top'] = False
+
 # Access Code Gate
 # Try to get access code from Streamlit secrets (for production)
 # Fall back to hardcoded value for local development
@@ -461,16 +473,19 @@ with st.sidebar:
         # Main sections (buttons)
         if st.button("📊 Company Analysis", use_container_width=True, type="primary" if st.session_state['selected_section'] == "📊 Company Analysis" else "secondary"):
             st.session_state['selected_section'] = "📊 Company Analysis"
+            st.session_state['scroll_to_top'] = True
             st.rerun()
 
         # Trends section (only show if multi-quarter data)
         if st.session_state.get('is_multi_quarter', False):
             if st.button("📈 Trends", use_container_width=True, type="primary" if st.session_state['selected_section'] == "📈 Trends" else "secondary"):
                 st.session_state['selected_section'] = "📈 Trends"
+                st.session_state['scroll_to_top'] = True
                 st.rerun()
 
         if st.button("💵 Value Analysis", use_container_width=True, type="primary" if st.session_state['selected_section'] == "💵 Value Analysis" else "secondary"):
             st.session_state['selected_section'] = "💵 Value Analysis"
+            st.session_state['scroll_to_top'] = True
             st.rerun()
 
         # Playbook & Events with sub-sections
@@ -478,18 +493,22 @@ with st.sidebar:
             if st.button("🎯 Playbook", use_container_width=True, key="nav_playbook"):
                 st.session_state['selected_section'] = "🎯 Playbook & Events"
                 st.session_state['selected_subsection'] = "🎯 Playbook"
+                st.session_state['scroll_to_top'] = True
                 st.rerun()
             if st.button("📅 Event Timeline", use_container_width=True, key="nav_events"):
                 st.session_state['selected_section'] = "🎯 Playbook & Events"
                 st.session_state['selected_subsection'] = "📅 Event Timeline"
+                st.session_state['scroll_to_top'] = True
                 st.rerun()
             if st.button("📋 Plan", use_container_width=True, key="nav_plan"):
                 st.session_state['selected_section'] = "🎯 Playbook & Events"
                 st.session_state['selected_subsection'] = "📋 Plan"
+                st.session_state['scroll_to_top'] = True
                 st.rerun()
 
         if st.button("💬 AI Assistant", use_container_width=True, type="primary" if st.session_state['selected_section'] == "💬 AI Assistant" else "secondary"):
             st.session_state['selected_section'] = "💬 AI Assistant"
+            st.session_state['scroll_to_top'] = True
             st.rerun()
 
     st.markdown("---")
