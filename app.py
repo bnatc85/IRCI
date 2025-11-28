@@ -297,7 +297,7 @@ st.markdown('<div class="main-header">IRCI Analysis Platform</div>', unsafe_allo
 st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuation Analysis</div>', unsafe_allow_html=True)
 
 # Access Code Gate
-ACCESS_CODE = "IRCI2025"  # Change this to your desired access code
+ACCESS_CODE = "Melissa2019"  # Change this to your desired access code
 
 @st.dialog("🔐 Access Code Required", width="small")
 def show_access_gate():
