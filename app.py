@@ -418,11 +418,19 @@ def show_intro_modal():
         st.session_state['show_intro'] = False
         st.rerun()
 
-# Initialize intro state
-if 'show_intro' not in st.session_state:
-    st.session_state['show_intro'] = True
+# Initialize intro state (only show on very first visit after authentication)
+if 'intro_shown_once' not in st.session_state:
+    st.session_state['intro_shown_once'] = False
 
-# Show intro modal on first visit
+if 'show_intro' not in st.session_state:
+    # Only auto-show intro if user is authenticated AND hasn't seen it before
+    if st.session_state.get('authenticated', False) and not st.session_state['intro_shown_once']:
+        st.session_state['show_intro'] = True
+        st.session_state['intro_shown_once'] = True  # Mark that we've shown it
+    else:
+        st.session_state['show_intro'] = False
+
+# Show intro modal only if explicitly requested
 if st.session_state.get('show_intro', False):
     show_intro_modal()
 
