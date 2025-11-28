@@ -304,7 +304,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Scroll to top - targets Streamlit's main scrollable container
+# Scroll to top - runs once on page load (not modals)
 import time
 scroll_timestamp = int(time.time() * 1000)
 
@@ -313,25 +313,21 @@ components.html(
     <!-- Unique ID to force re-render: {scroll_timestamp} -->
     <script>
         const scrollToTop = () => {{
-            // Reset all scrolled elements
+            // Skip if a modal is open (don't interfere with modal scrolling)
+            const modalOpen = window.parent.document.querySelector('[data-testid="stModal"]');
+            if (modalOpen) return;
+
+            // Reset all scrolled elements except those inside modals
             window.parent.document.querySelectorAll('*').forEach(el => {{
-                if (el.scrollTop > 0) el.scrollTop = 0;
+                if (el.scrollTop > 0 && !el.closest('[data-testid="stModal"]') && !el.closest('[role="dialog"]')) {{
+                    el.scrollTop = 0;
+                }}
             }});
         }};
 
-        // Keep checking and resetting scroll for 2 seconds after page load
-        let checkCount = 0;
-        const maxChecks = 20;
-        const interval = setInterval(() => {{
-            scrollToTop();
-            checkCount++;
-            if (checkCount >= maxChecks) {{
-                clearInterval(interval);
-            }}
-        }}, 100);
-
-        // Also run immediately
+        // Run once immediately, then once more after a short delay
         scrollToTop();
+        setTimeout(scrollToTop, 150);
     </script>
     """,
     height=0
@@ -464,20 +460,23 @@ def show_intro_modal():
         st.rerun()
 
 # Initialize intro state (only show on very first visit after authentication)
+# Initialize intro modal state - only show once per session after authentication
 if 'intro_shown_once' not in st.session_state:
     st.session_state['intro_shown_once'] = False
 
 if 'show_intro' not in st.session_state:
-    # Only auto-show intro if user is authenticated AND hasn't seen it before
-    if st.session_state.get('authenticated', False) and not st.session_state['intro_shown_once']:
-        st.session_state['show_intro'] = True
-        st.session_state['intro_shown_once'] = True  # Mark that we've shown it
-    else:
-        st.session_state['show_intro'] = False
+    st.session_state['show_intro'] = False
+
+# Auto-show intro on first authentication (only once)
+if st.session_state.get('authenticated', False) and not st.session_state.get('intro_shown_once', False):
+    st.session_state['show_intro'] = True
+    st.session_state['intro_shown_once'] = True
 
 # Show intro modal only if explicitly requested
 if st.session_state.get('show_intro', False):
     show_intro_modal()
+    # Reset show_intro after displaying - handles case where user closes via X or clicking outside
+    st.session_state['show_intro'] = False
 
 # Sidebar
 with st.sidebar:
@@ -503,91 +502,122 @@ with st.sidebar:
         if 'selected_subsection' not in st.session_state:
             st.session_state['selected_subsection'] = "🎯 Playbook"
 
+        # Helper to add indicator for active page
+        def nav_label(label, is_active):
+            return f"▶ {label}" if is_active else label
+
+        current_section = st.session_state['selected_section']
+        current_subsection = st.session_state.get('selected_subsection', '')
+
         # Main sections (buttons)
-        if st.button("📊 Company Analysis", use_container_width=True, type="primary" if st.session_state['selected_section'] == "📊 Company Analysis" else "secondary"):
+        is_active = current_section == "📊 Company Analysis"
+        if st.button(nav_label("📊 Company Analysis", is_active), use_container_width=True, type="primary" if is_active else "secondary"):
             st.session_state['selected_section'] = "📊 Company Analysis"
             st.session_state['scroll_to_top'] = True
             st.rerun()
 
         # Trends section (only show if multi-quarter data)
         if st.session_state.get('is_multi_quarter', False):
-            if st.button("📈 Trends", use_container_width=True, type="primary" if st.session_state['selected_section'] == "📈 Trends" else "secondary"):
+            is_active = current_section == "📈 Trends"
+            if st.button(nav_label("📈 Trends", is_active), use_container_width=True, type="primary" if is_active else "secondary"):
                 st.session_state['selected_section'] = "📈 Trends"
                 st.session_state['scroll_to_top'] = True
                 st.rerun()
 
-        if st.button("💵 Value Analysis", use_container_width=True, type="primary" if st.session_state['selected_section'] == "💵 Value Analysis" else "secondary"):
+        is_active = current_section == "💵 Value Analysis"
+        if st.button(nav_label("💵 Value Analysis", is_active), use_container_width=True, type="primary" if is_active else "secondary"):
             st.session_state['selected_section'] = "💵 Value Analysis"
             st.session_state['scroll_to_top'] = True
             st.rerun()
 
         # Playbook & Events with sub-sections
-        with st.expander("🎯 Playbook & Events", expanded=st.session_state['selected_section'] == "🎯 Playbook & Events"):
-            if st.button("🎯 Playbook", use_container_width=True, key="nav_playbook"):
+        is_section_active = current_section == "🎯 Playbook & Events"
+        with st.expander("🎯 Playbook & Events", expanded=is_section_active):
+            is_active = is_section_active and current_subsection == "🎯 Playbook"
+            if st.button(nav_label("🎯 Playbook", is_active), use_container_width=True, type="primary" if is_active else "secondary", key="nav_playbook"):
                 st.session_state['selected_section'] = "🎯 Playbook & Events"
                 st.session_state['selected_subsection'] = "🎯 Playbook"
                 st.session_state['scroll_to_top'] = True
                 st.rerun()
-            if st.button("📅 Event Timeline", use_container_width=True, key="nav_events"):
+            is_active = is_section_active and current_subsection == "📅 Event Timeline"
+            if st.button(nav_label("📅 Event Timeline", is_active), use_container_width=True, type="primary" if is_active else "secondary", key="nav_events"):
                 st.session_state['selected_section'] = "🎯 Playbook & Events"
                 st.session_state['selected_subsection'] = "📅 Event Timeline"
                 st.session_state['scroll_to_top'] = True
                 st.rerun()
-            if st.button("📋 Plan", use_container_width=True, key="nav_plan"):
+            is_active = is_section_active and current_subsection == "📋 Plan"
+            if st.button(nav_label("📋 Plan", is_active), use_container_width=True, type="primary" if is_active else "secondary", key="nav_plan"):
                 st.session_state['selected_section'] = "🎯 Playbook & Events"
                 st.session_state['selected_subsection'] = "📋 Plan"
                 st.session_state['scroll_to_top'] = True
                 st.rerun()
 
-        if st.button("💬 AI Assistant", use_container_width=True, type="primary" if st.session_state['selected_section'] == "💬 AI Assistant" else "secondary"):
+        is_active = current_section == "💬 AI Assistant"
+        if st.button(nav_label("💬 AI Assistant", is_active), use_container_width=True, type="primary" if is_active else "secondary"):
             st.session_state['selected_section'] = "💬 AI Assistant"
             st.session_state['scroll_to_top'] = True
             st.rerun()
 
     st.markdown("---")
-    st.markdown("### Analysis Configuration")
+    st.markdown("### 📊 Select Companies")
 
-    # Peer discovery section
-    with st.expander("🔍 Find Peer Companies", expanded=False):
-        st.markdown("**Curated peer groups** for 60+ popular tickers")
-        st.caption("Examples: AAPL, TSLA, NVDA, NFLX, JPM, WMT, CRM")
+    # Quick templates for common peer groups
+    template_col1, template_col2, template_col3 = st.columns(3)
+    with template_col1:
+        if st.button("📱 Big Tech", use_container_width=True, help="AAPL, MSFT, GOOGL, META, AMZN"):
+            st.session_state['found_peers'] = "AAPL, MSFT, GOOGL, META, AMZN"
+            st.rerun()
+    with template_col2:
+        if st.button("🏦 Financials", use_container_width=True, help="JPM, BAC, WFC, C, GS"):
+            st.session_state['found_peers'] = "JPM, BAC, WFC, C, GS"
+            st.rerun()
+    with template_col3:
+        if st.button("💉 Healthcare", use_container_width=True, help="JNJ, PFE, UNH, ABBV, LLY"):
+            st.session_state['found_peers'] = "JNJ, PFE, UNH, ABBV, LLY"
+            st.rerun()
 
-        peer_base_ticker = st.text_input(
-            "Base Company Ticker",
-            value="",
-            placeholder="e.g., AAPL",
-            help="Enter a ticker to find peers in the same industry"
-        )
-        peer_count = st.slider("Number of Peers", 3, 15, 8)
+    # Peer finder expander
+    with st.expander("🔍 Find Similar Companies", expanded=False):
+        st.caption("Enter a ticker to find peers in the same industry (60+ companies supported)")
 
-        if st.button("Find Peers", use_container_width=True):
+        finder_col1, finder_col2 = st.columns([2, 1])
+        with finder_col1:
+            peer_base_ticker = st.text_input(
+                "Base Ticker",
+                value="",
+                placeholder="e.g., AAPL",
+                help="Enter a ticker to find peers in the same industry",
+                label_visibility="collapsed"
+            )
+        with finder_col2:
+            peer_count = st.number_input("# Peers", 3, 15, 8, help="Number of peer companies to find")
+
+        if st.button("🔍 Find Peers", use_container_width=True):
             if peer_base_ticker:
                 try:
                     s = Settings.load()
                     peers = find_peers_simple(peer_base_ticker.upper(), s.fmp_api_key, max_peers=peer_count)
                     if peers:
-                        # Store peers in session state
                         all_tickers = [peer_base_ticker.upper()] + peers
-                        st.session_state['found_peers'] = ",".join(all_tickers)
+                        st.session_state['found_peers'] = ", ".join(all_tickers)
                         st.success(f"✓ Found {len(peers)} peers for {peer_base_ticker.upper()}")
-                        st.info(f"**Peers:** {', '.join(peers)}")
+                        st.rerun()
                     else:
-                        st.warning(f"⚠️ {peer_base_ticker.upper()} not in curated peer database. Try: AAPL, TSLA, NVDA, NFLX, CRM, JPM, WMT, SNAP, CRWD")
+                        st.warning(f"⚠️ {peer_base_ticker.upper()} not in database. Try: AAPL, TSLA, NVDA, NFLX, JPM")
                 except Exception as e:
-                    st.error(f"Error finding peers: {str(e)}")
+                    st.error(f"Error: {str(e)}")
             else:
                 st.warning("Please enter a ticker")
 
-    # Company selection
+    # Company selection text area
     default_tickers = ["AAPL", "MSFT", "GOOGL", "AMZN"]
-
-    # Use found peers if available, otherwise use default
-    initial_value = st.session_state.get('found_peers', ",".join(default_tickers))
+    initial_value = st.session_state.get('found_peers', ", ".join(default_tickers))
 
     ticker_input = st.text_area(
-        "Company Tickers (one per line or comma-separated)",
+        "Company Tickers",
         value=initial_value,
-        help="Enter stock tickers like AAPL, MSFT, GOOGL or use the peer finder above"
+        help="Edit tickers directly: comma-separated (AAPL, MSFT) or one per line",
+        height=80
     )
 
     # Parse tickers
@@ -596,7 +626,13 @@ with st.sidebar:
     else:
         tickers = [t.strip().upper() for t in ticker_input.split("\n") if t.strip()]
 
-    st.info(f"Selected: {len(tickers)} companies")
+    # Show selected count with color feedback
+    if len(tickers) < 2:
+        st.warning(f"⚠️ {len(tickers)} company selected - add more for peer comparison")
+    elif len(tickers) <= 5:
+        st.success(f"✓ {len(tickers)} companies selected - ideal for comparison")
+    else:
+        st.info(f"📊 {len(tickers)} companies selected")
 
     # Quarter selection - support multiple quarters for trend analysis
     quarters = ["2025Q4", "2025Q3", "2025Q2", "2025Q1", "2024Q4", "2024Q3", "2024Q2", "2024Q1"]
@@ -646,40 +682,46 @@ with st.sidebar:
     # Weights configuration
     with st.expander("⚙️ Advanced: Dial Weights", expanded=False):
         st.markdown("**Customize composite score weights:**")
-        st.caption("Type exact percentages or use 🎯 Auto-Optimize")
+        st.caption("Adjust how much each dial contributes to the overall IRCI score")
+
+        # Default weights
+        DEFAULT_WEIGHTS = {
+            'valuation': 35.0,
+            'liquidity': 35.0,
+            'coverage': 15.0,
+            'trust': 15.0
+        }
 
         # Initialize weights in session state if not present
         if 'weight_liquidity' not in st.session_state:
-            st.session_state.weight_liquidity = 35.0
+            st.session_state.weight_liquidity = DEFAULT_WEIGHTS['liquidity']
         if 'weight_valuation' not in st.session_state:
-            st.session_state.weight_valuation = 35.0
+            st.session_state.weight_valuation = DEFAULT_WEIGHTS['valuation']
         if 'weight_coverage' not in st.session_state:
-            st.session_state.weight_coverage = 15.0
+            st.session_state.weight_coverage = DEFAULT_WEIGHTS['coverage']
         if 'weight_trust' not in st.session_state:
-            st.session_state.weight_trust = 15.0
+            st.session_state.weight_trust = DEFAULT_WEIGHTS['trust']
 
         # Use number inputs with BOTH value and key for proper state management
-        # value= forces widget to display current session state
-        # key= allows widget to update session state when user changes it
         col1, col2 = st.columns(2)
         with col1:
             weight_valuation = st.number_input(
                 "💰 Valuation (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=st.session_state.weight_valuation,  # Display current value
+                value=st.session_state.weight_valuation,
                 step=0.1,
                 format="%.1f",
-                help="Weight for EV/EBITDA valuation metrics"
+                help="How fairly priced is the stock vs peers? Based on EV/EBITDA ratios. Higher weight = valuation matters more to your score."
             )
             weight_coverage = st.number_input(
                 "📊 Coverage (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=st.session_state.weight_coverage,  # Display current value
+                value=st.session_state.weight_coverage,
                 step=0.1,
                 format="%.1f",
-                help="Weight for SEC filing and media coverage metrics"
+                help="How much attention is the company getting? Based on SEC filings and media coverage. Higher weight = visibility matters more."
             )
 
         with col2:
@@ -687,23 +729,22 @@ with st.sidebar:
                 "💧 Liquidity (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=st.session_state.weight_liquidity,  # Display current value
+                value=st.session_state.weight_liquidity,
                 step=0.1,
                 format="%.1f",
-                help="Weight for trading liquidity and spread metrics"
+                help="How easy is it to trade the stock? Based on bid-ask spread and trading volume. Higher weight = trading ease matters more."
             )
             weight_trust = st.number_input(
                 "💭 Trust (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=st.session_state.weight_trust,  # Display current value
+                value=st.session_state.weight_trust,
                 step=0.1,
                 format="%.1f",
-                help="Weight for sentiment and event calm metrics"
+                help="How positive is market sentiment? Based on news sentiment and event stability. Higher weight = market perception matters more."
             )
 
         # Update session state with current widget values
-        # This allows auto-optimize to change session state, rerun, and widgets will show new values
         st.session_state.weight_valuation = weight_valuation
         st.session_state.weight_liquidity = weight_liquidity
         st.session_state.weight_coverage = weight_coverage
@@ -717,9 +758,18 @@ with st.sidebar:
         else:
             st.success(f"✓ Weights sum to {total_weight:.1f}%")
 
-        # Auto-optimize button
-        if st.button("🎯 Auto-Optimize Weights", use_container_width=True, help="Find weights that maximize EV ~ IRCI regression R²"):
-            st.session_state.optimize_weights = True
+        # Buttons row
+        btn_col1, btn_col2 = st.columns(2)
+        with btn_col1:
+            if st.button("🔄 Reset to Defaults", use_container_width=True, help="Reset weights to: Valuation 35%, Liquidity 35%, Coverage 15%, Trust 15%"):
+                st.session_state.weight_valuation = DEFAULT_WEIGHTS['valuation']
+                st.session_state.weight_liquidity = DEFAULT_WEIGHTS['liquidity']
+                st.session_state.weight_coverage = DEFAULT_WEIGHTS['coverage']
+                st.session_state.weight_trust = DEFAULT_WEIGHTS['trust']
+                st.rerun()
+        with btn_col2:
+            if st.button("🎯 Auto-Optimize", use_container_width=True, help="Find weights that best explain stock value differences using statistical regression"):
+                st.session_state.optimize_weights = True
 
     # News file upload
     with st.expander("📰 Advanced: News Data", expanded=False):
@@ -1371,8 +1421,12 @@ elif run_analysis:
         if len(selected_quarters) > 1:
             st.markdown(f"### 📊 Quarter {quarter_idx + 1}/{len(selected_quarters)}: **{selected_quarter}** ({start_date} to {end_date})")
 
-        progress_bar = st.progress(0, text="🚀 Initializing analysis...")
-        status_text = st.empty()
+        # Enhanced progress tracking
+        progress_container = st.container()
+        with progress_container:
+            progress_bar = st.progress(0, text="🚀 Initializing analysis...")
+            status_text = st.empty()
+            ticker_progress = st.empty()  # Shows per-ticker progress
 
         try:
             # Load settings
@@ -1397,9 +1451,12 @@ elif run_analysis:
             # Track errors for display
             news_errors = {}
 
-            for ticker in tickers:
+            for ticker_idx, ticker in enumerate(tickers):
                 ticker_got_news = False
                 ticker_errors = []
+
+                # Show per-ticker progress
+                ticker_progress.markdown(f"**News:** `{ticker}` ({ticker_idx + 1}/{len(tickers)})")
 
                 try:
                     # Try FMP first
@@ -1569,9 +1626,12 @@ elif run_analysis:
             elif quarter_end_dt.tz is not None:
                 quarter_end_dt = quarter_end_dt.tz_localize(None)
 
+            # Clear ticker progress from news phase
+            ticker_progress.empty()
+
             # 1. Trust
-            progress_bar.progress(10, text="💭 Analyzing Trust dial (sentiment & event stability)...")
-            status_text.text(f"⏳ Step 1/5: Computing trust scores for {len(tickers)} companies")
+            progress_bar.progress(10, text="💭 Step 1/5: Trust dial (sentiment & event stability)")
+            status_text.text(f"Computing trust scores for {len(tickers)} companies...")
             df_trust = trust_snapshot(
                 tickers,
                 start=start_date,
@@ -1585,12 +1645,11 @@ elif run_analysis:
                     df_trust["quarter_end"] = quarter_end_dt
                 # Force timezone-naive by normalizing to date
                 df_trust["quarter_end"] = pd.to_datetime(pd.to_datetime(df_trust["quarter_end"]).dt.date)
-            progress_bar.progress(30, text="✓ Trust analysis complete")
-            status_text.text("✓ Trust dial computed successfully")
+            progress_bar.progress(30, text="✓ Trust complete")
 
             # 2. Valuation
-            progress_bar.progress(35, text="💰 Analyzing Valuation dial (EV/EBITDA peer comparison)...")
-            status_text.text(f"⏳ Step 2/5: Computing valuation metrics for {len(tickers)} companies")
+            progress_bar.progress(35, text="💰 Step 2/5: Valuation dial (EV/EBITDA peer comparison)")
+            status_text.text(f"Computing valuation metrics for {len(tickers)} companies...")
             df_val = valuation_snapshot(
                 tickers,
                 as_of=end_date
@@ -1600,12 +1659,11 @@ elif run_analysis:
                     df_val["quarter_end"] = quarter_end_dt
                 # Force timezone-naive by normalizing to date
                 df_val["quarter_end"] = pd.to_datetime(pd.to_datetime(df_val["quarter_end"]).dt.date)
-            progress_bar.progress(50, text="✓ Valuation analysis complete")
-            status_text.text("✓ Valuation dial computed successfully")
+            progress_bar.progress(50, text="✓ Valuation complete")
 
             # 3. Coverage
-            progress_bar.progress(55, text="📊 Analyzing Coverage dial (SEC filings & media visibility)...")
-            status_text.text(f"⏳ Step 3/5: Analyzing coverage metrics for {len(tickers)} companies")
+            progress_bar.progress(55, text="📊 Step 3/5: Coverage dial (SEC filings & media)")
+            status_text.text(f"Analyzing coverage metrics for {len(tickers)} companies...")
             df_cov = coverage_snapshot(
                 tickers,
                 as_of=end_date,
@@ -1616,14 +1674,14 @@ elif run_analysis:
                     df_cov["quarter_end"] = quarter_end_dt
                 # Force timezone-naive by normalizing to date
                 df_cov["quarter_end"] = pd.to_datetime(pd.to_datetime(df_cov["quarter_end"]).dt.date)
-            progress_bar.progress(70, text="✓ Coverage analysis complete")
-            status_text.text("✓ Coverage dial computed successfully")
+            progress_bar.progress(70, text="✓ Coverage complete")
 
             # 4. Liquidity
-            progress_bar.progress(75, text="💧 Analyzing Liquidity dial (market microstructure)...")
-            status_text.text(f"⏳ Step 4/5: Computing liquidity metrics for {len(tickers)} companies")
+            progress_bar.progress(75, text="💧 Step 4/5: Liquidity dial (market microstructure)")
+            status_text.text(f"Computing liquidity metrics for {len(tickers)} companies...")
             rows = []
-            for sym in tickers:
+            for sym_idx, sym in enumerate(tickers):
+                ticker_progress.markdown(f"**Liquidity:** `{sym}` ({sym_idx + 1}/{len(tickers)})")
                 try:
                     prices = fetch_prices_fmp(sym, start_date, end_date, s.fmp_api_key)
                     daily = daily_liquidity_bundle(sym, s, prices, end_date)
@@ -1640,12 +1698,12 @@ elif run_analysis:
                 if "quarter_end" in df_liq.columns:
                     df_liq["quarter_end"] = pd.to_datetime(pd.to_datetime(df_liq["quarter_end"]).dt.date)
                 df_liq = add_liquidity_percentile(df_liq)
-            progress_bar.progress(85, text="✓ Liquidity analysis complete")
-            status_text.text("✓ Liquidity dial computed successfully")
+            ticker_progress.empty()  # Clear ticker progress
+            progress_bar.progress(85, text="✓ Liquidity complete")
 
             # 5. Composite
-            progress_bar.progress(90, text="🎯 Computing final composite IRCI scores...")
-            status_text.text(f"⏳ Step 5/5: Combining all dials into IRCI composite")
+            progress_bar.progress(90, text="🎯 Step 5/5: Computing IRCI composite scores")
+            status_text.text(f"Combining all dials into final IRCI scores...")
 
             # Final timezone normalization - ensure ALL quarter_end columns are timezone-naive
             def strip_timezone(df):
@@ -1768,10 +1826,56 @@ elif run_analysis:
         st.error("❌ No quarters were successfully analyzed.")
         st.stop()
 
-# Display results (if available)
+# Display results (if available) or show preview
 if 'df_composite' in st.session_state and st.session_state['df_composite'] is not None:
     st.markdown("---")
     st.markdown("## 📊 Analysis Results")
+else:
+    # Show results structure preview before analysis
+    st.markdown("---")
+    st.markdown("## 📋 What You'll Get After Analysis")
+    st.caption("Run an analysis to see these sections populated with your peer group data")
+
+    with st.expander("📊 **Company Analysis** - Peer rankings and score breakdowns", expanded=True):
+        st.markdown("""
+        - **🏆 Composite Ranking** - See how companies stack up against peers
+        - **📊 Composite Scores** - Visual bar chart comparison
+        - **📉 Dial Breakdown** - Radar chart showing each company's strengths/weaknesses
+        - **📋 Detailed Metrics** - Deep dive into Valuation, Liquidity, Coverage, and Trust scores
+        """)
+
+    with st.expander("📈 **Trends** - Multi-quarter analysis (when multiple quarters selected)"):
+        st.markdown("""
+        - **Quarter-over-Quarter Changes** - Track score improvements or declines
+        - **Individual Dial Trends** - See how each metric evolves over time
+        - **Forecasting** - Statistical predictions for future scores
+        """)
+
+    with st.expander("💵 **Value Analysis** - Dollar impact estimates"):
+        st.markdown("""
+        - **$/IRCI Point** - Estimate value of each IRCI point improvement
+        - **Dial Contribution** - Which dials drive the most value
+        - **Gap Analysis** - Potential value from closing gaps to top performers
+        """)
+
+    with st.expander("🎯 **Playbook & Events** - Action recommendations"):
+        st.markdown("""
+        - **🎯 Playbook** - Prioritized actions to improve your weakest dials
+        - **📅 Event Timeline** - Calendar of relevant IR events
+        - **📋 Plan** - What-if scenario planning for IR initiatives
+        """)
+
+    with st.expander("💬 **AI Assistant** - Ask questions about your results"):
+        st.markdown("""
+        - Get explanations of your scores
+        - Ask for specific recommendations
+        - Understand methodology and calculations
+        """)
+
+    st.info("👆 **Get Started:** Select companies and quarters in the sidebar, then click **🚀 Run Analysis**")
+
+# Continue with results display
+if 'df_composite' in st.session_state and st.session_state['df_composite'] is not None:
 
     # Disclaimer banner for results
     st.info("""
@@ -1831,12 +1935,26 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     if is_multi_quarter:
         # Multi-quarter data - let user select which quarter to view
         available_quarters = sorted(df_composite['quarter'].unique(), reverse=True)
-        st.markdown("### 📅 Quarter Selection")
-        selected_quarter = st.selectbox(
-            "Select quarter to display:",
-            available_quarters,
-            help="Viewing one quarter at a time. For trend analysis across quarters, see the Trend Analysis tab below."
-        )
+
+        # Quarter selector in a highlighted container
+        quarter_col1, quarter_col2 = st.columns([2, 3])
+        with quarter_col1:
+            selected_quarter = st.selectbox(
+                "📅 Viewing Quarter:",
+                available_quarters,
+                help="Select which quarter to display. Use 'Trends' section for cross-quarter analysis."
+            )
+        with quarter_col2:
+            st.markdown(f"""
+            <div style="background-color: #1e3a5f; padding: 10px; border-radius: 5px; margin-top: 5px;">
+                <strong>📊 Currently Viewing:</strong> {selected_quarter} |
+                <em>{len(available_quarters)} quarters available</em> |
+                <a href="#" style="color: #00d4ff;">→ See Trends</a>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Store in session state for consistency across sections
+        st.session_state['current_viewing_quarter'] = selected_quarter
 
         # Filter data for selected quarter
         df_composite_filtered = df_composite[df_composite['quarter'] == selected_quarter].copy()
@@ -1844,21 +1962,17 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         df_val_filtered = df_val[df_val['quarter'] == selected_quarter].copy() if 'quarter' in df_val.columns else df_val
         df_cov_filtered = df_cov[df_cov['quarter'] == selected_quarter].copy() if 'quarter' in df_cov.columns else df_cov
         df_liq_filtered = df_liq[df_liq['quarter'] == selected_quarter].copy() if 'quarter' in df_liq.columns else df_liq
-
-        st.info(f"💡 **Multi-Quarter Mode:** Displaying results for **{selected_quarter}**. Click the **'Trends'** tab to see analysis across all {len(available_quarters)} quarters.")
     else:
         # Single quarter data - use directly
         selected_quarter = quarters_analyzed[0] if quarters_analyzed else "Current"
+        st.session_state['current_viewing_quarter'] = selected_quarter
         df_composite_filtered = df_composite.copy()
         df_trust_filtered = df_trust.copy()
         df_val_filtered = df_val.copy()
         df_cov_filtered = df_cov.copy()
         df_liq_filtered = df_liq.copy()
 
-    # Composite ranking
-    st.markdown("### 🏆 Composite Ranking")
-
-    # Prepare display data (use filtered data)
+    # Prepare display data (use filtered data) - needed for all sections
     display_df = df_composite_filtered.copy()
     # Sort by composite score (highest first) and create rank
     display_df = display_df.sort_values('irci_composite_pct', ascending=False)
@@ -1869,40 +1983,88 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         if col in display_df.columns:
             display_df[col] = display_df[col].round(1)
 
-    # Display table
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        st.dataframe(
-            display_df[['rank', 'ticker', 'irci_composite_pct', 'valuation_pct', 'liquidity_pct', 'coverage_pct', 'sentiment_pct']].rename(columns={
-                'rank': 'Rank',
-                'ticker': 'Ticker',
-                'irci_composite_pct': 'Composite %',
-                'valuation_pct': 'Valuation %',
-                'liquidity_pct': 'Liquidity %',
-                'coverage_pct': 'Coverage %',
-                'sentiment_pct': 'Trust %'
-            }),
-            use_container_width=True,
-            hide_index=True
-        )
-
-    with col2:
-        # Top 3 performers
-        top3 = display_df.head(3)
-        st.markdown("**Top Performers:**")
-        for idx, row in top3.iterrows():
-            st.metric(
-                label=f"#{int(row['rank'])} {row['ticker']}",
-                value=f"{row['irci_composite_pct']:.1f}%",
-                delta=None
-            )
-
     # Get current section from session state (navigation is at top of sidebar now)
     selected_section = st.session_state.get('selected_section', "📊 Company Analysis")
 
     # SECTION 1: Company Analysis (Composite Scores + Dial Breakdown + Detailed Metrics)
     if selected_section == "📊 Company Analysis":
+        # Composite ranking
+        st.markdown("### 🏆 Composite Ranking")
+        st.caption("Companies ranked by overall IRCI score (0-100%). Higher = better IR performance vs peers.")
+
+        # Column view selector
+        view_options = ["Summary", "All Dials", "Detailed"]
+        if 'table_view' not in st.session_state:
+            st.session_state.table_view = "Summary"
+
+        table_view = st.radio(
+            "View:",
+            view_options,
+            horizontal=True,
+            index=view_options.index(st.session_state.table_view),
+            help="Summary: Just rank & score | All Dials: Score breakdown | Detailed: All available columns"
+        )
+        st.session_state.table_view = table_view
+
+        # Display table based on selected view
+        col1, col2 = st.columns([2, 1])
+
+        with col1:
+            if table_view == "Summary":
+                columns_to_show = ['rank', 'ticker', 'irci_composite_pct']
+                column_names = {
+                    'rank': 'Rank',
+                    'ticker': 'Ticker',
+                    'irci_composite_pct': 'IRCI Score %'
+                }
+            elif table_view == "All Dials":
+                columns_to_show = ['rank', 'ticker', 'irci_composite_pct', 'valuation_pct', 'liquidity_pct', 'coverage_pct', 'sentiment_pct']
+                column_names = {
+                    'rank': 'Rank',
+                    'ticker': 'Ticker',
+                    'irci_composite_pct': 'IRCI %',
+                    'valuation_pct': 'Valuation %',
+                    'liquidity_pct': 'Liquidity %',
+                    'coverage_pct': 'Coverage %',
+                    'sentiment_pct': 'Trust %'
+                }
+            else:  # Detailed
+                # Show all available numeric columns
+                columns_to_show = ['rank', 'ticker', 'irci_composite_pct', 'valuation_pct', 'liquidity_pct', 'coverage_pct', 'sentiment_pct']
+                # Add any additional columns that exist
+                for col in display_df.columns:
+                    if col not in columns_to_show and col not in ['quarter']:
+                        columns_to_show.append(col)
+                column_names = {
+                    'rank': 'Rank',
+                    'ticker': 'Ticker',
+                    'irci_composite_pct': 'IRCI %',
+                    'valuation_pct': 'Valuation %',
+                    'liquidity_pct': 'Liquidity %',
+                    'coverage_pct': 'Coverage %',
+                    'sentiment_pct': 'Trust %'
+                }
+
+            # Filter to only columns that exist
+            columns_to_show = [c for c in columns_to_show if c in display_df.columns]
+
+            st.dataframe(
+                display_df[columns_to_show].rename(columns=column_names),
+                use_container_width=True,
+                hide_index=True
+            )
+
+        with col2:
+            # Top 3 performers
+            top3 = display_df.head(3)
+            st.markdown("**Top Performers:**")
+            for idx, row in top3.iterrows():
+                st.metric(
+                    label=f"#{int(row['rank'])} {row['ticker']}",
+                    value=f"{row['irci_composite_pct']:.1f}%",
+                    delta=None,
+                    help=f"IRCI composite score for {row['ticker']} - ranked #{int(row['rank'])} in peer group"
+                )
         # Composite Scores Bar Chart
         st.markdown("### 📊 Composite Scores")
         fig = px.bar(
