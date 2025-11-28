@@ -1201,31 +1201,37 @@ if not show_results and not run_analysis:
         st.markdown("""
         ### Quick Start Guide
 
-        1. **Find Peers** (optional but recommended)
-           - Use the "Find Peer Companies" tool in the sidebar
-           - Enter a ticker (e.g., AAPL, TSLA, NVDA)
-           - System will suggest 8-15 comparable companies
+        **New to IRCI?** Click the "👋 Show Welcome Tour" button in the sidebar for an interactive intro with video tutorial and quick templates!
 
-        2. **Configure Analysis**
-           - Select your companies (or use found peers)
-           - Choose a quarter to analyze
-           - News data is **automatically fetched** from FMP API
+        **Already familiar?** Here's how to run an analysis:
 
-        3. **Run Analysis**
-           - Click "Run Analysis"
-           - System will compute all 4 dials and composite score
-           - Results appear in tabs below
+        1. **Choose Your Companies**
+           - Use the "Find Peer Companies" tool in the sidebar (optional but recommended)
+           - Or manually enter tickers in the "Company Tickers" field
+           - Pick 2-5 comparable companies for best results
 
-        4. **Interpret Results**
-           - **Composite Ranking** - See who leads the peer group
-           - **Dial Breakdown** - Identify weak spots (radar chart)
-           - **Insights Tab** - View dollar-per-point estimates
-           - **Timeline Tab** - Track events and their impact
+        2. **Select Time Period**
+           - Choose one or multiple quarters from the dropdown
+           - Recent quarters (2024Q3+) have better news coverage data
+           - Multi-quarter selection enables trend analysis
 
-        5. **Take Action**
-           - Focus on the weakest dial
-           - Consult dial-specific playbooks (coming soon in app)
-           - Re-measure next quarter to track progress
+        3. **Adjust Weights** (optional)
+           - Default weights: 35% Valuation, 35% Liquidity, 15% Coverage, 15% Trust
+           - Use the sliders to customize weights for your company's context
+           - Must sum to 100%
+
+        4. **Run Analysis**
+           - Click the "🚀 Run Analysis" button in the sidebar
+           - Takes ~30-60 seconds per company
+           - Navigation menu appears when analysis completes
+
+        5. **Explore Results**
+           - **Company Analysis** - IRCI scores, rankings, and dial breakdowns
+           - **Value Analysis** - Dollar-per-point estimates and improvement opportunities
+           - **Playbook & Events** - Actionable recommendations and event timeline
+           - **AI Assistant** - Ask questions about your results
+
+        💡 **Pro Tip:** Start with a peer template from the Welcome Tour to see IRCI in action immediately!
         """)
 
 elif run_analysis:
