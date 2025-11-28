@@ -4,6 +4,7 @@ A user-friendly interface for running IRCI analysis on public companies.
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -48,6 +49,17 @@ st.set_page_config(
 # Custom CSS for dark mode
 st.markdown("""
 <style>
+    /* Force scroll to top on load */
+    html, body, [data-testid="stAppViewContainer"], section.main {
+        scroll-behavior: auto !important;
+    }
+
+    /* Ensure dialogs/modals start at top */
+    [data-testid="stModal"] > div,
+    [role="dialog"] > div {
+        scroll-behavior: auto !important;
+    }
+
     /* Dark mode theme */
     .main {
         background-color: #0e1117;
@@ -292,21 +304,42 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Scroll to top - targets Streamlit's main scrollable container
+import time
+scroll_timestamp = int(time.time() * 1000)
+
+components.html(
+    f"""
+    <!-- Unique ID to force re-render: {scroll_timestamp} -->
+    <script>
+        const scrollToTop = () => {{
+            // Reset all scrolled elements
+            window.parent.document.querySelectorAll('*').forEach(el => {{
+                if (el.scrollTop > 0) el.scrollTop = 0;
+            }});
+        }};
+
+        // Keep checking and resetting scroll for 2 seconds after page load
+        let checkCount = 0;
+        const maxChecks = 20;
+        const interval = setInterval(() => {{
+            scrollToTop();
+            checkCount++;
+            if (checkCount >= maxChecks) {{
+                clearInterval(interval);
+            }}
+        }}, 100);
+
+        // Also run immediately
+        scrollToTop();
+    </script>
+    """,
+    height=0
+)
+
 # Header
 st.markdown('<div class="main-header">IRCI Analysis Platform</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuation Analysis</div>', unsafe_allow_html=True)
-
-# Scroll to top functionality
-if st.session_state.get('scroll_to_top', False):
-    st.markdown(
-        """
-        <script>
-            window.parent.document.querySelector('section.main').scrollTo(0, 0);
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
-    st.session_state['scroll_to_top'] = False
 
 # Access Code Gate
 # Try to get access code from Streamlit secrets (for production)
