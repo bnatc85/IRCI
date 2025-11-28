@@ -303,48 +303,49 @@ with st.sidebar:
     with col2:
         st.image("IRCI_icon_primary.png", width=200)
 
-    # Navigation at the top
-    st.markdown("### 🧭 Navigation")
+    # Navigation at the top (only show after analysis is run)
+    if st.session_state.get('df_composite') is not None:
+        st.markdown("### 🧭 Navigation")
 
-    # Initialize navigation state
-    if 'selected_section' not in st.session_state:
-        st.session_state['selected_section'] = "📊 Company Analysis"
-    if 'selected_subsection' not in st.session_state:
-        st.session_state['selected_subsection'] = "🎯 Playbook"
-
-    # Main sections (buttons)
-    if st.button("📊 Company Analysis", use_container_width=True, type="primary" if st.session_state['selected_section'] == "📊 Company Analysis" else "secondary"):
-        st.session_state['selected_section'] = "📊 Company Analysis"
-        st.rerun()
-
-    # Trends section (only show if multi-quarter data)
-    if st.session_state.get('is_multi_quarter', False):
-        if st.button("📈 Trends", use_container_width=True, type="primary" if st.session_state['selected_section'] == "📈 Trends" else "secondary"):
-            st.session_state['selected_section'] = "📈 Trends"
-            st.rerun()
-
-    if st.button("💵 Value Analysis", use_container_width=True, type="primary" if st.session_state['selected_section'] == "💵 Value Analysis" else "secondary"):
-        st.session_state['selected_section'] = "💵 Value Analysis"
-        st.rerun()
-
-    # Playbook & Events with sub-sections
-    with st.expander("🎯 Playbook & Events", expanded=st.session_state['selected_section'] == "🎯 Playbook & Events"):
-        if st.button("🎯 Playbook", use_container_width=True, key="nav_playbook"):
-            st.session_state['selected_section'] = "🎯 Playbook & Events"
+        # Initialize navigation state
+        if 'selected_section' not in st.session_state:
+            st.session_state['selected_section'] = "📊 Company Analysis"
+        if 'selected_subsection' not in st.session_state:
             st.session_state['selected_subsection'] = "🎯 Playbook"
-            st.rerun()
-        if st.button("📅 Event Timeline", use_container_width=True, key="nav_events"):
-            st.session_state['selected_section'] = "🎯 Playbook & Events"
-            st.session_state['selected_subsection'] = "📅 Event Timeline"
-            st.rerun()
-        if st.button("📋 Plan", use_container_width=True, key="nav_plan"):
-            st.session_state['selected_section'] = "🎯 Playbook & Events"
-            st.session_state['selected_subsection'] = "📋 Plan"
+
+        # Main sections (buttons)
+        if st.button("📊 Company Analysis", use_container_width=True, type="primary" if st.session_state['selected_section'] == "📊 Company Analysis" else "secondary"):
+            st.session_state['selected_section'] = "📊 Company Analysis"
             st.rerun()
 
-    if st.button("💬 AI Assistant", use_container_width=True, type="primary" if st.session_state['selected_section'] == "💬 AI Assistant" else "secondary"):
-        st.session_state['selected_section'] = "💬 AI Assistant"
-        st.rerun()
+        # Trends section (only show if multi-quarter data)
+        if st.session_state.get('is_multi_quarter', False):
+            if st.button("📈 Trends", use_container_width=True, type="primary" if st.session_state['selected_section'] == "📈 Trends" else "secondary"):
+                st.session_state['selected_section'] = "📈 Trends"
+                st.rerun()
+
+        if st.button("💵 Value Analysis", use_container_width=True, type="primary" if st.session_state['selected_section'] == "💵 Value Analysis" else "secondary"):
+            st.session_state['selected_section'] = "💵 Value Analysis"
+            st.rerun()
+
+        # Playbook & Events with sub-sections
+        with st.expander("🎯 Playbook & Events", expanded=st.session_state['selected_section'] == "🎯 Playbook & Events"):
+            if st.button("🎯 Playbook", use_container_width=True, key="nav_playbook"):
+                st.session_state['selected_section'] = "🎯 Playbook & Events"
+                st.session_state['selected_subsection'] = "🎯 Playbook"
+                st.rerun()
+            if st.button("📅 Event Timeline", use_container_width=True, key="nav_events"):
+                st.session_state['selected_section'] = "🎯 Playbook & Events"
+                st.session_state['selected_subsection'] = "📅 Event Timeline"
+                st.rerun()
+            if st.button("📋 Plan", use_container_width=True, key="nav_plan"):
+                st.session_state['selected_section'] = "🎯 Playbook & Events"
+                st.session_state['selected_subsection'] = "📋 Plan"
+                st.rerun()
+
+        if st.button("💬 AI Assistant", use_container_width=True, type="primary" if st.session_state['selected_section'] == "💬 AI Assistant" else "secondary"):
+            st.session_state['selected_section'] = "💬 AI Assistant"
+            st.rerun()
 
     st.markdown("---")
     st.markdown("### Analysis Configuration")
