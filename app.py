@@ -3510,1572 +3510,1572 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         # Create sub-tabs within this combined tab
         subtab_playbook, subtab_events, subtab_whatif = st.tabs(["🎯 Playbook", "📅 Event Timeline", "📋 Plan"])
 
-    # Event Timeline sub-tab
-    with subtab_events:
-        # Event Timeline / Calendar View
-        from irci.event_timeline import (
-            aggregate_timeline_events,
-            create_calendar_view,
-            UserNotesManager,
-            create_impact_summary
-        )
-        from irci.coverage import _company_submissions, _cik_for_ticker
-
-        # Get start/end dates for the selected quarter (for filtering events)
-        if len(selected_quarters) == 1:
-            timeline_start_date, timeline_end_date = quarter_to_dates(selected_quarters[0])
-        else:
-            # Multi-quarter mode: use the first quarter for timeline display
-            timeline_start_date, timeline_end_date = quarter_to_dates(selected_quarters[0])
-
-        # Use the timeline dates for event filtering
-        start_date = timeline_start_date
-        end_date = timeline_end_date
-
-        st.markdown("#### 📅 Event Timeline & Calendar")
-        st.markdown("*Track events, filings, news, and their impact on IRCI scores*")
-
-        st.info("""
-        📊 **Event Impact Methodology**: Individual event impacts are very small because dials measure quarterly aggregates.
-        - News articles: ~0.00001-0.0001 IRCI points each (~1/100th of quarterly media tone)
-        - SEC filings: ~0.0001-0.0005 IRCI points each (counted in aggregate for coverage dial)
-        - Dollar impacts are **R²-scaled** and reflect that individual events are one of many factors
-        """)
-
-        # Company selector for timeline
-        selected_timeline_ticker = st.selectbox(
-            "Select company for timeline:",
-            display_df['ticker'].tolist(),
-            key='timeline_ticker'
-        )
-
-        # Manual Event Entry UI
-        with st.expander("➕ Add Custom Corporate Event"):
-            st.markdown("**Add events not captured automatically** (e.g., investor days, leadership changes, strategic announcements)")
-
-            col_evt1, col_evt2 = st.columns(2)
-
-            with col_evt1:
-                event_date = st.date_input(
-                    "Event Date",
-                    value=pd.to_datetime(end_date),
-                    key='custom_event_date'
-                )
-
-                event_type_options = {
-                    # Major Corporate Events
-                    'Investor Day': 'investor_day',
-                    'Analyst Day': 'analyst_day',
-                    'CEO Change': 'ceo_change',
-                    'CFO Change': 'cfo_change',
-                    'Director Change': 'director_change',
-                    'Earnings Call': 'earnings_call',
-                    'Strategic Announcement': 'strategic_announcement',
-                    'Dividend Announcement': 'dividend_announcement',
-                    'Buyback Announcement': 'buyback_announcement',
-                    # Daily IR Activities
-                    '🌐 IR Website Improvement': 'ir_website_improvement',
-                    '📺 Advertising Campaign': 'advertising_campaign',
-                    '📰 Press Release Program': 'press_release_program',
-                    '📱 Social Media Campaign': 'social_media_campaign',
-                    '🎤 Conference Presentation': 'conference_presentation',
-                    '📊 Analyst Coverage Initiation': 'analyst_coverage_initiation',
-                    # Other
-                    'Other': 'other'
-                }
-
-                event_type_label = st.selectbox(
-                    "Event Type",
-                    options=list(event_type_options.keys()),
-                    key='custom_event_type'
-                )
-
-            with col_evt2:
-                event_description = st.text_input(
-                    "Event Description",
-                    placeholder="e.g., Annual Investor Day in NYC",
-                    key='custom_event_description'
-                )
-
-                # Event-specific metadata
-                event_sentiment = st.slider(
-                    "Event Sentiment",
-                    min_value=-1.0,
-                    max_value=1.0,
-                    value=0.0,
-                    step=0.1,
-                    help="For strategic announcements: -1 (very negative) to +1 (very positive)",
-                    key='custom_event_sentiment'
-                )
-
-            # Additional metadata based on event type
-            event_metadata = {'sentiment': event_sentiment}
-
-            if event_type_label in ['CEO Change', 'CFO Change']:
-                col_meta1, col_meta2 = st.columns(2)
-                with col_meta1:
-                    succession_type = st.selectbox(
-                        "Succession Type",
-                        options=['planned_inside', 'outside', 'unknown'],
-                        help="Internal promotion vs. external hire",
-                        key='custom_succession_type'
-                    )
-                    event_metadata['succession_type'] = succession_type
-
-                with col_meta2:
-                    forced = st.checkbox("Forced Departure", key='custom_forced')
-                    event_metadata['forced'] = forced
-
-            elif event_type_label == 'Dividend Announcement':
-                dividend_change = st.number_input(
-                    "Dividend Change (%)",
-                    value=0.0,
-                    help="% change in dividend (positive = increase, negative = cut)",
-                    key='custom_dividend_change'
-                )
-                event_metadata['dividend_change_pct'] = dividend_change
-
-            # Store button
-            if st.button("➕ Add Event to Timeline", use_container_width=True):
-                # Initialize custom events in session state
-                if 'custom_events' not in st.session_state:
-                    st.session_state['custom_events'] = []
-
-                custom_event = {
-                    'ticker': selected_timeline_ticker,
-                    'date': pd.to_datetime(event_date),
-                    'event_type': event_type_options[event_type_label],
-                    'description': event_description or event_type_label,
-                    'event_metadata': event_metadata,
-                    'source': 'user_entry'
-                }
-
-                st.session_state['custom_events'].append(custom_event)
-                st.success(f"✅ Added {event_type_label} event for {selected_timeline_ticker} on {event_date}")
-                st.rerun()
-
-            # Display existing custom events
-            if 'custom_events' in st.session_state and st.session_state['custom_events']:
-                ticker_custom_events = [e for e in st.session_state['custom_events'] if e['ticker'] == selected_timeline_ticker]
-
-                if ticker_custom_events:
-                    st.markdown("**Custom Events for this Ticker:**")
-                    for idx, evt in enumerate(ticker_custom_events):
-                        col_del1, col_del2 = st.columns([4, 1])
-                        with col_del1:
-                            st.text(f"• {evt['date'].strftime('%Y-%m-%d')}: {evt['description']}")
-                        with col_del2:
-                            if st.button("🗑️", key=f"delete_event_{idx}"):
-                                st.session_state['custom_events'].remove(evt)
-                                st.rerun()
-
-        try:
-            # Initialize notes manager
-            if 'notes_manager' not in st.session_state:
-                st.session_state['notes_manager'] = UserNotesManager()
-
-            notes_mgr = st.session_state['notes_manager']
-
-            # Get SEC filings data for this ticker
-            s = Settings.load()
-            cik = _cik_for_ticker(selected_timeline_ticker, s)
-            sec_filings_df = None
-
-            # Get news data from session state (fetched during analysis)
-            news_df = st.session_state.get('news_df', None)
-
-            if cik:
-                try:
-                    subs = _company_submissions(cik, s)
-                    if not subs.empty and 'filingDate' in subs.columns:
-                        # Convert to our timeline format
-                        sec_filings_df = pd.DataFrame({
-                            'ticker': selected_timeline_ticker,
-                            'date': pd.to_datetime(subs['filingDate']),
-                            'event_type': subs['form'],
-                            'description': subs['form'] + ' Filing',
-                            'accession_number': subs.get('accessionNumber', '')
-                        })
-                        # Filter for date range
-                        sec_filings_df = sec_filings_df[
-                            (sec_filings_df['date'] >= start_date) &
-                            (sec_filings_df['date'] <= end_date)
-                        ]
-                except Exception as e:
-                    st.info(f"Note: Could not fetch SEC filings: {e}")
-
-            # Prepare weights dict to pass to timeline
-            current_weights = {
-                'valuation': weight_valuation / 100,
-                'liquidity': weight_liquidity / 100,
-                'coverage': weight_coverage / 100,
-                'sentiment': weight_trust / 100
-            }
-
-            # Get company-specific $/IRCI point for this ticker
-            company_dollar_per_irci_pt = None
-            try:
-                from irci.dial_insights import compute_dollar_value_per_irci_point
-                dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
-                if not dollar_value_df.empty:
-                    ticker_dollar_data = dollar_value_df[dollar_value_df['ticker'] == selected_timeline_ticker]
-                    if not ticker_dollar_data.empty:
-                        company_dollar_per_irci_pt = ticker_dollar_data['company_$/irci_pt'].iloc[0]
-            except Exception as e:
-                st.info(f"Note: Could not calculate $/IRCI point: {e}")
-
-            # Display the company's $/IRCI point value for transparency with example calculation
-            if company_dollar_per_irci_pt is not None:
-                # Calculate example impact for a single positive news article
-                # Note: Individual articles have small impacts because the Trust dial aggregates
-                # 50-100+ articles per quarter. Each article is ~1/100th of the quarterly media tone.
-                example_sentiment = 0.6  # Moderately positive news
-                example_dial_impact = example_sentiment * 0.0005  # 0.03% of Trust dial (~1/100th of quarterly coverage)
-                example_irci_impact = example_dial_impact * current_weights['sentiment']  # Tiny IRCI impact
-                example_dollar_impact = example_irci_impact * company_dollar_per_irci_pt
-
-                st.info(f"""
-                💰 **{selected_timeline_ticker} Impact Calculation Parameters (R²-scaled)**:
-                - Company $/IRCI Point: **${company_dollar_per_irci_pt:,.0f}**
-                - Example: Single positive news article (sentiment +0.6) → +{example_irci_impact:.6f} IRCI pts → **${example_dollar_impact:,.0f}** impact
-
-                **Note**: Individual events show small impacts because dials measure quarterly aggregates:
-                - Trust dial aggregates 50-100+ articles → each is ~1/100th of media tone component
-                - Media tone is 30% of Trust dial → each article ≈ 0.3% of Trust dial
-                - Quarterly aggregate patterns drive the dial scores, not single events
-                """)
-
-            # Aggregate timeline events
-            timeline_df = aggregate_timeline_events(
-                ticker=selected_timeline_ticker,
-                start_date=start_date,
-                end_date=end_date,
-                df_composite=df_composite_filtered,
-                df_val=df_val_filtered,
-                df_cov=df_cov_filtered,
-                df_liq=df_liq_filtered,
-                df_trust=df_trust_filtered,
-                news_df=news_df,
-                sec_filings_df=sec_filings_df,
-                weights=current_weights,
-                company_dollar_per_irci_pt=company_dollar_per_irci_pt
+        # Event Timeline sub-tab
+        with subtab_events:
+            # Event Timeline / Calendar View
+            from irci.event_timeline import (
+                aggregate_timeline_events,
+                create_calendar_view,
+                UserNotesManager,
+                create_impact_summary
             )
-
-            # Merge custom events from session state
-            if 'custom_events' in st.session_state and st.session_state['custom_events']:
-                from irci.event_timeline import calculate_event_irci_impact
-
-                ticker_custom_events = [e for e in st.session_state['custom_events']
-                                       if e['ticker'] == selected_timeline_ticker]
-
-                custom_events_list = []
-                for evt in ticker_custom_events:
-                    # Calculate impact for this custom event
-                    impact = calculate_event_irci_impact(
-                        event_date=evt['date'].strftime('%Y-%m-%d'),
-                        event_type=evt['event_type'],
-                        df_composite=df_composite_filtered,
-                        df_val=df_val_filtered,
-                        ticker=selected_timeline_ticker,
-                        sentiment_score=evt['event_metadata'].get('sentiment', 0.0),
-                        weights=current_weights,
-                        company_dollar_per_irci_pt=company_dollar_per_irci_pt,
-                        event_metadata=evt['event_metadata']
-                    )
-
-                    custom_events_list.append({
-                        'date': pd.to_datetime(evt['date']),
-                        'event_type': evt['event_type'],
-                        'description': evt['description'],
-                        'headline': evt['description'],
-                        'sentiment_score': evt['event_metadata'].get('sentiment', 0.0),
-                        'irci_impact': impact['irci_impact'],
-                        'dollar_impact': impact['dollar_impact'],
-                        'impact_confidence': impact['confidence'],
-                        'affected_dials': ', '.join(impact['affected_dials']),
-                        'ticker': selected_timeline_ticker,
-                        'source': 'User Entry'
-                    })
-
-                if custom_events_list:
-                    custom_df = pd.DataFrame(custom_events_list)
-                    # Merge with timeline_df
-                    timeline_df = pd.concat([timeline_df, custom_df], ignore_index=True)
-                    # Sort by date
-                    timeline_df = timeline_df.sort_values('date')
-
-            # Display impact summary
-            st.markdown("**📊 Event Impact Summary**")
-            impact_summary = create_impact_summary(timeline_df, selected_timeline_ticker)
-
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Total Events", impact_summary['total_events'])
-            col2.metric(
-                "Total IRCI Impact",
-                f"{impact_summary['total_irci_impact']:+.4f} pts",
-                help="Estimated cumulative impact on IRCI score from all events"
-            )
-            col3.metric(
-                "Total $ Impact",
-                f"${impact_summary['total_dollar_impact']:+,.0f}",
-                help="Estimated cumulative dollar value impact from all events"
-            )
-
-            # Calendar view
-            st.markdown("---")
-            st.markdown("**📅 Calendar View**")
-
-            if not timeline_df.empty:
-                calendar_df = create_calendar_view(timeline_df, start_date, end_date)
-
-                # Keep numeric columns for proper sorting
-                calendar_display = calendar_df[['date', 'num_events', 'event_types', 'total_irci_impact', 'total_dollar_impact', 'headlines']].copy()
-
-                # Rename columns
-                calendar_display = calendar_display.rename(columns={
-                    'date': 'Date',
-                    'num_events': '# Events',
-                    'event_types': 'Event Types',
-                    'total_irci_impact': 'IRCI Impact',
-                    'total_dollar_impact': '$ Impact',
-                    'headlines': 'Top Headlines'
-                })
-
-                # Ensure numeric columns are actually numeric for proper sorting
-                calendar_display['IRCI Impact'] = pd.to_numeric(calendar_display['IRCI Impact'], errors='coerce')
-                calendar_display['$ Impact'] = pd.to_numeric(calendar_display['$ Impact'], errors='coerce')
-
-                # Display calendar as interactive table with column config for formatting
-                st.dataframe(
-                    calendar_display,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "IRCI Impact": st.column_config.NumberColumn(
-                            "IRCI Impact (pts)",
-                            help="Total IRCI impact (points)",
-                            format="%.5f"
-                        ),
-                        "$ Impact": st.column_config.NumberColumn(
-                            "$ Impact",
-                            help="Total dollar impact",
-                            format="$%,.0f"
-                        ),
-                    }
-                )
-
-                st.caption("""
-                📊 **Calendar Note**: Each row shows the SUM of all events on that day.
-                - If 20 news articles occur on one day, their impacts are added together
-                - Individual events have tiny impacts (~0.00001-0.0005 IRCI points each)
-                - For large companies, even tiny IRCI impacts can translate to $100K-$1M due to high $/IRCI point
-                - This shows why quarterly aggregate analysis matters more than individual events
-                """)
+            from irci.coverage import _company_submissions, _cik_for_ticker
+    
+            # Get start/end dates for the selected quarter (for filtering events)
+            if len(selected_quarters) == 1:
+                timeline_start_date, timeline_end_date = quarter_to_dates(selected_quarters[0])
             else:
-                st.info("No events found for this period. Try uploading news data or check the date range.")
-
-            # Detailed event timeline
-            st.markdown("---")
-            st.markdown("**🔍 Detailed Event Timeline**")
-
-            if not timeline_df.empty:
-                # Create a simpler display without complex styling that causes issues
-                display_timeline = timeline_df[['date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'affected_dials']].copy()
-
-                # Add a color indicator column instead of row styling
-                def get_color_indicator(row):
-                    event_type = row['event_type']
-                    sentiment = row.get('sentiment_score', 0) if 'sentiment_score' in timeline_df.columns else 0
-
-                    if event_type == 'news':
-                        if sentiment > 0.2:
-                            return '🟢'
-                        elif sentiment < -0.2:
-                            return '🔴'
-                        else:
-                            return '📰'
-                    elif event_type in ['10-Q', '10-K', '8-K']:
-                        return '🔵'
-                    elif event_type == 'investor_day':
-                        return '🎯'
-                    elif event_type == 'analyst_day':
-                        return '📈'
-                    elif event_type == 'ceo_change':
-                        return '👔'
-                    elif event_type == 'cfo_change':
-                        return '💼'
-                    elif event_type == 'director_change':
-                        return '👥'
-                    elif event_type == 'earnings_call':
-                        return '📞'
-                    elif event_type == 'strategic_announcement':
-                        return '🎪'
-                    elif event_type == 'dividend_announcement':
-                        return '💵'
-                    elif event_type == 'buyback_announcement':
-                        return '🔄'
-                    elif event_type == 'valuation_measurement':
-                        return '💰'
-                    elif event_type == 'liquidity_measurement':
-                        return '💧'
-                    elif event_type == 'coverage_measurement':
-                        return '📊'
-                    elif event_type == 'trust_measurement':
-                        return '💭'
-                    return '•'
-
-                display_timeline.insert(0, 'indicator', timeline_df.apply(get_color_indicator, axis=1))
-
-                # Keep numeric columns for proper sorting
-                display_timeline = display_timeline[['indicator', 'date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'affected_dials']].rename(columns={
-                    'indicator': '',
-                    'date': 'Date',
-                    'event_type': 'Type',
-                    'description': 'Description',
-                    'irci_impact': 'IRCI Impact',
-                    'dollar_impact': '$ Impact',
-                    'affected_dials': 'Affected Dials'
-                })
-
-                # Ensure numeric columns are actually numeric for proper sorting
-                display_timeline['IRCI Impact'] = pd.to_numeric(display_timeline['IRCI Impact'], errors='coerce')
-                display_timeline['$ Impact'] = pd.to_numeric(display_timeline['$ Impact'], errors='coerce')
-
-                # Display the dataframe with column config for proper formatting while keeping numeric sorting
-                st.dataframe(
-                    display_timeline,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "IRCI Impact": st.column_config.NumberColumn(
-                            "IRCI Impact (pts)",
-                            help="Individual event IRCI impact (points)",
-                            format="%.5f"
-                        ),
-                        "$ Impact": st.column_config.NumberColumn(
-                            "$ Impact",
-                            help="Individual event dollar impact",
-                            format="$%,.0f"
-                        ),
-                    }
-                )
-
-                st.caption("""
-                💡 **Event Indicators:**
-                🟢 Positive news | 🔴 Negative news | 🔵 SEC filings | 📰 Neutral news |
-                🎯 Investor Day | 📈 Analyst Day | 👔 CEO Change | 💼 CFO Change | 👥 Director Change |
-                📞 Earnings Call | 🎪 Strategic Announcement | 💵 Dividend | 🔄 Buyback |
-                💰 Valuation | 💧 Liquidity | 📊 Coverage | 💭 Trust
-                """)
-
-                # Calculation methodology and proof section
-                with st.expander("📐 **Impact Calculation Methodology & Proof**"):
-                    st.markdown("""
-                    ### How Individual Events Contribute to IRCI Scores
-
-                    **Key Principle:** Individual events have TINY impacts. Quarterly AGGREGATE metrics drive dial scores.
-
-                    ---
-
-                    ### 📰 News Article Impact Calculation
-
-                    **Step 1: Sentiment Score**
-                    - News sentiment ranges from -1 (very negative) to +1 (very positive)
-                    - Example: Positive earnings news might score +0.6
-
-                    **Step 2: Dial Impact (Trust)**
-                    - Individual article contributes to Trust dial: `dial_impact = sentiment × 0.0005`
-                    - Example: +0.6 sentiment → +0.0003 points on Trust dial (0.03% of dial)
-                    - **Why so tiny?** Trust dial aggregates 50-100+ articles per quarter
-                      - Each article is ~1/100th of the quarterly media tone
-                      - Media tone is 30% of Trust dial
-                      - So each article ≈ 0.3% of Trust dial (we use 0.05% to be conservative)
-
-                    **Step 3: IRCI Composite Impact**
-                    - Trust dial has weight (default 15%): `irci_impact = dial_impact × weight`
-                    - Example: +0.0003 Trust points × 0.15 weight = **+0.000045 IRCI points**
-
-                    **Step 4: Dollar Impact (R²-Scaled)**
-                    - Use company-specific $/IRCI point (already R²-scaled from regression)
-                    - Example (mid-cap): +0.000045 IRCI pts × $150M/point = **$6,750**
-                    - Example (large-cap): +0.000045 IRCI pts × $4B/point = **$180,000**
-                    - R² scaling already applied (if R²=0.3, the $/point was reduced by 70%)
-
-                    ---
-
-                    ### 📊 SEC Filing Impact Calculation
-
-                    **8-K Filing:**
-                    - Dial impact: 0.001 points on Coverage dial (0.1% of dial)
-                    - IRCI impact: 0.001 × 0.15 (coverage weight) = **0.00015 IRCI points**
-                    - Dollar impact (mid-cap): 0.00015 × $150M/point = **$22,500**
-                    - Dollar impact (large-cap): 0.00015 × $4B/point = **$600,000**
-
-                    **10-Q or 10-K Filing:**
-                    - Dial impact: 0.003 points on Coverage dial (0.3% of dial)
-                    - IRCI impact: 0.003 × 0.15 = **0.00045 IRCI points**
-                    - Dollar impact (mid-cap): 0.00045 × $150M/point = **$67,500**
-                    - Dollar impact (large-cap): 0.00045 × $4B/point = **$1.8M**
-
-                    **Why these values?** Coverage dial measures aggregate quarterly filing activity,
-                    not individual filings. A typical company has 5-20 8-Ks per quarter.
-
-                    ---
-
-                    ### 🎯 Corporate Events Impact (Based on Academic Research)
-
-                    **Investor Day:**
-                    - Dial impacts: +2% Coverage, +1.5% Trust
-                    - Estimated CAR: +2.0% (conservative, research shows up to +30% appreciation)
-                    - Research: MZ Group 2024 study
-                    - IRCI impact: ~0.005 points (varies by weights)
-
-                    **CEO Change:**
-                    - Planned inside succession: +0.5% Trust, CAR +0.5%
-                    - Forced departure: -1% Trust, CAR -1.5%
-                    - Outside hire: -0.5% Trust, CAR -0.5%
-                    - Research: Clayton et al. (volatility increases), market reactions vary by type
-
-                    **CFO Change:**
-                    - Voluntary: -0.3% Trust, CAR -0.3%
-                    - Forced: -0.8% Trust, CAR -1.0%
-                    - Research: Negatively associated with earnings persistence
-
-                    **Strategic Announcements:**
-                    - Impact varies by sentiment (-1% to +1% Trust, +0.5% Coverage)
-                    - CAR ranges from -2% to +2% depending on announcement type
-
-                    **Dividend/Buyback:**
-                    - Dividend increase: +0.5% Trust, CAR +1.0%
-                    - Buyback announcement: +0.8% Trust, CAR +1.5%
-                    - Dividend cut: -0.8% Trust, CAR -2.0%
-
-                    **Note:** CAR (Cumulative Abnormal Return) estimates are based on event study methodology
-                    from academic literature. Individual company results may vary.
-
-                    ---
-
-                    ### 🎯 Why Quarterly Aggregates Matter More
-                    """)
-
-                    # Calculate actual aggregate proof if we have news data
-                    if 'sentiment_score' in timeline_df.columns:
-                        news_events = timeline_df[timeline_df['event_type'] == 'news'].copy()
-                        if not news_events.empty:
-                            total_news = len(news_events)
-                            avg_sentiment = news_events['sentiment_score'].mean() if 'sentiment_score' in news_events.columns else 0
-                            total_individual_impact = news_events['irci_impact'].sum()
-
-                            # Get actual trust score from dial
-                            ticker_trust = df_trust[df_trust['ticker'] == selected_timeline_ticker]
-                            if not ticker_trust.empty:
-                                actual_trust_score = ticker_trust['trust_pct'].iloc[0] if 'trust_pct' in ticker_trust.columns else None
-                                media_tone = ticker_trust['p_media_tone'].iloc[0] if 'p_media_tone' in ticker_trust.columns else None
-
-                                # Format values, handling None
-                                trust_score_str = f"{actual_trust_score:.1f}%" if actual_trust_score is not None else "N/A"
-                                media_tone_str = f"{media_tone:.1f}%" if media_tone is not None else "N/A"
-
-                                st.markdown(f"""
-                                **Actual Data for {selected_timeline_ticker} This Quarter:**
-
-                                - **Total News Articles**: {total_news}
-                                - **Average Sentiment**: {avg_sentiment:+.2f}
-                                - **Sum of Individual Impacts**: {total_individual_impact:+.2f} IRCI points
-                                - **Actual Trust Dial Score**: {trust_score_str} (measured from all factors)
-                                - **Media Tone Component**: {media_tone_str} (one of several Trust inputs)
-
-                                **📌 Key Insight:**
-                                The Trust dial is NOT just the sum of individual news impacts. It's computed from:
-                                1. Aggregate quarterly media tone (all {total_news} articles analyzed together)
-                                2. Event stability metrics
-                                3. Sentiment consistency over time
-
-                                Individual event impacts are **directional indicators**, not additive components.
-                                The actual dial score comes from quarterly aggregate analysis of all events together.
-                                """)
-
-                    st.markdown("""
-                    ---
-
-                    ### 💰 R² Scaling: Why Dollar Impacts Are Conservative
-
-                    **Regression Analysis:** We regress Enterprise Value ~ IRCI Score across peer group
-
-                    **Example Calculation:**
-                    - Raw regression slope: $500M per IRCI point
-                    - R² value: 0.30 (IRCI explains 30% of EV variance)
-                    - **R²-scaled slope**: $500M × 0.30 = **$150M per IRCI point**
-
-                    **What This Means:**
-                    - IR/IRCI is ONE of MANY factors affecting enterprise value
-                    - Business fundamentals (revenue, earnings, growth) drive most value
-                    - R² scaling ensures we don't overstate IR's contribution
-                    - If R²=0.30, we reduce dollar estimates by 70% to be realistic
-
-                    **Individual Event Example:**
-                    - Event IRCI impact: +0.000045 points (single positive news article)
-                    - Company $/IRCI: $150M/point (R²-scaled)
-                    - Event dollar impact: +0.000045 × $150M = **$6,750**
-                    - Without R² scaling: +0.000045 × $500M = $22,500 (OVERSTATED by 3.3x)
-
-                    ---
-
-                    ### ✅ Bottom Line
-
-                    1. **Individual events = Tiny impacts** (~0.00001-0.0005 IRCI points, $1K-$100K for mid-caps, $50K-$2M for large-caps)
-                    2. **Quarterly aggregates = Large impacts** (full dial scores determine total IRCI)
-                    3. **R² scaling = Realistic estimates** (accounts for IR being one of many factors)
-                    4. **Dollar impacts are planning ranges**, not guarantees
-
-                    Individual events show what's happening day-to-day, but quarterly aggregate
-                    metrics determine your final IRCI scores and relative peer ranking.
-                    """)
-
-            # User notes section
-            st.markdown("---")
-            st.markdown("**📝 Private Notes**")
-            st.caption("Add non-publicly available information, insights, or reminders")
-
-            # Add new note
-            with st.expander("➕ Add New Note"):
-                note_date = st.date_input(
-                    "Date",
-                    value=pd.to_datetime(end_date).date(),
-                    min_value=pd.to_datetime(start_date).date(),
-                    max_value=pd.to_datetime(end_date).date(),
-                    key='new_note_date'
-                )
-                note_category = st.selectbox(
-                    "Category",
-                    ["General", "Private Info", "Analysis", "Follow-up", "Meeting Notes"],
-                    key='new_note_category'
-                )
-                note_text = st.text_area(
-                    "Note",
-                    placeholder="Enter your private note here...",
-                    key='new_note_text'
-                )
-
-                if st.button("Save Note"):
-                    if note_text.strip():
-                        notes_mgr.add_note(
-                            ticker=selected_timeline_ticker,
-                            date=str(note_date),
-                            note=note_text,
-                            category=note_category
-                        )
-                        st.success("✓ Note saved!")
-                        st.rerun()
-                    else:
-                        st.warning("Please enter a note before saving")
-
-            # Display existing notes
-            st.markdown("**Existing Notes:**")
-            ticker_notes = notes_mgr.get_notes(selected_timeline_ticker)
-
-            if ticker_notes:
-                for i, note in enumerate(ticker_notes):
-                    with st.container():
-                        col1, col2, col3 = st.columns([2, 4, 1])
-                        col1.markdown(f"**{note['date']}**")
-                        col2.markdown(f"*{note['category']}*")
-                        col3.markdown(f"*{pd.to_datetime(note['timestamp']).strftime('%H:%M')}*")
-                        st.markdown(note['note'])
-                        st.markdown("---")
-            else:
-                st.info("No notes yet. Add your first note above!")
-
-        except Exception as e:
-            st.error(f"Error loading timeline: {str(e)}")
-            import traceback
-            st.code(traceback.format_exc())
-
-    # What-If Scenarios sub-tab
-    with subtab_whatif:
-        st.markdown("#### 🎲 What-If Scenario Planner")
-        st.markdown("*Model hypothetical corporate events and see their projected impact on IRCI scores and enterprise value*")
-
-        st.info("""
-        💡 **How This Works**: Add hypothetical events (investor days, leadership changes, etc.) to see their projected impact.
-        - Uses the same research-based calculations as the Event Timeline
-        - Shows cumulative impact of multiple events
-        - Compare current state vs. with planned initiatives
-        - Plan your IR strategy and quantify expected outcomes
-        """)
-
-        # Company selector for what-if analysis
-        selected_whatif_ticker = st.selectbox(
-            "Select company for scenario planning:",
-            display_df['ticker'].tolist(),
-            key='whatif_ticker'
-        )
-
-        # Get current company data
-        company_data = df_composite_filtered[df_composite_filtered['ticker'] == selected_whatif_ticker].iloc[0]
-        current_irci = company_data['irci_composite_pct']
-        current_valuation_pct = company_data.get('valuation_pct', 0)
-        current_liquidity_pct = company_data.get('liquidity_pct', 0)
-        current_coverage_pct = company_data.get('coverage_pct', 0)
-        current_sentiment_pct = company_data.get('sentiment_pct', 0)
-
-        # Get current EV
-        ticker_val_data = df_val_filtered[df_val_filtered['ticker'] == selected_whatif_ticker]
-        current_ev = ticker_val_data['enterprise_value'].iloc[0] if not ticker_val_data.empty else 0
-
-        # Get company-specific $/IRCI point
-        whatif_dollar_per_irci_pt = None
-        try:
-            from irci.dial_insights import compute_dollar_value_per_irci_point
-            dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
-            if not dollar_value_df.empty:
-                ticker_dollar_data = dollar_value_df[dollar_value_df['ticker'] == selected_whatif_ticker]
-                if not ticker_dollar_data.empty:
-                    whatif_dollar_per_irci_pt = ticker_dollar_data['company_$/irci_pt'].iloc[0]
-        except Exception:
-            pass
-
-        # Display current state
-        st.markdown("---")
-        st.markdown("### 📊 Current State")
-        col_curr1, col_curr2, col_curr3, col_curr4 = st.columns(4)
-        col_curr1.metric("IRCI Composite", f"{current_irci:.1f}%")
-        col_curr2.metric("Enterprise Value", f"${current_ev/1e9:.2f}B" if current_ev > 0 else "N/A")
-        col_curr3.metric("$/IRCI Point", f"${whatif_dollar_per_irci_pt:,.0f}" if whatif_dollar_per_irci_pt else "N/A")
-        col_curr4.metric("Rank", f"#{company_data.get('rank', 'N/A')}" if 'rank' in company_data else "N/A")
-
-        # Event Value Menu - Show what each event type is worth
-        st.markdown("---")
-        st.markdown("### 💰 Event Value Menu")
-        st.markdown(f"*Projected impact of each event type for **{selected_whatif_ticker}** based on current weights*")
-
-        # Calculate impacts for all event types
-        from irci.event_timeline import calculate_event_irci_impact
-
-        # Get current weights
-        current_weights = {
-            'valuation': weight_valuation / 100,
-            'liquidity': weight_liquidity / 100,
-            'coverage': weight_coverage / 100,
-            'sentiment': weight_trust / 100
-        }
-
-        # Define all event types with their configurations
-        event_menu_items = [
-            # Major Corporate Events
-            ('Investor Day', 'investor_day', {}, "+2.0%", "+2% Cov, +1.5% Trust"),
-            ('Analyst Day', 'analyst_day', {}, "+1.5%", "+1.5% Cov, +1% Trust"),
-            ('CEO Change (Inside)', 'ceo_change', {'succession_type': 'planned_inside', 'forced': False}, "+0.5%", "+0.5% Trust"),
-            ('CEO Change (Outside)', 'ceo_change', {'succession_type': 'outside', 'forced': False}, "-0.5%", "-0.5% Trust"),
-            ('CEO Change (Forced)', 'ceo_change', {'succession_type': 'unknown', 'forced': True}, "-1.5%", "-1% Trust"),
-            ('CFO Change (Voluntary)', 'cfo_change', {'forced': False}, "-0.3%", "-0.3% Trust"),
-            ('CFO Change (Forced)', 'cfo_change', {'forced': True}, "-1.0%", "-0.8% Trust"),
-            ('Strategic Announcement (Positive)', 'strategic_announcement', {'sentiment': 0.8, 'announcement_type': 'positive'}, "+1.6%", "+0.8% Trust, +0.5% Cov"),
-            ('Strategic Announcement (Negative)', 'strategic_announcement', {'sentiment': -0.8, 'announcement_type': 'negative'}, "-1.6%", "-0.8% Trust, +0.5% Cov"),
-            ('Dividend Increase', 'dividend_announcement', {'dividend_change_pct': 10}, "+1.0%", "+0.5% Trust"),
-            ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -20}, "-2.0%", "-0.8% Trust"),
-            ('Buyback Announcement', 'buyback_announcement', {}, "+1.5%", "+0.8% Trust"),
-            # Daily IR Activities
-            ('IR Website Improvement', 'ir_website_improvement', {}, "+0.5%", "+0.4% Cov, +0.3% Trust"),
-            ('Advertising Campaign', 'advertising_campaign', {}, "+0.5%", "+0.3% Cov, +0.2% Trust"),
-            ('Press Release Program', 'press_release_program', {}, "+0.5%", "+0.3% Cov, +0.2% Trust"),
-            ('Social Media Campaign', 'social_media_campaign', {}, "+0.5%", "+0.6% Cov, +0.4% Liq"),
-            ('Conference Presentation', 'conference_presentation', {}, "+0.8%", "+0.8% Cov, +0.4% Trust"),
-            ('Analyst Coverage Initiation', 'analyst_coverage_initiation', {}, "+1.0%", "+1.5% Cov, +0.8% Liq, +0.5% Trust"),
-        ]
-
-        # Calculate impacts for each event type
-        event_values = []
-        for label, event_type, metadata, expected_car, dial_impact in event_menu_items:
-            try:
-                impact = calculate_event_irci_impact(
-                    event_date=pd.Timestamp.now().strftime('%Y-%m-%d'),
-                    event_type=event_type,
-                    df_composite=df_composite_filtered,
-                    df_val=df_val_filtered,
-                    ticker=selected_whatif_ticker,
-                    weights=current_weights,
-                    company_dollar_per_irci_pt=whatif_dollar_per_irci_pt,
-                    event_metadata=metadata
-                )
-                event_values.append({
-                    'Event Type': label,
-                    'IRCI Impact': f"{impact['irci_impact']:+.2f} pts",
-                    'Dollar Impact': f"${impact['dollar_impact']/1e6:+.1f}M" if impact['dollar_impact'] != 0 else "N/A",
-                    'Expected CAR': expected_car,
-                    'Affected Dials': dial_impact
-                })
-            except Exception as e:
-                # If calculation fails, still show the event with expected values
-                event_values.append({
-                    'Event Type': label,
-                    'IRCI Impact': "N/A",
-                    'Dollar Impact': "N/A",
-                    'Expected CAR': expected_car,
-                    'Affected Dials': dial_impact
-                })
-
-        # Display as a dataframe
-        event_menu_df = pd.DataFrame(event_values)
-
-        # Color code by impact type
-        st.dataframe(
-            event_menu_df,
-            use_container_width=True,
-            hide_index=True,
-            height=400
-        )
-
-        st.caption("💡 **How to Use**: Review the projected impacts above, then add events to your scenario below to see cumulative effects.")
-
-        # Research References
-        with st.expander("📚 Research Methodology & References", expanded=False):
-            st.markdown("""
-            ### Calculation Methodology
-
-            **Event impacts are calculated using research-based estimates:**
-
-            #### Major Corporate Events
-            - **Investor Days**: Average CAR +0.5% to +5%, with case studies showing +30% appreciation
-              - *Source: MZ Group (2024) - Investor Day Impact Analysis*
-
-            - **Leadership Changes**: Impact varies by succession type
-              - Planned internal succession: +0.5% CAR
-              - Forced turnover: -1.5% CAR (governance concerns)
-              - Outside hire: -0.5% CAR (uncertainty)
-              - *Research: CEO succession literature (multiple studies)*
-
-            - **Dividend Announcements**: Signal of financial stability
-              - Increases: +1.0% CAR
-              - Cuts: -2.0% CAR
-
-            - **Buyback Announcements**: +1.5% CAR (capital allocation confidence)
-
-            #### Daily IR Activities
-            - **IR Website Improvements**: Reduces information asymmetry
-              - Impact: 0.5%-2% improvement in corporate investment efficiency
-              - *Source: Chen et al. (2015) - "The Role of the Media in Disseminating Insider-Trading News"*
-
-            - **Advertising Campaigns**: Increases investor awareness and liquidity
-              - 25% increase in advertising → +1.32% firm value
-              - *Source: Grullon et al. (2004) - "Advertising, Breadth of Ownership, and Liquidity" (Review of Financial Studies)*
-
-            - **Press Release Programs**: Immediate market impact
-              - CAR range: -2% to +2% depending on content sentiment
-              - *Source: Neuhierl et al. (2013) - "Market Reaction to Corporate Press Releases"*
-
-            - **Social Media Campaigns**: Enhances retail investor engagement
-              - 80% of institutional investors use social media for research
-              - 30% say social media influenced investment decisions
-              - *Source: Brunswick Group (2023) - Social Media and Institutional Investors*
-
-            - **Conference Presentations**: Price discovery mechanism
-              - +0.8% CAR from analyst/investor exposure
-              - *Source: Francis et al. (1997) - "Costs of Equity and Earnings Attributes"*
-
-            - **Analyst Coverage Initiation**: Reduces information asymmetry
-              - +1.02% abnormal return on average
-              - *Source: Irvine (2003) - "The Incremental Impact of Analyst Initiation of Coverage" (Journal of Financial Economics)*
-
-            ### Dollar Impact Calculation
-
-            Dollar impacts are calculated using **company-specific regression models** that estimate the relationship
-            between IRCI scores and enterprise value. These estimates are **R²-scaled** to reflect that investor
-            relations is one of many factors affecting valuation.
-
-            **Formula**: `Dollar Impact = IRCI Impact × Company $/IRCI Point`
-
-            Where `Company $/IRCI Point` is derived from:
-            - Regression of IRCI scores vs. Enterprise Value across peer companies
-            - Scaled by regression R² to account for explained variance
-            - This ensures conservative estimates that reflect IR as one factor among many
-
-            ### Confidence Levels
-
-            - **High (0.6-0.7)**: Well-researched event types with consistent empirical evidence
-            - **Medium (0.4-0.5)**: Event types with some research support but higher variability
-            - **Low (0.1-0.3)**: Aggregate measures where individual events have small impact
-
-            **Note**: All estimates are conservative and based on academic research. Actual impacts will vary
-            by company, market conditions, and execution quality.
+                # Multi-quarter mode: use the first quarter for timeline display
+                timeline_start_date, timeline_end_date = quarter_to_dates(selected_quarters[0])
+    
+            # Use the timeline dates for event filtering
+            start_date = timeline_start_date
+            end_date = timeline_end_date
+    
+            st.markdown("#### 📅 Event Timeline & Calendar")
+            st.markdown("*Track events, filings, news, and their impact on IRCI scores*")
+    
+            st.info("""
+            📊 **Event Impact Methodology**: Individual event impacts are very small because dials measure quarterly aggregates.
+            - News articles: ~0.00001-0.0001 IRCI points each (~1/100th of quarterly media tone)
+            - SEC filings: ~0.0001-0.0005 IRCI points each (counted in aggregate for coverage dial)
+            - Dollar impacts are **R²-scaled** and reflect that individual events are one of many factors
             """)
-
-
-        # Initialize scenario events in session state
-        if 'scenario_events' not in st.session_state:
-            st.session_state['scenario_events'] = []
-
-        # Scenario Event Builder
-        st.markdown("---")
-        st.markdown("### ➕ Add Hypothetical Events to Scenario")
-
-        with st.expander("📝 Event Builder", expanded=len(st.session_state['scenario_events']) == 0):
-            col_evt1, col_evt2 = st.columns(2)
-
-            with col_evt1:
-                scenario_event_type_options = {
-                    # Major Corporate Events
-                    'Investor Day': 'investor_day',
-                    'Analyst Day': 'analyst_day',
-                    'CEO Change (Inside)': 'ceo_change_inside',
-                    'CEO Change (Outside)': 'ceo_change_outside',
-                    'CEO Change (Forced)': 'ceo_change_forced',
-                    'CFO Change (Voluntary)': 'cfo_change_voluntary',
-                    'CFO Change (Forced)': 'cfo_change_forced',
-                    'Strategic Announcement (Positive)': 'strategic_positive',
-                    'Strategic Announcement (Negative)': 'strategic_negative',
-                    'Dividend Increase': 'dividend_increase',
-                    'Dividend Cut': 'dividend_cut',
-                    'Buyback Announcement': 'buyback_announcement',
-                    # Daily IR Activities
-                    '🌐 IR Website Improvement': 'ir_website_improvement',
-                    '📺 Advertising Campaign': 'advertising_campaign',
-                    '📰 Press Release Program': 'press_release_program',
-                    '📱 Social Media Campaign': 'social_media_campaign',
-                    '🎤 Conference Presentation': 'conference_presentation',
-                    '📊 Analyst Coverage Initiation': 'analyst_coverage_initiation',
-                }
-
-                scenario_event_label = st.selectbox(
-                    "Event Type",
-                    options=list(scenario_event_type_options.keys()),
-                    key='scenario_event_type'
-                )
-
-                scenario_event_description = st.text_input(
-                    "Event Description",
-                    placeholder=f"e.g., Plan {scenario_event_label}",
-                    value=scenario_event_label,
-                    key='scenario_event_description'
-                )
-
-            with col_evt2:
-                # Show expected impact preview
-                event_type_code = scenario_event_type_options[scenario_event_label]
-
-                # Map to base event type and metadata
-                if event_type_code == 'investor_day':
-                    base_type = 'investor_day'
-                    metadata = {}
-                    expected_car = "+2.0%"
-                    expected_dial = "+2% Cov, +1.5% Trust"
-                elif event_type_code == 'analyst_day':
-                    base_type = 'analyst_day'
-                    metadata = {}
-                    expected_car = "+1.5%"
-                    expected_dial = "+1.5% Cov, +1% Trust"
-                elif event_type_code == 'ceo_change_inside':
-                    base_type = 'ceo_change'
-                    metadata = {'succession_type': 'planned_inside', 'forced': False}
-                    expected_car = "+0.5%"
-                    expected_dial = "+0.5% Trust"
-                elif event_type_code == 'ceo_change_outside':
-                    base_type = 'ceo_change'
-                    metadata = {'succession_type': 'outside', 'forced': False}
-                    expected_car = "-0.5%"
-                    expected_dial = "-0.5% Trust"
-                elif event_type_code == 'ceo_change_forced':
-                    base_type = 'ceo_change'
-                    metadata = {'succession_type': 'unknown', 'forced': True}
-                    expected_car = "-1.5%"
-                    expected_dial = "-1% Trust"
-                elif event_type_code == 'cfo_change_voluntary':
-                    base_type = 'cfo_change'
-                    metadata = {'forced': False}
-                    expected_car = "-0.3%"
-                    expected_dial = "-0.3% Trust"
-                elif event_type_code == 'cfo_change_forced':
-                    base_type = 'cfo_change'
-                    metadata = {'forced': True}
-                    expected_car = "-1.0%"
-                    expected_dial = "-0.8% Trust"
-                elif event_type_code == 'strategic_positive':
-                    base_type = 'strategic_announcement'
-                    metadata = {'sentiment': 0.8, 'announcement_type': 'positive'}
-                    expected_car = "+1.6%"
-                    expected_dial = "+0.8% Trust, +0.5% Cov"
-                elif event_type_code == 'strategic_negative':
-                    base_type = 'strategic_announcement'
-                    metadata = {'sentiment': -0.8, 'announcement_type': 'negative'}
-                    expected_car = "-1.6%"
-                    expected_dial = "-0.8% Trust, +0.5% Cov"
-                elif event_type_code == 'dividend_increase':
-                    base_type = 'dividend_announcement'
-                    metadata = {'dividend_change_pct': 10}
-                    expected_car = "+1.0%"
-                    expected_dial = "+0.5% Trust"
-                elif event_type_code == 'dividend_cut':
-                    base_type = 'dividend_announcement'
-                    metadata = {'dividend_change_pct': -20}
-                    expected_car = "-2.0%"
-                    expected_dial = "-0.8% Trust"
-                elif event_type_code == 'buyback_announcement':
-                    base_type = 'buyback_announcement'
-                    metadata = {}
-                    expected_car = "+1.5%"
-                    expected_dial = "+0.8% Trust"
-                elif event_type_code == 'ir_website_improvement':
-                    base_type = 'ir_website_improvement'
-                    metadata = {}
-                    expected_car = "+0.5%"
-                    expected_dial = "+0.4% Cov, +0.3% Trust"
-                elif event_type_code == 'advertising_campaign':
-                    base_type = 'advertising_campaign'
-                    metadata = {}
-                    expected_car = "+0.5%"
-                    expected_dial = "+0.3% Cov, +0.2% Trust"
-                elif event_type_code == 'press_release_program':
-                    base_type = 'press_release_program'
-                    metadata = {}
-                    expected_car = "+0.5%"
-                    expected_dial = "+0.3% Cov, +0.2% Trust"
-                elif event_type_code == 'social_media_campaign':
-                    base_type = 'social_media_campaign'
-                    metadata = {}
-                    expected_car = "+0.5%"
-                    expected_dial = "+0.6% Cov, +0.4% Liq"
-                elif event_type_code == 'conference_presentation':
-                    base_type = 'conference_presentation'
-                    metadata = {}
-                    expected_car = "+0.8%"
-                    expected_dial = "+0.8% Cov, +0.4% Trust"
-                elif event_type_code == 'analyst_coverage_initiation':
-                    base_type = 'analyst_coverage_initiation'
-                    metadata = {}
-                    expected_car = "+1.0%"
-                    expected_dial = "+1.5% Cov, +0.8% Liq, +0.5% Trust"
-                else:
-                    base_type = 'other'
-                    metadata = {}
-                    expected_car = "0%"
-                    expected_dial = "None"
-
-                st.metric("Expected CAR", expected_car, help="Cumulative Abnormal Return from research")
-                st.caption(f"**Dial Impact:** {expected_dial}")
-
-            if st.button("➕ Add Event to Scenario", use_container_width=True, key='add_scenario_event'):
-                from irci.event_timeline import calculate_event_irci_impact
-
-                # Get current weights
+    
+            # Company selector for timeline
+            selected_timeline_ticker = st.selectbox(
+                "Select company for timeline:",
+                display_df['ticker'].tolist(),
+                key='timeline_ticker'
+            )
+    
+            # Manual Event Entry UI
+            with st.expander("➕ Add Custom Corporate Event"):
+                st.markdown("**Add events not captured automatically** (e.g., investor days, leadership changes, strategic announcements)")
+    
+                col_evt1, col_evt2 = st.columns(2)
+    
+                with col_evt1:
+                    event_date = st.date_input(
+                        "Event Date",
+                        value=pd.to_datetime(end_date),
+                        key='custom_event_date'
+                    )
+    
+                    event_type_options = {
+                        # Major Corporate Events
+                        'Investor Day': 'investor_day',
+                        'Analyst Day': 'analyst_day',
+                        'CEO Change': 'ceo_change',
+                        'CFO Change': 'cfo_change',
+                        'Director Change': 'director_change',
+                        'Earnings Call': 'earnings_call',
+                        'Strategic Announcement': 'strategic_announcement',
+                        'Dividend Announcement': 'dividend_announcement',
+                        'Buyback Announcement': 'buyback_announcement',
+                        # Daily IR Activities
+                        '🌐 IR Website Improvement': 'ir_website_improvement',
+                        '📺 Advertising Campaign': 'advertising_campaign',
+                        '📰 Press Release Program': 'press_release_program',
+                        '📱 Social Media Campaign': 'social_media_campaign',
+                        '🎤 Conference Presentation': 'conference_presentation',
+                        '📊 Analyst Coverage Initiation': 'analyst_coverage_initiation',
+                        # Other
+                        'Other': 'other'
+                    }
+    
+                    event_type_label = st.selectbox(
+                        "Event Type",
+                        options=list(event_type_options.keys()),
+                        key='custom_event_type'
+                    )
+    
+                with col_evt2:
+                    event_description = st.text_input(
+                        "Event Description",
+                        placeholder="e.g., Annual Investor Day in NYC",
+                        key='custom_event_description'
+                    )
+    
+                    # Event-specific metadata
+                    event_sentiment = st.slider(
+                        "Event Sentiment",
+                        min_value=-1.0,
+                        max_value=1.0,
+                        value=0.0,
+                        step=0.1,
+                        help="For strategic announcements: -1 (very negative) to +1 (very positive)",
+                        key='custom_event_sentiment'
+                    )
+    
+                # Additional metadata based on event type
+                event_metadata = {'sentiment': event_sentiment}
+    
+                if event_type_label in ['CEO Change', 'CFO Change']:
+                    col_meta1, col_meta2 = st.columns(2)
+                    with col_meta1:
+                        succession_type = st.selectbox(
+                            "Succession Type",
+                            options=['planned_inside', 'outside', 'unknown'],
+                            help="Internal promotion vs. external hire",
+                            key='custom_succession_type'
+                        )
+                        event_metadata['succession_type'] = succession_type
+    
+                    with col_meta2:
+                        forced = st.checkbox("Forced Departure", key='custom_forced')
+                        event_metadata['forced'] = forced
+    
+                elif event_type_label == 'Dividend Announcement':
+                    dividend_change = st.number_input(
+                        "Dividend Change (%)",
+                        value=0.0,
+                        help="% change in dividend (positive = increase, negative = cut)",
+                        key='custom_dividend_change'
+                    )
+                    event_metadata['dividend_change_pct'] = dividend_change
+    
+                # Store button
+                if st.button("➕ Add Event to Timeline", use_container_width=True):
+                    # Initialize custom events in session state
+                    if 'custom_events' not in st.session_state:
+                        st.session_state['custom_events'] = []
+    
+                    custom_event = {
+                        'ticker': selected_timeline_ticker,
+                        'date': pd.to_datetime(event_date),
+                        'event_type': event_type_options[event_type_label],
+                        'description': event_description or event_type_label,
+                        'event_metadata': event_metadata,
+                        'source': 'user_entry'
+                    }
+    
+                    st.session_state['custom_events'].append(custom_event)
+                    st.success(f"✅ Added {event_type_label} event for {selected_timeline_ticker} on {event_date}")
+                    st.rerun()
+    
+                # Display existing custom events
+                if 'custom_events' in st.session_state and st.session_state['custom_events']:
+                    ticker_custom_events = [e for e in st.session_state['custom_events'] if e['ticker'] == selected_timeline_ticker]
+    
+                    if ticker_custom_events:
+                        st.markdown("**Custom Events for this Ticker:**")
+                        for idx, evt in enumerate(ticker_custom_events):
+                            col_del1, col_del2 = st.columns([4, 1])
+                            with col_del1:
+                                st.text(f"• {evt['date'].strftime('%Y-%m-%d')}: {evt['description']}")
+                            with col_del2:
+                                if st.button("🗑️", key=f"delete_event_{idx}"):
+                                    st.session_state['custom_events'].remove(evt)
+                                    st.rerun()
+    
+            try:
+                # Initialize notes manager
+                if 'notes_manager' not in st.session_state:
+                    st.session_state['notes_manager'] = UserNotesManager()
+    
+                notes_mgr = st.session_state['notes_manager']
+    
+                # Get SEC filings data for this ticker
+                s = Settings.load()
+                cik = _cik_for_ticker(selected_timeline_ticker, s)
+                sec_filings_df = None
+    
+                # Get news data from session state (fetched during analysis)
+                news_df = st.session_state.get('news_df', None)
+    
+                if cik:
+                    try:
+                        subs = _company_submissions(cik, s)
+                        if not subs.empty and 'filingDate' in subs.columns:
+                            # Convert to our timeline format
+                            sec_filings_df = pd.DataFrame({
+                                'ticker': selected_timeline_ticker,
+                                'date': pd.to_datetime(subs['filingDate']),
+                                'event_type': subs['form'],
+                                'description': subs['form'] + ' Filing',
+                                'accession_number': subs.get('accessionNumber', '')
+                            })
+                            # Filter for date range
+                            sec_filings_df = sec_filings_df[
+                                (sec_filings_df['date'] >= start_date) &
+                                (sec_filings_df['date'] <= end_date)
+                            ]
+                    except Exception as e:
+                        st.info(f"Note: Could not fetch SEC filings: {e}")
+    
+                # Prepare weights dict to pass to timeline
                 current_weights = {
                     'valuation': weight_valuation / 100,
                     'liquidity': weight_liquidity / 100,
                     'coverage': weight_coverage / 100,
                     'sentiment': weight_trust / 100
                 }
-
-                # Calculate impact
-                impact = calculate_event_irci_impact(
-                    event_date=pd.Timestamp.now().strftime('%Y-%m-%d'),
-                    event_type=base_type,
+    
+                # Get company-specific $/IRCI point for this ticker
+                company_dollar_per_irci_pt = None
+                try:
+                    from irci.dial_insights import compute_dollar_value_per_irci_point
+                    dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
+                    if not dollar_value_df.empty:
+                        ticker_dollar_data = dollar_value_df[dollar_value_df['ticker'] == selected_timeline_ticker]
+                        if not ticker_dollar_data.empty:
+                            company_dollar_per_irci_pt = ticker_dollar_data['company_$/irci_pt'].iloc[0]
+                except Exception as e:
+                    st.info(f"Note: Could not calculate $/IRCI point: {e}")
+    
+                # Display the company's $/IRCI point value for transparency with example calculation
+                if company_dollar_per_irci_pt is not None:
+                    # Calculate example impact for a single positive news article
+                    # Note: Individual articles have small impacts because the Trust dial aggregates
+                    # 50-100+ articles per quarter. Each article is ~1/100th of the quarterly media tone.
+                    example_sentiment = 0.6  # Moderately positive news
+                    example_dial_impact = example_sentiment * 0.0005  # 0.03% of Trust dial (~1/100th of quarterly coverage)
+                    example_irci_impact = example_dial_impact * current_weights['sentiment']  # Tiny IRCI impact
+                    example_dollar_impact = example_irci_impact * company_dollar_per_irci_pt
+    
+                    st.info(f"""
+                    💰 **{selected_timeline_ticker} Impact Calculation Parameters (R²-scaled)**:
+                    - Company $/IRCI Point: **${company_dollar_per_irci_pt:,.0f}**
+                    - Example: Single positive news article (sentiment +0.6) → +{example_irci_impact:.6f} IRCI pts → **${example_dollar_impact:,.0f}** impact
+    
+                    **Note**: Individual events show small impacts because dials measure quarterly aggregates:
+                    - Trust dial aggregates 50-100+ articles → each is ~1/100th of media tone component
+                    - Media tone is 30% of Trust dial → each article ≈ 0.3% of Trust dial
+                    - Quarterly aggregate patterns drive the dial scores, not single events
+                    """)
+    
+                # Aggregate timeline events
+                timeline_df = aggregate_timeline_events(
+                    ticker=selected_timeline_ticker,
+                    start_date=start_date,
+                    end_date=end_date,
                     df_composite=df_composite_filtered,
                     df_val=df_val_filtered,
-                    ticker=selected_whatif_ticker,
+                    df_cov=df_cov_filtered,
+                    df_liq=df_liq_filtered,
+                    df_trust=df_trust_filtered,
+                    news_df=news_df,
+                    sec_filings_df=sec_filings_df,
                     weights=current_weights,
-                    company_dollar_per_irci_pt=whatif_dollar_per_irci_pt,
-                    event_metadata=metadata
+                    company_dollar_per_irci_pt=company_dollar_per_irci_pt
                 )
-
-                scenario_event = {
-                    'description': scenario_event_description,
-                    'event_type': base_type,
-                    'event_type_label': scenario_event_label,
-                    'irci_impact': impact['irci_impact'],
-                    'dollar_impact': impact['dollar_impact'],
-                    'affected_dials': impact['affected_dials'],
-                    'car_estimate': impact.get('car_estimate', 0),
-                    'confidence': impact['confidence']
-                }
-
-                st.session_state['scenario_events'].append(scenario_event)
-                st.success(f"✅ Added {scenario_event_label} to scenario! Scroll down to see updated results.")
-
-        # Display scenario events and cumulative impact
-        if st.session_state['scenario_events']:
-            st.markdown("---")
-            st.markdown("### 📋 Current Scenario Events")
-
-            scenario_df = pd.DataFrame(st.session_state['scenario_events'])
-
-            for idx, evt in enumerate(st.session_state['scenario_events']):
-                col_s1, col_s2, col_s3, col_s4, col_s5 = st.columns([3, 2, 2, 2, 1])
-
-                with col_s1:
-                    st.text(f"{idx+1}. {evt['description']}")
-                with col_s2:
-                    st.text(f"IRCI: {evt['irci_impact']:+.4f}")
-                with col_s3:
-                    st.text(f"$: ${evt['dollar_impact']:+,.0f}" if evt['dollar_impact'] != 0 else "$: N/A")
-                with col_s4:
-                    st.text(f"CAR: {evt['car_estimate']:+.1f}%")
-                with col_s5:
-                    if st.button("🗑️", key=f"delete_scenario_{idx}"):
-                        st.session_state['scenario_events'].pop(idx)
-                        st.rerun()
-
-            # Calculate cumulative impact
-            total_irci_impact = sum(evt['irci_impact'] for evt in st.session_state['scenario_events'])
-            total_dollar_impact = sum(evt['dollar_impact'] for evt in st.session_state['scenario_events'])
-            avg_car = sum(evt['car_estimate'] for evt in st.session_state['scenario_events']) / len(st.session_state['scenario_events'])
-
-            # Project new state
-            projected_irci = current_irci + total_irci_impact
-            projected_ev = current_ev + total_dollar_impact if current_ev > 0 else None
-
-            st.markdown("---")
-            st.markdown("### 🎯 Projected Impact Summary")
-
-            col_sum1, col_sum2, col_sum3 = st.columns(3)
-            col_sum1.metric(
-                "Total IRCI Impact",
-                f"{total_irci_impact:+.4f} pts",
-                help="Sum of all event impacts on IRCI composite score"
-            )
-            col_sum2.metric(
-                "Total Dollar Impact",
-                f"${total_dollar_impact:+,.0f}" if total_dollar_impact != 0 else "N/A",
-                help="Estimated change in enterprise value"
-            )
-            col_sum3.metric(
-                "Avg CAR",
-                f"{avg_car:+.1f}%",
-                help="Average Cumulative Abnormal Return across events"
-            )
-
-            # Before/After Comparison
-            st.markdown("---")
-            st.markdown("### 📊 Before vs. After Comparison")
-
-            col_comp1, col_comp2, col_comp3 = st.columns(3)
-
-            with col_comp1:
-                st.markdown("**Current State**")
-                st.metric("IRCI Score", f"{current_irci:.1f}%")
-                if current_ev > 0:
-                    st.metric("Enterprise Value", f"${current_ev/1e9:.2f}B")
-
-            with col_comp2:
-                st.markdown("**After Events**")
-                delta_irci = projected_irci - current_irci
-                st.metric("IRCI Score", f"{projected_irci:.1f}%", delta=f"{delta_irci:+.1f}")
-                if projected_ev:
-                    delta_ev_pct = ((projected_ev - current_ev) / current_ev) * 100
-                    st.metric("Enterprise Value", f"${projected_ev/1e9:.2f}B", delta=f"{delta_ev_pct:+.1f}%")
-
-            with col_comp3:
-                st.markdown("**Change**")
-                st.metric("IRCI Change", f"{total_irci_impact:+.4f} pts")
-                if total_dollar_impact != 0:
-                    st.metric("EV Change", f"${total_dollar_impact/1e9:+.2f}B")
-
-            # Visualization of dial changes
-            st.markdown("---")
-            st.markdown("### 🎨 Dial Impact Breakdown")
-
-            # Calculate dial-specific impacts
-            dial_impacts = {
-                'Valuation': 0,
-                'Liquidity': 0,
-                'Coverage': 0,
-                'Trust': 0
-            }
-
-            for evt in st.session_state['scenario_events']:
-                for dial in evt['affected_dials']:
-                    if dial in dial_impacts:
-                        dial_impacts[dial] += evt['irci_impact'] / len(evt['affected_dials'])
-
-            # Display as metrics
-            col_d1, col_d2, col_d3, col_d4 = st.columns(4)
-            col_d1.metric("Valuation", f"{current_valuation_pct:.1f}%", delta=f"{dial_impacts['Valuation']:+.2f}" if dial_impacts['Valuation'] != 0 else None)
-            col_d2.metric("Liquidity", f"{current_liquidity_pct:.1f}%", delta=f"{dial_impacts['Liquidity']:+.2f}" if dial_impacts['Liquidity'] != 0 else None)
-            col_d3.metric("Coverage", f"{current_coverage_pct:.1f}%", delta=f"{dial_impacts['Coverage']:+.2f}" if dial_impacts['Coverage'] != 0 else None)
-            col_d4.metric("Trust", f"{current_sentiment_pct:.1f}%", delta=f"{dial_impacts['Trust']:+.2f}" if dial_impacts['Trust'] != 0 else None)
-
-            # Action buttons
-            st.markdown("---")
-            col_action1, col_action2, col_action3 = st.columns(3)
-
-            with col_action1:
-                if st.button("🗑️ Clear All Events", use_container_width=True):
-                    st.session_state['scenario_events'] = []
-                    st.rerun()
-
-            with col_action2:
-                if st.button("💾 Save Scenario", use_container_width=True):
-                    # Save to session state for later comparison
-                    if 'saved_scenarios' not in st.session_state:
-                        st.session_state['saved_scenarios'] = []
-
-                    scenario_name = f"Scenario {len(st.session_state['saved_scenarios']) + 1}"
-                    st.session_state['saved_scenarios'].append({
-                        'name': scenario_name,
-                        'ticker': selected_whatif_ticker,
-                        'events': st.session_state['scenario_events'].copy(),
-                        'total_irci_impact': total_irci_impact,
-                        'total_dollar_impact': total_dollar_impact
+    
+                # Merge custom events from session state
+                if 'custom_events' in st.session_state and st.session_state['custom_events']:
+                    from irci.event_timeline import calculate_event_irci_impact
+    
+                    ticker_custom_events = [e for e in st.session_state['custom_events']
+                                           if e['ticker'] == selected_timeline_ticker]
+    
+                    custom_events_list = []
+                    for evt in ticker_custom_events:
+                        # Calculate impact for this custom event
+                        impact = calculate_event_irci_impact(
+                            event_date=evt['date'].strftime('%Y-%m-%d'),
+                            event_type=evt['event_type'],
+                            df_composite=df_composite_filtered,
+                            df_val=df_val_filtered,
+                            ticker=selected_timeline_ticker,
+                            sentiment_score=evt['event_metadata'].get('sentiment', 0.0),
+                            weights=current_weights,
+                            company_dollar_per_irci_pt=company_dollar_per_irci_pt,
+                            event_metadata=evt['event_metadata']
+                        )
+    
+                        custom_events_list.append({
+                            'date': pd.to_datetime(evt['date']),
+                            'event_type': evt['event_type'],
+                            'description': evt['description'],
+                            'headline': evt['description'],
+                            'sentiment_score': evt['event_metadata'].get('sentiment', 0.0),
+                            'irci_impact': impact['irci_impact'],
+                            'dollar_impact': impact['dollar_impact'],
+                            'impact_confidence': impact['confidence'],
+                            'affected_dials': ', '.join(impact['affected_dials']),
+                            'ticker': selected_timeline_ticker,
+                            'source': 'User Entry'
+                        })
+    
+                    if custom_events_list:
+                        custom_df = pd.DataFrame(custom_events_list)
+                        # Merge with timeline_df
+                        timeline_df = pd.concat([timeline_df, custom_df], ignore_index=True)
+                        # Sort by date
+                        timeline_df = timeline_df.sort_values('date')
+    
+                # Display impact summary
+                st.markdown("**📊 Event Impact Summary**")
+                impact_summary = create_impact_summary(timeline_df, selected_timeline_ticker)
+    
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Total Events", impact_summary['total_events'])
+                col2.metric(
+                    "Total IRCI Impact",
+                    f"{impact_summary['total_irci_impact']:+.4f} pts",
+                    help="Estimated cumulative impact on IRCI score from all events"
+                )
+                col3.metric(
+                    "Total $ Impact",
+                    f"${impact_summary['total_dollar_impact']:+,.0f}",
+                    help="Estimated cumulative dollar value impact from all events"
+                )
+    
+                # Calendar view
+                st.markdown("---")
+                st.markdown("**📅 Calendar View**")
+    
+                if not timeline_df.empty:
+                    calendar_df = create_calendar_view(timeline_df, start_date, end_date)
+    
+                    # Keep numeric columns for proper sorting
+                    calendar_display = calendar_df[['date', 'num_events', 'event_types', 'total_irci_impact', 'total_dollar_impact', 'headlines']].copy()
+    
+                    # Rename columns
+                    calendar_display = calendar_display.rename(columns={
+                        'date': 'Date',
+                        'num_events': '# Events',
+                        'event_types': 'Event Types',
+                        'total_irci_impact': 'IRCI Impact',
+                        'total_dollar_impact': '$ Impact',
+                        'headlines': 'Top Headlines'
                     })
-                    st.success(f"✅ Saved as '{scenario_name}'")
-
-            with col_action3:
-                if st.button("📋 Export to Notes", use_container_width=True):
-                    # Could export scenario as a formatted note
-                    st.info("💡 Feature coming soon: Export scenario to event timeline notes")
-
-            # Show research methodology
-            with st.expander("📚 Research Methodology & Sources"):
-                st.markdown("""
-                ### How What-If Impacts Are Calculated
-
-                This scenario planner uses the same research-based methodology as the Event Timeline:
-
-                **Event Impact Calculation:**
-                1. Each event type has a researched dial impact (e.g., Investor Day = +2% Coverage, +1.5% Trust)
-                2. Dial impacts are weighted by your current dial weights (default: 35/35/15/15)
-                3. Weighted impacts sum to IRCI composite impact
-                4. IRCI impact × company $/IRCI point = Dollar impact
-                5. CAR estimates from academic event studies
-
-                **Research Sources:**
-
-                *Major Corporate Events:*
-                - **Investor Days**: MZ Group 2024 (+30% average appreciation)
-                - **CEO Changes**: Clayton et al. (volatility analysis by succession type)
-                - **CFO Changes**: Earnings persistence research
-                - **Analyst Coverage**: Irvine (2003) - "The Incremental Impact of Analyst Initiation of Coverage" (JFE) - +1.02% CAR
-
-                *Daily IR Activities:*
-                - **IR Website Improvements**: Chen et al. (2015) - "The Role of the Media in Disseminating Insider-Trading News" - 0.5%-2% efficiency gain
-                - **Advertising Campaigns**: Grullon et al. (2004) - "Advertising, Breadth of Ownership, and Liquidity" (Review of Financial Studies) - +1.32% firm value
-                - **Press Releases**: Neuhierl et al. (2013) - "Market Reaction to Corporate Press Releases" - -2% to +2% CAR
-                - **Social Media**: Brunswick Group (2023) - 80% of institutional investors use social media; 30% influenced decisions
-                - **Conference Presentations**: Francis et al. (1997) - "Costs of Equity and Earnings Attributes" - price discovery mechanism
-
-                *Methodology:*
-                - **CAR Methodology**: Event study literature (2,325 papers reviewed)
-
-                **Key Assumptions:**
-                - Impacts are additive (conservative)
-                - No interaction effects between events
-                - R²-scaled dollar impacts (accounts for other factors)
-                - Academic averages may vary by company/industry
-
-                **Best Practices:**
-                - Don't model more than 5-7 events per scenario (diminishing returns)
-                - Consider realistic timing (can't do 3 investor days per quarter)
-                - Use for planning, not prediction (markets are complex)
-                - Focus on relative impact comparison between scenarios
-                """)
-
-        else:
-            st.info("👆 Add events to your scenario using the Event Builder above to see projected impacts!")
-
-    # Playbook sub-tab
-    with subtab_playbook:
-        # IR Playbook - Action recommendations based on dial scores
-        st.markdown("#### 📋 IR Action Playbook")
-        st.markdown("*Get specific action recommendations based on your IRCI dial performance*")
-
-        st.info("""
-        📚 **How This Works**: The playbook analyzes your dial scores and provides prioritized action items.
-        - **High Priority**: Critical areas requiring immediate attention
-        - **Medium Priority**: Important improvements for strategic focus
-        - **Low Priority**: Optimization opportunities
-        - **Quick Wins**: Actions you can implement quickly for immediate impact
-        """)
-
-        try:
-            # Company selector for playbook
-            playbook_ticker = st.selectbox(
-                "Select company for IR playbook:",
-                df_composite_filtered['ticker'].unique(),
-                key="playbook_ticker_select"
+    
+                    # Ensure numeric columns are actually numeric for proper sorting
+                    calendar_display['IRCI Impact'] = pd.to_numeric(calendar_display['IRCI Impact'], errors='coerce')
+                    calendar_display['$ Impact'] = pd.to_numeric(calendar_display['$ Impact'], errors='coerce')
+    
+                    # Display calendar as interactive table with column config for formatting
+                    st.dataframe(
+                        calendar_display,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "IRCI Impact": st.column_config.NumberColumn(
+                                "IRCI Impact (pts)",
+                                help="Total IRCI impact (points)",
+                                format="%.5f"
+                            ),
+                            "$ Impact": st.column_config.NumberColumn(
+                                "$ Impact",
+                                help="Total dollar impact",
+                                format="$%,.0f"
+                            ),
+                        }
+                    )
+    
+                    st.caption("""
+                    📊 **Calendar Note**: Each row shows the SUM of all events on that day.
+                    - If 20 news articles occur on one day, their impacts are added together
+                    - Individual events have tiny impacts (~0.00001-0.0005 IRCI points each)
+                    - For large companies, even tiny IRCI impacts can translate to $100K-$1M due to high $/IRCI point
+                    - This shows why quarterly aggregate analysis matters more than individual events
+                    """)
+                else:
+                    st.info("No events found for this period. Try uploading news data or check the date range.")
+    
+                # Detailed event timeline
+                st.markdown("---")
+                st.markdown("**🔍 Detailed Event Timeline**")
+    
+                if not timeline_df.empty:
+                    # Create a simpler display without complex styling that causes issues
+                    display_timeline = timeline_df[['date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'affected_dials']].copy()
+    
+                    # Add a color indicator column instead of row styling
+                    def get_color_indicator(row):
+                        event_type = row['event_type']
+                        sentiment = row.get('sentiment_score', 0) if 'sentiment_score' in timeline_df.columns else 0
+    
+                        if event_type == 'news':
+                            if sentiment > 0.2:
+                                return '🟢'
+                            elif sentiment < -0.2:
+                                return '🔴'
+                            else:
+                                return '📰'
+                        elif event_type in ['10-Q', '10-K', '8-K']:
+                            return '🔵'
+                        elif event_type == 'investor_day':
+                            return '🎯'
+                        elif event_type == 'analyst_day':
+                            return '📈'
+                        elif event_type == 'ceo_change':
+                            return '👔'
+                        elif event_type == 'cfo_change':
+                            return '💼'
+                        elif event_type == 'director_change':
+                            return '👥'
+                        elif event_type == 'earnings_call':
+                            return '📞'
+                        elif event_type == 'strategic_announcement':
+                            return '🎪'
+                        elif event_type == 'dividend_announcement':
+                            return '💵'
+                        elif event_type == 'buyback_announcement':
+                            return '🔄'
+                        elif event_type == 'valuation_measurement':
+                            return '💰'
+                        elif event_type == 'liquidity_measurement':
+                            return '💧'
+                        elif event_type == 'coverage_measurement':
+                            return '📊'
+                        elif event_type == 'trust_measurement':
+                            return '💭'
+                        return '•'
+    
+                    display_timeline.insert(0, 'indicator', timeline_df.apply(get_color_indicator, axis=1))
+    
+                    # Keep numeric columns for proper sorting
+                    display_timeline = display_timeline[['indicator', 'date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'affected_dials']].rename(columns={
+                        'indicator': '',
+                        'date': 'Date',
+                        'event_type': 'Type',
+                        'description': 'Description',
+                        'irci_impact': 'IRCI Impact',
+                        'dollar_impact': '$ Impact',
+                        'affected_dials': 'Affected Dials'
+                    })
+    
+                    # Ensure numeric columns are actually numeric for proper sorting
+                    display_timeline['IRCI Impact'] = pd.to_numeric(display_timeline['IRCI Impact'], errors='coerce')
+                    display_timeline['$ Impact'] = pd.to_numeric(display_timeline['$ Impact'], errors='coerce')
+    
+                    # Display the dataframe with column config for proper formatting while keeping numeric sorting
+                    st.dataframe(
+                        display_timeline,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "IRCI Impact": st.column_config.NumberColumn(
+                                "IRCI Impact (pts)",
+                                help="Individual event IRCI impact (points)",
+                                format="%.5f"
+                            ),
+                            "$ Impact": st.column_config.NumberColumn(
+                                "$ Impact",
+                                help="Individual event dollar impact",
+                                format="$%,.0f"
+                            ),
+                        }
+                    )
+    
+                    st.caption("""
+                    💡 **Event Indicators:**
+                    🟢 Positive news | 🔴 Negative news | 🔵 SEC filings | 📰 Neutral news |
+                    🎯 Investor Day | 📈 Analyst Day | 👔 CEO Change | 💼 CFO Change | 👥 Director Change |
+                    📞 Earnings Call | 🎪 Strategic Announcement | 💵 Dividend | 🔄 Buyback |
+                    💰 Valuation | 💧 Liquidity | 📊 Coverage | 💭 Trust
+                    """)
+    
+                    # Calculation methodology and proof section
+                    with st.expander("📐 **Impact Calculation Methodology & Proof**"):
+                        st.markdown("""
+                        ### How Individual Events Contribute to IRCI Scores
+    
+                        **Key Principle:** Individual events have TINY impacts. Quarterly AGGREGATE metrics drive dial scores.
+    
+                        ---
+    
+                        ### 📰 News Article Impact Calculation
+    
+                        **Step 1: Sentiment Score**
+                        - News sentiment ranges from -1 (very negative) to +1 (very positive)
+                        - Example: Positive earnings news might score +0.6
+    
+                        **Step 2: Dial Impact (Trust)**
+                        - Individual article contributes to Trust dial: `dial_impact = sentiment × 0.0005`
+                        - Example: +0.6 sentiment → +0.0003 points on Trust dial (0.03% of dial)
+                        - **Why so tiny?** Trust dial aggregates 50-100+ articles per quarter
+                          - Each article is ~1/100th of the quarterly media tone
+                          - Media tone is 30% of Trust dial
+                          - So each article ≈ 0.3% of Trust dial (we use 0.05% to be conservative)
+    
+                        **Step 3: IRCI Composite Impact**
+                        - Trust dial has weight (default 15%): `irci_impact = dial_impact × weight`
+                        - Example: +0.0003 Trust points × 0.15 weight = **+0.000045 IRCI points**
+    
+                        **Step 4: Dollar Impact (R²-Scaled)**
+                        - Use company-specific $/IRCI point (already R²-scaled from regression)
+                        - Example (mid-cap): +0.000045 IRCI pts × $150M/point = **$6,750**
+                        - Example (large-cap): +0.000045 IRCI pts × $4B/point = **$180,000**
+                        - R² scaling already applied (if R²=0.3, the $/point was reduced by 70%)
+    
+                        ---
+    
+                        ### 📊 SEC Filing Impact Calculation
+    
+                        **8-K Filing:**
+                        - Dial impact: 0.001 points on Coverage dial (0.1% of dial)
+                        - IRCI impact: 0.001 × 0.15 (coverage weight) = **0.00015 IRCI points**
+                        - Dollar impact (mid-cap): 0.00015 × $150M/point = **$22,500**
+                        - Dollar impact (large-cap): 0.00015 × $4B/point = **$600,000**
+    
+                        **10-Q or 10-K Filing:**
+                        - Dial impact: 0.003 points on Coverage dial (0.3% of dial)
+                        - IRCI impact: 0.003 × 0.15 = **0.00045 IRCI points**
+                        - Dollar impact (mid-cap): 0.00045 × $150M/point = **$67,500**
+                        - Dollar impact (large-cap): 0.00045 × $4B/point = **$1.8M**
+    
+                        **Why these values?** Coverage dial measures aggregate quarterly filing activity,
+                        not individual filings. A typical company has 5-20 8-Ks per quarter.
+    
+                        ---
+    
+                        ### 🎯 Corporate Events Impact (Based on Academic Research)
+    
+                        **Investor Day:**
+                        - Dial impacts: +2% Coverage, +1.5% Trust
+                        - Estimated CAR: +2.0% (conservative, research shows up to +30% appreciation)
+                        - Research: MZ Group 2024 study
+                        - IRCI impact: ~0.005 points (varies by weights)
+    
+                        **CEO Change:**
+                        - Planned inside succession: +0.5% Trust, CAR +0.5%
+                        - Forced departure: -1% Trust, CAR -1.5%
+                        - Outside hire: -0.5% Trust, CAR -0.5%
+                        - Research: Clayton et al. (volatility increases), market reactions vary by type
+    
+                        **CFO Change:**
+                        - Voluntary: -0.3% Trust, CAR -0.3%
+                        - Forced: -0.8% Trust, CAR -1.0%
+                        - Research: Negatively associated with earnings persistence
+    
+                        **Strategic Announcements:**
+                        - Impact varies by sentiment (-1% to +1% Trust, +0.5% Coverage)
+                        - CAR ranges from -2% to +2% depending on announcement type
+    
+                        **Dividend/Buyback:**
+                        - Dividend increase: +0.5% Trust, CAR +1.0%
+                        - Buyback announcement: +0.8% Trust, CAR +1.5%
+                        - Dividend cut: -0.8% Trust, CAR -2.0%
+    
+                        **Note:** CAR (Cumulative Abnormal Return) estimates are based on event study methodology
+                        from academic literature. Individual company results may vary.
+    
+                        ---
+    
+                        ### 🎯 Why Quarterly Aggregates Matter More
+                        """)
+    
+                        # Calculate actual aggregate proof if we have news data
+                        if 'sentiment_score' in timeline_df.columns:
+                            news_events = timeline_df[timeline_df['event_type'] == 'news'].copy()
+                            if not news_events.empty:
+                                total_news = len(news_events)
+                                avg_sentiment = news_events['sentiment_score'].mean() if 'sentiment_score' in news_events.columns else 0
+                                total_individual_impact = news_events['irci_impact'].sum()
+    
+                                # Get actual trust score from dial
+                                ticker_trust = df_trust[df_trust['ticker'] == selected_timeline_ticker]
+                                if not ticker_trust.empty:
+                                    actual_trust_score = ticker_trust['trust_pct'].iloc[0] if 'trust_pct' in ticker_trust.columns else None
+                                    media_tone = ticker_trust['p_media_tone'].iloc[0] if 'p_media_tone' in ticker_trust.columns else None
+    
+                                    # Format values, handling None
+                                    trust_score_str = f"{actual_trust_score:.1f}%" if actual_trust_score is not None else "N/A"
+                                    media_tone_str = f"{media_tone:.1f}%" if media_tone is not None else "N/A"
+    
+                                    st.markdown(f"""
+                                    **Actual Data for {selected_timeline_ticker} This Quarter:**
+    
+                                    - **Total News Articles**: {total_news}
+                                    - **Average Sentiment**: {avg_sentiment:+.2f}
+                                    - **Sum of Individual Impacts**: {total_individual_impact:+.2f} IRCI points
+                                    - **Actual Trust Dial Score**: {trust_score_str} (measured from all factors)
+                                    - **Media Tone Component**: {media_tone_str} (one of several Trust inputs)
+    
+                                    **📌 Key Insight:**
+                                    The Trust dial is NOT just the sum of individual news impacts. It's computed from:
+                                    1. Aggregate quarterly media tone (all {total_news} articles analyzed together)
+                                    2. Event stability metrics
+                                    3. Sentiment consistency over time
+    
+                                    Individual event impacts are **directional indicators**, not additive components.
+                                    The actual dial score comes from quarterly aggregate analysis of all events together.
+                                    """)
+    
+                        st.markdown("""
+                        ---
+    
+                        ### 💰 R² Scaling: Why Dollar Impacts Are Conservative
+    
+                        **Regression Analysis:** We regress Enterprise Value ~ IRCI Score across peer group
+    
+                        **Example Calculation:**
+                        - Raw regression slope: $500M per IRCI point
+                        - R² value: 0.30 (IRCI explains 30% of EV variance)
+                        - **R²-scaled slope**: $500M × 0.30 = **$150M per IRCI point**
+    
+                        **What This Means:**
+                        - IR/IRCI is ONE of MANY factors affecting enterprise value
+                        - Business fundamentals (revenue, earnings, growth) drive most value
+                        - R² scaling ensures we don't overstate IR's contribution
+                        - If R²=0.30, we reduce dollar estimates by 70% to be realistic
+    
+                        **Individual Event Example:**
+                        - Event IRCI impact: +0.000045 points (single positive news article)
+                        - Company $/IRCI: $150M/point (R²-scaled)
+                        - Event dollar impact: +0.000045 × $150M = **$6,750**
+                        - Without R² scaling: +0.000045 × $500M = $22,500 (OVERSTATED by 3.3x)
+    
+                        ---
+    
+                        ### ✅ Bottom Line
+    
+                        1. **Individual events = Tiny impacts** (~0.00001-0.0005 IRCI points, $1K-$100K for mid-caps, $50K-$2M for large-caps)
+                        2. **Quarterly aggregates = Large impacts** (full dial scores determine total IRCI)
+                        3. **R² scaling = Realistic estimates** (accounts for IR being one of many factors)
+                        4. **Dollar impacts are planning ranges**, not guarantees
+    
+                        Individual events show what's happening day-to-day, but quarterly aggregate
+                        metrics determine your final IRCI scores and relative peer ranking.
+                        """)
+    
+                # User notes section
+                st.markdown("---")
+                st.markdown("**📝 Private Notes**")
+                st.caption("Add non-publicly available information, insights, or reminders")
+    
+                # Add new note
+                with st.expander("➕ Add New Note"):
+                    note_date = st.date_input(
+                        "Date",
+                        value=pd.to_datetime(end_date).date(),
+                        min_value=pd.to_datetime(start_date).date(),
+                        max_value=pd.to_datetime(end_date).date(),
+                        key='new_note_date'
+                    )
+                    note_category = st.selectbox(
+                        "Category",
+                        ["General", "Private Info", "Analysis", "Follow-up", "Meeting Notes"],
+                        key='new_note_category'
+                    )
+                    note_text = st.text_area(
+                        "Note",
+                        placeholder="Enter your private note here...",
+                        key='new_note_text'
+                    )
+    
+                    if st.button("Save Note"):
+                        if note_text.strip():
+                            notes_mgr.add_note(
+                                ticker=selected_timeline_ticker,
+                                date=str(note_date),
+                                note=note_text,
+                                category=note_category
+                            )
+                            st.success("✓ Note saved!")
+                            st.rerun()
+                        else:
+                            st.warning("Please enter a note before saving")
+    
+                # Display existing notes
+                st.markdown("**Existing Notes:**")
+                ticker_notes = notes_mgr.get_notes(selected_timeline_ticker)
+    
+                if ticker_notes:
+                    for i, note in enumerate(ticker_notes):
+                        with st.container():
+                            col1, col2, col3 = st.columns([2, 4, 1])
+                            col1.markdown(f"**{note['date']}**")
+                            col2.markdown(f"*{note['category']}*")
+                            col3.markdown(f"*{pd.to_datetime(note['timestamp']).strftime('%H:%M')}*")
+                            st.markdown(note['note'])
+                            st.markdown("---")
+                else:
+                    st.info("No notes yet. Add your first note above!")
+    
+            except Exception as e:
+                st.error(f"Error loading timeline: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
+    
+        # What-If Scenarios sub-tab
+        with subtab_whatif:
+            st.markdown("#### 🎲 What-If Scenario Planner")
+            st.markdown("*Model hypothetical corporate events and see their projected impact on IRCI scores and enterprise value*")
+    
+            st.info("""
+            💡 **How This Works**: Add hypothetical events (investor days, leadership changes, etc.) to see their projected impact.
+            - Uses the same research-based calculations as the Event Timeline
+            - Shows cumulative impact of multiple events
+            - Compare current state vs. with planned initiatives
+            - Plan your IR strategy and quantify expected outcomes
+            """)
+    
+            # Company selector for what-if analysis
+            selected_whatif_ticker = st.selectbox(
+                "Select company for scenario planning:",
+                display_df['ticker'].tolist(),
+                key='whatif_ticker'
             )
-
-            # Get dial scores for selected company
-            company_row = df_composite_filtered[df_composite_filtered['ticker'] == playbook_ticker].iloc[0]
-
-            dial_scores = {
-                'valuation': company_row.get('valuation_pct', 50),
-                'liquidity': company_row.get('liquidity_pct', 50),
-                'coverage': company_row.get('coverage_pct', 50),
-                'trust': company_row.get('sentiment_pct', 50)
-            }
-
-            # Calculate dollar value per IRCI point for this company
-            company_dollar_per_point = None
+    
+            # Get current company data
+            company_data = df_composite_filtered[df_composite_filtered['ticker'] == selected_whatif_ticker].iloc[0]
+            current_irci = company_data['irci_composite_pct']
+            current_valuation_pct = company_data.get('valuation_pct', 0)
+            current_liquidity_pct = company_data.get('liquidity_pct', 0)
+            current_coverage_pct = company_data.get('coverage_pct', 0)
+            current_sentiment_pct = company_data.get('sentiment_pct', 0)
+    
+            # Get current EV
+            ticker_val_data = df_val_filtered[df_val_filtered['ticker'] == selected_whatif_ticker]
+            current_ev = ticker_val_data['enterprise_value'].iloc[0] if not ticker_val_data.empty else 0
+    
+            # Get company-specific $/IRCI point
+            whatif_dollar_per_irci_pt = None
             try:
                 from irci.dial_insights import compute_dollar_value_per_irci_point
                 dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
                 if not dollar_value_df.empty:
-                    company_data = dollar_value_df[dollar_value_df['ticker'] == playbook_ticker]
-                    if not company_data.empty:
-                        company_dollar_per_point = company_data['company_$/irci_pt'].iloc[0]
+                    ticker_dollar_data = dollar_value_df[dollar_value_df['ticker'] == selected_whatif_ticker]
+                    if not ticker_dollar_data.empty:
+                        whatif_dollar_per_irci_pt = ticker_dollar_data['company_$/irci_pt'].iloc[0]
             except Exception:
-                pass  # Silently fail if dollar value can't be calculated
-
-            # Generate playbook
-            playbook = generate_playbook(dial_scores, df_composite, playbook_ticker)
-
-            # Display summary
+                pass
+    
+            # Display current state
             st.markdown("---")
-            st.markdown("### 📊 Executive Summary")
-            st.markdown(playbook['summary'])
-
-            # Show dial classifications
-            st.markdown("#### Dial Performance Overview")
-            col1, col2, col3, col4 = st.columns(4)
-
-            classification_colors = {
-                'critical': '🔴',
-                'low': '🟠',
-                'medium': '🟡',
-                'high': '🟢'
+            st.markdown("### 📊 Current State")
+            col_curr1, col_curr2, col_curr3, col_curr4 = st.columns(4)
+            col_curr1.metric("IRCI Composite", f"{current_irci:.1f}%")
+            col_curr2.metric("Enterprise Value", f"${current_ev/1e9:.2f}B" if current_ev > 0 else "N/A")
+            col_curr3.metric("$/IRCI Point", f"${whatif_dollar_per_irci_pt:,.0f}" if whatif_dollar_per_irci_pt else "N/A")
+            col_curr4.metric("Rank", f"#{company_data.get('rank', 'N/A')}" if 'rank' in company_data else "N/A")
+    
+            # Event Value Menu - Show what each event type is worth
+            st.markdown("---")
+            st.markdown("### 💰 Event Value Menu")
+            st.markdown(f"*Projected impact of each event type for **{selected_whatif_ticker}** based on current weights*")
+    
+            # Calculate impacts for all event types
+            from irci.event_timeline import calculate_event_irci_impact
+    
+            # Get current weights
+            current_weights = {
+                'valuation': weight_valuation / 100,
+                'liquidity': weight_liquidity / 100,
+                'coverage': weight_coverage / 100,
+                'sentiment': weight_trust / 100
             }
-
-            with col1:
-                val_cls = playbook['dial_classifications']['valuation']
-                st.metric(
-                    "💰 Valuation",
-                    f"{dial_scores['valuation']:.1f}%",
-                    delta=f"{classification_colors[val_cls]} {val_cls.capitalize()}"
-                )
-
-            with col2:
-                liq_cls = playbook['dial_classifications']['liquidity']
-                st.metric(
-                    "💧 Liquidity",
-                    f"{dial_scores['liquidity']:.1f}%",
-                    delta=f"{classification_colors[liq_cls]} {liq_cls.capitalize()}"
-                )
-
-            with col3:
-                cov_cls = playbook['dial_classifications']['coverage']
-                st.metric(
-                    "📰 Coverage",
-                    f"{dial_scores['coverage']:.1f}%",
-                    delta=f"{classification_colors[cov_cls]} {cov_cls.capitalize()}"
-                )
-
-            with col4:
-                trust_cls = playbook['dial_classifications']['trust']
-                st.metric(
-                    "🤝 Trust",
-                    f"{dial_scores['trust']:.1f}%",
-                    delta=f"{classification_colors[trust_cls]} {trust_cls.capitalize()}"
-                )
-
-            # Potential Value Improvements Section
-            if company_dollar_per_point:
-                st.markdown("---")
-                st.markdown("### 💎 Potential Value Improvements")
-                st.markdown("*Conservative estimates of value you can add by improving each dial next quarter*")
-
-                st.info("""
-                **How to read these estimates:**
-                - **Conservative Range:** Based on peer benchmarking and industry research
-                - **Point Improvement:** Realistic quarterly improvement target for each dial
-                - **Estimated Value:** Dollar impact calculated using your company's $/IRCI point
-                - **Assumptions:** 2-5 point improvement for critical dials, 1-3 points for others
-
-                These are **planning estimates** to help prioritize IR investments, not guarantees.
-                """)
-
-                # Calculate improvement opportunities for each dial
-                improvements = []
-                dial_names = {
-                    'valuation': ('💰 Valuation', weight_valuation / 100),
-                    'liquidity': ('💧 Liquidity', weight_liquidity / 100),
-                    'coverage': ('📰 Coverage', weight_coverage / 100),
-                    'trust': ('🤝 Trust', weight_trust / 100)
-                }
-
-                for dial, score in dial_scores.items():
-                    dial_label, dial_weight = dial_names[dial]
-                    classification = playbook['dial_classifications'][dial]
-
-                    # Conservative improvement estimates based on classification
-                    if classification == 'critical' and score < 40:
-                        # Critical dials with very low scores have most improvement potential
-                        min_improvement = 3
-                        max_improvement = 8
-                    elif classification == 'low' or score < 50:
-                        # Below-average dials
-                        min_improvement = 2
-                        max_improvement = 5
-                    elif score < 70:
-                        # Average dials
-                        min_improvement = 1
-                        max_improvement = 3
-                    else:
-                        # Already strong dials
-                        min_improvement = 0.5
-                        max_improvement = 2
-
-                    # Calculate IRCI impact (dial improvement × dial weight)
-                    min_irci_impact = min_improvement * dial_weight
-                    max_irci_impact = max_improvement * dial_weight
-
-                    # Calculate dollar value range
-                    min_value = min_irci_impact * company_dollar_per_point
-                    max_value = max_irci_impact * company_dollar_per_point
-
-                    improvements.append({
-                        'dial': dial_label,
-                        'current_score': score,
-                        'classification': classification,
-                        'min_improvement': min_improvement,
-                        'max_improvement': max_improvement,
-                        'min_value': min_value,
-                        'max_value': max_value,
-                        'priority': 1 if classification in ['critical', 'low'] else 2 if score < 70 else 3
+    
+            # Define all event types with their configurations
+            event_menu_items = [
+                # Major Corporate Events
+                ('Investor Day', 'investor_day', {}, "+2.0%", "+2% Cov, +1.5% Trust"),
+                ('Analyst Day', 'analyst_day', {}, "+1.5%", "+1.5% Cov, +1% Trust"),
+                ('CEO Change (Inside)', 'ceo_change', {'succession_type': 'planned_inside', 'forced': False}, "+0.5%", "+0.5% Trust"),
+                ('CEO Change (Outside)', 'ceo_change', {'succession_type': 'outside', 'forced': False}, "-0.5%", "-0.5% Trust"),
+                ('CEO Change (Forced)', 'ceo_change', {'succession_type': 'unknown', 'forced': True}, "-1.5%", "-1% Trust"),
+                ('CFO Change (Voluntary)', 'cfo_change', {'forced': False}, "-0.3%", "-0.3% Trust"),
+                ('CFO Change (Forced)', 'cfo_change', {'forced': True}, "-1.0%", "-0.8% Trust"),
+                ('Strategic Announcement (Positive)', 'strategic_announcement', {'sentiment': 0.8, 'announcement_type': 'positive'}, "+1.6%", "+0.8% Trust, +0.5% Cov"),
+                ('Strategic Announcement (Negative)', 'strategic_announcement', {'sentiment': -0.8, 'announcement_type': 'negative'}, "-1.6%", "-0.8% Trust, +0.5% Cov"),
+                ('Dividend Increase', 'dividend_announcement', {'dividend_change_pct': 10}, "+1.0%", "+0.5% Trust"),
+                ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -20}, "-2.0%", "-0.8% Trust"),
+                ('Buyback Announcement', 'buyback_announcement', {}, "+1.5%", "+0.8% Trust"),
+                # Daily IR Activities
+                ('IR Website Improvement', 'ir_website_improvement', {}, "+0.5%", "+0.4% Cov, +0.3% Trust"),
+                ('Advertising Campaign', 'advertising_campaign', {}, "+0.5%", "+0.3% Cov, +0.2% Trust"),
+                ('Press Release Program', 'press_release_program', {}, "+0.5%", "+0.3% Cov, +0.2% Trust"),
+                ('Social Media Campaign', 'social_media_campaign', {}, "+0.5%", "+0.6% Cov, +0.4% Liq"),
+                ('Conference Presentation', 'conference_presentation', {}, "+0.8%", "+0.8% Cov, +0.4% Trust"),
+                ('Analyst Coverage Initiation', 'analyst_coverage_initiation', {}, "+1.0%", "+1.5% Cov, +0.8% Liq, +0.5% Trust"),
+            ]
+    
+            # Calculate impacts for each event type
+            event_values = []
+            for label, event_type, metadata, expected_car, dial_impact in event_menu_items:
+                try:
+                    impact = calculate_event_irci_impact(
+                        event_date=pd.Timestamp.now().strftime('%Y-%m-%d'),
+                        event_type=event_type,
+                        df_composite=df_composite_filtered,
+                        df_val=df_val_filtered,
+                        ticker=selected_whatif_ticker,
+                        weights=current_weights,
+                        company_dollar_per_irci_pt=whatif_dollar_per_irci_pt,
+                        event_metadata=metadata
+                    )
+                    event_values.append({
+                        'Event Type': label,
+                        'IRCI Impact': f"{impact['irci_impact']:+.2f} pts",
+                        'Dollar Impact': f"${impact['dollar_impact']/1e6:+.1f}M" if impact['dollar_impact'] != 0 else "N/A",
+                        'Expected CAR': expected_car,
+                        'Affected Dials': dial_impact
                     })
-
-                # Sort by priority (critical/low first)
-                improvements.sort(key=lambda x: (x['priority'], -x['max_value']))
-
-                # Display as cards
-                for imp in improvements:
-                    color = "🔴" if imp['classification'] == 'critical' else "🟠" if imp['classification'] == 'low' else "🟡" if imp['classification'] == 'medium' else "🟢"
-
-                    with st.expander(f"{color} **{imp['dial']}** — **\${imp['min_value']/1e6:.0f}M to \${imp['max_value']/1e6:.0f}M** potential value", expanded=imp['priority'] == 1):
-                        col_left, col_right = st.columns([1, 1])
-
-                        with col_left:
-                            st.metric(
-                                "Current Score",
-                                f"{imp['current_score']:.1f}%",
-                                delta=f"{color} {imp['classification'].capitalize()}"
-                            )
-
-                        with col_right:
-                            st.metric(
-                                "Quarterly Improvement Range",
-                                f"+{imp['min_improvement']:.1f} to +{imp['max_improvement']:.1f} pts"
-                            )
-
-                        st.markdown(f"""
-                        **What this means:**
-                        - By focusing on {imp['dial'].lower()} improvement initiatives next quarter, you could realistically gain **{imp['min_improvement']:.1f}-{imp['max_improvement']:.1f} points**
-                        - This translates to an estimated **\${imp['min_value']/1e6:.0f}M - \${imp['max_value']/1e6:.0f}M** in enterprise value impact
-                        - See recommendations below for specific actions to achieve these improvements
-
-                        **Key actions:** Review the {imp['dial'].split()[1]} recommendations in the sections below for concrete next steps.
-                        """)
-
-                st.caption(f"""
-                💡 **About these estimates:**
-                - $/IRCI Point for {playbook_ticker}: \${company_dollar_per_point:,.0f}
-                - Improvement ranges based on peer analysis and classification severity
-                - Critical/low scoring dials have higher improvement potential
-                - Values are R²-scaled to reflect IR's partial influence on enterprise value
+                except Exception as e:
+                    # If calculation fails, still show the event with expected values
+                    event_values.append({
+                        'Event Type': label,
+                        'IRCI Impact': "N/A",
+                        'Dollar Impact': "N/A",
+                        'Expected CAR': expected_car,
+                        'Affected Dials': dial_impact
+                    })
+    
+            # Display as a dataframe
+            event_menu_df = pd.DataFrame(event_values)
+    
+            # Color code by impact type
+            st.dataframe(
+                event_menu_df,
+                use_container_width=True,
+                hide_index=True,
+                height=400
+            )
+    
+            st.caption("💡 **How to Use**: Review the projected impacts above, then add events to your scenario below to see cumulative effects.")
+    
+            # Research References
+            with st.expander("📚 Research Methodology & References", expanded=False):
+                st.markdown("""
+                ### Calculation Methodology
+    
+                **Event impacts are calculated using research-based estimates:**
+    
+                #### Major Corporate Events
+                - **Investor Days**: Average CAR +0.5% to +5%, with case studies showing +30% appreciation
+                  - *Source: MZ Group (2024) - Investor Day Impact Analysis*
+    
+                - **Leadership Changes**: Impact varies by succession type
+                  - Planned internal succession: +0.5% CAR
+                  - Forced turnover: -1.5% CAR (governance concerns)
+                  - Outside hire: -0.5% CAR (uncertainty)
+                  - *Research: CEO succession literature (multiple studies)*
+    
+                - **Dividend Announcements**: Signal of financial stability
+                  - Increases: +1.0% CAR
+                  - Cuts: -2.0% CAR
+    
+                - **Buyback Announcements**: +1.5% CAR (capital allocation confidence)
+    
+                #### Daily IR Activities
+                - **IR Website Improvements**: Reduces information asymmetry
+                  - Impact: 0.5%-2% improvement in corporate investment efficiency
+                  - *Source: Chen et al. (2015) - "The Role of the Media in Disseminating Insider-Trading News"*
+    
+                - **Advertising Campaigns**: Increases investor awareness and liquidity
+                  - 25% increase in advertising → +1.32% firm value
+                  - *Source: Grullon et al. (2004) - "Advertising, Breadth of Ownership, and Liquidity" (Review of Financial Studies)*
+    
+                - **Press Release Programs**: Immediate market impact
+                  - CAR range: -2% to +2% depending on content sentiment
+                  - *Source: Neuhierl et al. (2013) - "Market Reaction to Corporate Press Releases"*
+    
+                - **Social Media Campaigns**: Enhances retail investor engagement
+                  - 80% of institutional investors use social media for research
+                  - 30% say social media influenced investment decisions
+                  - *Source: Brunswick Group (2023) - Social Media and Institutional Investors*
+    
+                - **Conference Presentations**: Price discovery mechanism
+                  - +0.8% CAR from analyst/investor exposure
+                  - *Source: Francis et al. (1997) - "Costs of Equity and Earnings Attributes"*
+    
+                - **Analyst Coverage Initiation**: Reduces information asymmetry
+                  - +1.02% abnormal return on average
+                  - *Source: Irvine (2003) - "The Incremental Impact of Analyst Initiation of Coverage" (Journal of Financial Economics)*
+    
+                ### Dollar Impact Calculation
+    
+                Dollar impacts are calculated using **company-specific regression models** that estimate the relationship
+                between IRCI scores and enterprise value. These estimates are **R²-scaled** to reflect that investor
+                relations is one of many factors affecting valuation.
+    
+                **Formula**: `Dollar Impact = IRCI Impact × Company $/IRCI Point`
+    
+                Where `Company $/IRCI Point` is derived from:
+                - Regression of IRCI scores vs. Enterprise Value across peer companies
+                - Scaled by regression R² to account for explained variance
+                - This ensures conservative estimates that reflect IR as one factor among many
+    
+                ### Confidence Levels
+    
+                - **High (0.6-0.7)**: Well-researched event types with consistent empirical evidence
+                - **Medium (0.4-0.5)**: Event types with some research support but higher variability
+                - **Low (0.1-0.3)**: Aggregate measures where individual events have small impact
+    
+                **Note**: All estimates are conservative and based on academic research. Actual impacts will vary
+                by company, market conditions, and execution quality.
                 """)
-
-            # Quick Wins section
-            if playbook['quick_wins']:
+    
+    
+            # Initialize scenario events in session state
+            if 'scenario_events' not in st.session_state:
+                st.session_state['scenario_events'] = []
+    
+            # Scenario Event Builder
+            st.markdown("---")
+            st.markdown("### ➕ Add Hypothetical Events to Scenario")
+    
+            with st.expander("📝 Event Builder", expanded=len(st.session_state['scenario_events']) == 0):
+                col_evt1, col_evt2 = st.columns(2)
+    
+                with col_evt1:
+                    scenario_event_type_options = {
+                        # Major Corporate Events
+                        'Investor Day': 'investor_day',
+                        'Analyst Day': 'analyst_day',
+                        'CEO Change (Inside)': 'ceo_change_inside',
+                        'CEO Change (Outside)': 'ceo_change_outside',
+                        'CEO Change (Forced)': 'ceo_change_forced',
+                        'CFO Change (Voluntary)': 'cfo_change_voluntary',
+                        'CFO Change (Forced)': 'cfo_change_forced',
+                        'Strategic Announcement (Positive)': 'strategic_positive',
+                        'Strategic Announcement (Negative)': 'strategic_negative',
+                        'Dividend Increase': 'dividend_increase',
+                        'Dividend Cut': 'dividend_cut',
+                        'Buyback Announcement': 'buyback_announcement',
+                        # Daily IR Activities
+                        '🌐 IR Website Improvement': 'ir_website_improvement',
+                        '📺 Advertising Campaign': 'advertising_campaign',
+                        '📰 Press Release Program': 'press_release_program',
+                        '📱 Social Media Campaign': 'social_media_campaign',
+                        '🎤 Conference Presentation': 'conference_presentation',
+                        '📊 Analyst Coverage Initiation': 'analyst_coverage_initiation',
+                    }
+    
+                    scenario_event_label = st.selectbox(
+                        "Event Type",
+                        options=list(scenario_event_type_options.keys()),
+                        key='scenario_event_type'
+                    )
+    
+                    scenario_event_description = st.text_input(
+                        "Event Description",
+                        placeholder=f"e.g., Plan {scenario_event_label}",
+                        value=scenario_event_label,
+                        key='scenario_event_description'
+                    )
+    
+                with col_evt2:
+                    # Show expected impact preview
+                    event_type_code = scenario_event_type_options[scenario_event_label]
+    
+                    # Map to base event type and metadata
+                    if event_type_code == 'investor_day':
+                        base_type = 'investor_day'
+                        metadata = {}
+                        expected_car = "+2.0%"
+                        expected_dial = "+2% Cov, +1.5% Trust"
+                    elif event_type_code == 'analyst_day':
+                        base_type = 'analyst_day'
+                        metadata = {}
+                        expected_car = "+1.5%"
+                        expected_dial = "+1.5% Cov, +1% Trust"
+                    elif event_type_code == 'ceo_change_inside':
+                        base_type = 'ceo_change'
+                        metadata = {'succession_type': 'planned_inside', 'forced': False}
+                        expected_car = "+0.5%"
+                        expected_dial = "+0.5% Trust"
+                    elif event_type_code == 'ceo_change_outside':
+                        base_type = 'ceo_change'
+                        metadata = {'succession_type': 'outside', 'forced': False}
+                        expected_car = "-0.5%"
+                        expected_dial = "-0.5% Trust"
+                    elif event_type_code == 'ceo_change_forced':
+                        base_type = 'ceo_change'
+                        metadata = {'succession_type': 'unknown', 'forced': True}
+                        expected_car = "-1.5%"
+                        expected_dial = "-1% Trust"
+                    elif event_type_code == 'cfo_change_voluntary':
+                        base_type = 'cfo_change'
+                        metadata = {'forced': False}
+                        expected_car = "-0.3%"
+                        expected_dial = "-0.3% Trust"
+                    elif event_type_code == 'cfo_change_forced':
+                        base_type = 'cfo_change'
+                        metadata = {'forced': True}
+                        expected_car = "-1.0%"
+                        expected_dial = "-0.8% Trust"
+                    elif event_type_code == 'strategic_positive':
+                        base_type = 'strategic_announcement'
+                        metadata = {'sentiment': 0.8, 'announcement_type': 'positive'}
+                        expected_car = "+1.6%"
+                        expected_dial = "+0.8% Trust, +0.5% Cov"
+                    elif event_type_code == 'strategic_negative':
+                        base_type = 'strategic_announcement'
+                        metadata = {'sentiment': -0.8, 'announcement_type': 'negative'}
+                        expected_car = "-1.6%"
+                        expected_dial = "-0.8% Trust, +0.5% Cov"
+                    elif event_type_code == 'dividend_increase':
+                        base_type = 'dividend_announcement'
+                        metadata = {'dividend_change_pct': 10}
+                        expected_car = "+1.0%"
+                        expected_dial = "+0.5% Trust"
+                    elif event_type_code == 'dividend_cut':
+                        base_type = 'dividend_announcement'
+                        metadata = {'dividend_change_pct': -20}
+                        expected_car = "-2.0%"
+                        expected_dial = "-0.8% Trust"
+                    elif event_type_code == 'buyback_announcement':
+                        base_type = 'buyback_announcement'
+                        metadata = {}
+                        expected_car = "+1.5%"
+                        expected_dial = "+0.8% Trust"
+                    elif event_type_code == 'ir_website_improvement':
+                        base_type = 'ir_website_improvement'
+                        metadata = {}
+                        expected_car = "+0.5%"
+                        expected_dial = "+0.4% Cov, +0.3% Trust"
+                    elif event_type_code == 'advertising_campaign':
+                        base_type = 'advertising_campaign'
+                        metadata = {}
+                        expected_car = "+0.5%"
+                        expected_dial = "+0.3% Cov, +0.2% Trust"
+                    elif event_type_code == 'press_release_program':
+                        base_type = 'press_release_program'
+                        metadata = {}
+                        expected_car = "+0.5%"
+                        expected_dial = "+0.3% Cov, +0.2% Trust"
+                    elif event_type_code == 'social_media_campaign':
+                        base_type = 'social_media_campaign'
+                        metadata = {}
+                        expected_car = "+0.5%"
+                        expected_dial = "+0.6% Cov, +0.4% Liq"
+                    elif event_type_code == 'conference_presentation':
+                        base_type = 'conference_presentation'
+                        metadata = {}
+                        expected_car = "+0.8%"
+                        expected_dial = "+0.8% Cov, +0.4% Trust"
+                    elif event_type_code == 'analyst_coverage_initiation':
+                        base_type = 'analyst_coverage_initiation'
+                        metadata = {}
+                        expected_car = "+1.0%"
+                        expected_dial = "+1.5% Cov, +0.8% Liq, +0.5% Trust"
+                    else:
+                        base_type = 'other'
+                        metadata = {}
+                        expected_car = "0%"
+                        expected_dial = "None"
+    
+                    st.metric("Expected CAR", expected_car, help="Cumulative Abnormal Return from research")
+                    st.caption(f"**Dial Impact:** {expected_dial}")
+    
+                if st.button("➕ Add Event to Scenario", use_container_width=True, key='add_scenario_event'):
+                    from irci.event_timeline import calculate_event_irci_impact
+    
+                    # Get current weights
+                    current_weights = {
+                        'valuation': weight_valuation / 100,
+                        'liquidity': weight_liquidity / 100,
+                        'coverage': weight_coverage / 100,
+                        'sentiment': weight_trust / 100
+                    }
+    
+                    # Calculate impact
+                    impact = calculate_event_irci_impact(
+                        event_date=pd.Timestamp.now().strftime('%Y-%m-%d'),
+                        event_type=base_type,
+                        df_composite=df_composite_filtered,
+                        df_val=df_val_filtered,
+                        ticker=selected_whatif_ticker,
+                        weights=current_weights,
+                        company_dollar_per_irci_pt=whatif_dollar_per_irci_pt,
+                        event_metadata=metadata
+                    )
+    
+                    scenario_event = {
+                        'description': scenario_event_description,
+                        'event_type': base_type,
+                        'event_type_label': scenario_event_label,
+                        'irci_impact': impact['irci_impact'],
+                        'dollar_impact': impact['dollar_impact'],
+                        'affected_dials': impact['affected_dials'],
+                        'car_estimate': impact.get('car_estimate', 0),
+                        'confidence': impact['confidence']
+                    }
+    
+                    st.session_state['scenario_events'].append(scenario_event)
+                    st.success(f"✅ Added {scenario_event_label} to scenario! Scroll down to see updated results.")
+    
+            # Display scenario events and cumulative impact
+            if st.session_state['scenario_events']:
                 st.markdown("---")
-                st.markdown("### ⚡ Quick Wins")
-                st.markdown("*Actions you can implement quickly for immediate impact*")
-
-                for rec in playbook['quick_wins'][:5]:  # Show top 5 quick wins
-                    with st.expander(f"**{rec['action']}** ({rec['category']})", expanded=False):
-                        st.markdown(rec['description'])
-                        st.caption(f"Priority: {rec['priority'].upper()}")
-
-            # All Recommendations by priority
-            st.markdown("---")
-            st.markdown("### 📋 All Recommendations")
-
-            priority_tabs = st.tabs([
-                f"🔴 High Priority ({playbook['priority_counts']['high']})",
-                f"🟡 Medium Priority ({playbook['priority_counts']['medium']})",
-                f"🟢 Low Priority ({playbook['priority_counts']['low']})"
-            ])
-
-            def display_recommendation(rec):
-                """Helper function to display a recommendation with all evidence-backed fields"""
-                with st.container():
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.markdown(f"**{rec['action']}**")
-                    with col2:
-                        if rec.get('quick_win'):
-                            st.caption("⚡ Quick Win")
-
-                    st.markdown(f"*Category: {rec['category']}*")
-                    st.markdown(f"**What:** {rec.get('what', '')}")
-                    st.markdown(f"**How:** {rec['description']}")
-
-                    # Show evidence-backed details in an expander
-                    with st.expander("📊 Evidence & Impact Details"):
-                        if rec.get('evidence'):
-                            st.markdown(f"**📚 Research Evidence:**\n{rec['evidence']}")
-                            st.markdown("")
-
-                        col_a, col_b = st.columns(2)
-                        with col_a:
-                            if rec.get('expected_impact'):
-                                st.markdown(f"**📈 Expected Impact:** {rec['expected_impact']}")
-                            if rec.get('timeframe'):
-                                st.markdown(f"**⏱️ Timeframe:** {rec['timeframe']}")
-
-                        with col_b:
-                            if rec.get('benchmark'):
-                                st.markdown(f"**🎯 Benchmark:** {rec['benchmark']}")
-
-                        if rec.get('tools'):
-                            st.markdown(f"**🛠️ Tools & Platforms:** {rec['tools']}")
-
-                        if rec.get('metrics'):
-                            st.markdown(f"**📊 Metrics to Track:** {rec['metrics']}")
-
+                st.markdown("### 📋 Current Scenario Events")
+    
+                scenario_df = pd.DataFrame(st.session_state['scenario_events'])
+    
+                for idx, evt in enumerate(st.session_state['scenario_events']):
+                    col_s1, col_s2, col_s3, col_s4, col_s5 = st.columns([3, 2, 2, 2, 1])
+    
+                    with col_s1:
+                        st.text(f"{idx+1}. {evt['description']}")
+                    with col_s2:
+                        st.text(f"IRCI: {evt['irci_impact']:+.4f}")
+                    with col_s3:
+                        st.text(f"$: ${evt['dollar_impact']:+,.0f}" if evt['dollar_impact'] != 0 else "$: N/A")
+                    with col_s4:
+                        st.text(f"CAR: {evt['car_estimate']:+.1f}%")
+                    with col_s5:
+                        if st.button("🗑️", key=f"delete_scenario_{idx}"):
+                            st.session_state['scenario_events'].pop(idx)
+                            st.rerun()
+    
+                # Calculate cumulative impact
+                total_irci_impact = sum(evt['irci_impact'] for evt in st.session_state['scenario_events'])
+                total_dollar_impact = sum(evt['dollar_impact'] for evt in st.session_state['scenario_events'])
+                avg_car = sum(evt['car_estimate'] for evt in st.session_state['scenario_events']) / len(st.session_state['scenario_events'])
+    
+                # Project new state
+                projected_irci = current_irci + total_irci_impact
+                projected_ev = current_ev + total_dollar_impact if current_ev > 0 else None
+    
+                st.markdown("---")
+                st.markdown("### 🎯 Projected Impact Summary")
+    
+                col_sum1, col_sum2, col_sum3 = st.columns(3)
+                col_sum1.metric(
+                    "Total IRCI Impact",
+                    f"{total_irci_impact:+.4f} pts",
+                    help="Sum of all event impacts on IRCI composite score"
+                )
+                col_sum2.metric(
+                    "Total Dollar Impact",
+                    f"${total_dollar_impact:+,.0f}" if total_dollar_impact != 0 else "N/A",
+                    help="Estimated change in enterprise value"
+                )
+                col_sum3.metric(
+                    "Avg CAR",
+                    f"{avg_car:+.1f}%",
+                    help="Average Cumulative Abnormal Return across events"
+                )
+    
+                # Before/After Comparison
+                st.markdown("---")
+                st.markdown("### 📊 Before vs. After Comparison")
+    
+                col_comp1, col_comp2, col_comp3 = st.columns(3)
+    
+                with col_comp1:
+                    st.markdown("**Current State**")
+                    st.metric("IRCI Score", f"{current_irci:.1f}%")
+                    if current_ev > 0:
+                        st.metric("Enterprise Value", f"${current_ev/1e9:.2f}B")
+    
+                with col_comp2:
+                    st.markdown("**After Events**")
+                    delta_irci = projected_irci - current_irci
+                    st.metric("IRCI Score", f"{projected_irci:.1f}%", delta=f"{delta_irci:+.1f}")
+                    if projected_ev:
+                        delta_ev_pct = ((projected_ev - current_ev) / current_ev) * 100
+                        st.metric("Enterprise Value", f"${projected_ev/1e9:.2f}B", delta=f"{delta_ev_pct:+.1f}%")
+    
+                with col_comp3:
+                    st.markdown("**Change**")
+                    st.metric("IRCI Change", f"{total_irci_impact:+.4f} pts")
+                    if total_dollar_impact != 0:
+                        st.metric("EV Change", f"${total_dollar_impact/1e9:+.2f}B")
+    
+                # Visualization of dial changes
+                st.markdown("---")
+                st.markdown("### 🎨 Dial Impact Breakdown")
+    
+                # Calculate dial-specific impacts
+                dial_impacts = {
+                    'Valuation': 0,
+                    'Liquidity': 0,
+                    'Coverage': 0,
+                    'Trust': 0
+                }
+    
+                for evt in st.session_state['scenario_events']:
+                    for dial in evt['affected_dials']:
+                        if dial in dial_impacts:
+                            dial_impacts[dial] += evt['irci_impact'] / len(evt['affected_dials'])
+    
+                # Display as metrics
+                col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+                col_d1.metric("Valuation", f"{current_valuation_pct:.1f}%", delta=f"{dial_impacts['Valuation']:+.2f}" if dial_impacts['Valuation'] != 0 else None)
+                col_d2.metric("Liquidity", f"{current_liquidity_pct:.1f}%", delta=f"{dial_impacts['Liquidity']:+.2f}" if dial_impacts['Liquidity'] != 0 else None)
+                col_d3.metric("Coverage", f"{current_coverage_pct:.1f}%", delta=f"{dial_impacts['Coverage']:+.2f}" if dial_impacts['Coverage'] != 0 else None)
+                col_d4.metric("Trust", f"{current_sentiment_pct:.1f}%", delta=f"{dial_impacts['Trust']:+.2f}" if dial_impacts['Trust'] != 0 else None)
+    
+                # Action buttons
+                st.markdown("---")
+                col_action1, col_action2, col_action3 = st.columns(3)
+    
+                with col_action1:
+                    if st.button("🗑️ Clear All Events", use_container_width=True):
+                        st.session_state['scenario_events'] = []
+                        st.rerun()
+    
+                with col_action2:
+                    if st.button("💾 Save Scenario", use_container_width=True):
+                        # Save to session state for later comparison
+                        if 'saved_scenarios' not in st.session_state:
+                            st.session_state['saved_scenarios'] = []
+    
+                        scenario_name = f"Scenario {len(st.session_state['saved_scenarios']) + 1}"
+                        st.session_state['saved_scenarios'].append({
+                            'name': scenario_name,
+                            'ticker': selected_whatif_ticker,
+                            'events': st.session_state['scenario_events'].copy(),
+                            'total_irci_impact': total_irci_impact,
+                            'total_dollar_impact': total_dollar_impact
+                        })
+                        st.success(f"✅ Saved as '{scenario_name}'")
+    
+                with col_action3:
+                    if st.button("📋 Export to Notes", use_container_width=True):
+                        # Could export scenario as a formatted note
+                        st.info("💡 Feature coming soon: Export scenario to event timeline notes")
+    
+                # Show research methodology
+                with st.expander("📚 Research Methodology & Sources"):
+                    st.markdown("""
+                    ### How What-If Impacts Are Calculated
+    
+                    This scenario planner uses the same research-based methodology as the Event Timeline:
+    
+                    **Event Impact Calculation:**
+                    1. Each event type has a researched dial impact (e.g., Investor Day = +2% Coverage, +1.5% Trust)
+                    2. Dial impacts are weighted by your current dial weights (default: 35/35/15/15)
+                    3. Weighted impacts sum to IRCI composite impact
+                    4. IRCI impact × company $/IRCI point = Dollar impact
+                    5. CAR estimates from academic event studies
+    
+                    **Research Sources:**
+    
+                    *Major Corporate Events:*
+                    - **Investor Days**: MZ Group 2024 (+30% average appreciation)
+                    - **CEO Changes**: Clayton et al. (volatility analysis by succession type)
+                    - **CFO Changes**: Earnings persistence research
+                    - **Analyst Coverage**: Irvine (2003) - "The Incremental Impact of Analyst Initiation of Coverage" (JFE) - +1.02% CAR
+    
+                    *Daily IR Activities:*
+                    - **IR Website Improvements**: Chen et al. (2015) - "The Role of the Media in Disseminating Insider-Trading News" - 0.5%-2% efficiency gain
+                    - **Advertising Campaigns**: Grullon et al. (2004) - "Advertising, Breadth of Ownership, and Liquidity" (Review of Financial Studies) - +1.32% firm value
+                    - **Press Releases**: Neuhierl et al. (2013) - "Market Reaction to Corporate Press Releases" - -2% to +2% CAR
+                    - **Social Media**: Brunswick Group (2023) - 80% of institutional investors use social media; 30% influenced decisions
+                    - **Conference Presentations**: Francis et al. (1997) - "Costs of Equity and Earnings Attributes" - price discovery mechanism
+    
+                    *Methodology:*
+                    - **CAR Methodology**: Event study literature (2,325 papers reviewed)
+    
+                    **Key Assumptions:**
+                    - Impacts are additive (conservative)
+                    - No interaction effects between events
+                    - R²-scaled dollar impacts (accounts for other factors)
+                    - Academic averages may vary by company/industry
+    
+                    **Best Practices:**
+                    - Don't model more than 5-7 events per scenario (diminishing returns)
+                    - Consider realistic timing (can't do 3 investor days per quarter)
+                    - Use for planning, not prediction (markets are complex)
+                    - Focus on relative impact comparison between scenarios
+                    """)
+    
+            else:
+                st.info("👆 Add events to your scenario using the Event Builder above to see projected impacts!")
+    
+        # Playbook sub-tab
+        with subtab_playbook:
+            # IR Playbook - Action recommendations based on dial scores
+            st.markdown("#### 📋 IR Action Playbook")
+            st.markdown("*Get specific action recommendations based on your IRCI dial performance*")
+    
+            st.info("""
+            📚 **How This Works**: The playbook analyzes your dial scores and provides prioritized action items.
+            - **High Priority**: Critical areas requiring immediate attention
+            - **Medium Priority**: Important improvements for strategic focus
+            - **Low Priority**: Optimization opportunities
+            - **Quick Wins**: Actions you can implement quickly for immediate impact
+            """)
+    
+            try:
+                # Company selector for playbook
+                playbook_ticker = st.selectbox(
+                    "Select company for IR playbook:",
+                    df_composite_filtered['ticker'].unique(),
+                    key="playbook_ticker_select"
+                )
+    
+                # Get dial scores for selected company
+                company_row = df_composite_filtered[df_composite_filtered['ticker'] == playbook_ticker].iloc[0]
+    
+                dial_scores = {
+                    'valuation': company_row.get('valuation_pct', 50),
+                    'liquidity': company_row.get('liquidity_pct', 50),
+                    'coverage': company_row.get('coverage_pct', 50),
+                    'trust': company_row.get('sentiment_pct', 50)
+                }
+    
+                # Calculate dollar value per IRCI point for this company
+                company_dollar_per_point = None
+                try:
+                    from irci.dial_insights import compute_dollar_value_per_irci_point
+                    dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
+                    if not dollar_value_df.empty:
+                        company_data = dollar_value_df[dollar_value_df['ticker'] == playbook_ticker]
+                        if not company_data.empty:
+                            company_dollar_per_point = company_data['company_$/irci_pt'].iloc[0]
+                except Exception:
+                    pass  # Silently fail if dollar value can't be calculated
+    
+                # Generate playbook
+                playbook = generate_playbook(dial_scores, df_composite, playbook_ticker)
+    
+                # Display summary
+                st.markdown("---")
+                st.markdown("### 📊 Executive Summary")
+                st.markdown(playbook['summary'])
+    
+                # Show dial classifications
+                st.markdown("#### Dial Performance Overview")
+                col1, col2, col3, col4 = st.columns(4)
+    
+                classification_colors = {
+                    'critical': '🔴',
+                    'low': '🟠',
+                    'medium': '🟡',
+                    'high': '🟢'
+                }
+    
+                with col1:
+                    val_cls = playbook['dial_classifications']['valuation']
+                    st.metric(
+                        "💰 Valuation",
+                        f"{dial_scores['valuation']:.1f}%",
+                        delta=f"{classification_colors[val_cls]} {val_cls.capitalize()}"
+                    )
+    
+                with col2:
+                    liq_cls = playbook['dial_classifications']['liquidity']
+                    st.metric(
+                        "💧 Liquidity",
+                        f"{dial_scores['liquidity']:.1f}%",
+                        delta=f"{classification_colors[liq_cls]} {liq_cls.capitalize()}"
+                    )
+    
+                with col3:
+                    cov_cls = playbook['dial_classifications']['coverage']
+                    st.metric(
+                        "📰 Coverage",
+                        f"{dial_scores['coverage']:.1f}%",
+                        delta=f"{classification_colors[cov_cls]} {cov_cls.capitalize()}"
+                    )
+    
+                with col4:
+                    trust_cls = playbook['dial_classifications']['trust']
+                    st.metric(
+                        "🤝 Trust",
+                        f"{dial_scores['trust']:.1f}%",
+                        delta=f"{classification_colors[trust_cls]} {trust_cls.capitalize()}"
+                    )
+    
+                # Potential Value Improvements Section
+                if company_dollar_per_point:
                     st.markdown("---")
-
-            with priority_tabs[0]:
-                high_priority = [r for r in playbook['recommendations'] if r['priority'] == 'high']
-                if high_priority:
-                    for rec in high_priority:
-                        display_recommendation(rec)
-                else:
-                    st.success("No high-priority action items. Great job!")
-
-            with priority_tabs[1]:
-                medium_priority = [r for r in playbook['recommendations'] if r['priority'] == 'medium']
-                if medium_priority:
-                    for rec in medium_priority:
-                        display_recommendation(rec)
-                else:
-                    st.info("No medium-priority items.")
-
-            with priority_tabs[2]:
-                low_priority = [r for r in playbook['recommendations'] if r['priority'] == 'low']
-                if low_priority:
-                    for rec in low_priority:
-                        display_recommendation(rec)
-                else:
-                    st.info("No low-priority items.")
-
-            # Category breakdown
-            st.markdown("---")
-            st.markdown("### 📂 Recommendations by Dial")
-
-            category_tabs = st.tabs(["💰 Valuation", "💧 Liquidity", "📰 Coverage", "🤝 Trust"])
-
-            for i, category in enumerate(['Valuation', 'Liquidity', 'Coverage', 'Trust']):
-                with category_tabs[i]:
-                    category_recs = [r for r in playbook['recommendations'] if r['category'] == category]
-                    if category_recs:
-                        for rec in category_recs:
-                            priority_emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
-                            st.markdown(f"{priority_emoji[rec['priority']]} Priority")
+                    st.markdown("### 💎 Potential Value Improvements")
+                    st.markdown("*Conservative estimates of value you can add by improving each dial next quarter*")
+    
+                    st.info("""
+                    **How to read these estimates:**
+                    - **Conservative Range:** Based on peer benchmarking and industry research
+                    - **Point Improvement:** Realistic quarterly improvement target for each dial
+                    - **Estimated Value:** Dollar impact calculated using your company's $/IRCI point
+                    - **Assumptions:** 2-5 point improvement for critical dials, 1-3 points for others
+    
+                    These are **planning estimates** to help prioritize IR investments, not guarantees.
+                    """)
+    
+                    # Calculate improvement opportunities for each dial
+                    improvements = []
+                    dial_names = {
+                        'valuation': ('💰 Valuation', weight_valuation / 100),
+                        'liquidity': ('💧 Liquidity', weight_liquidity / 100),
+                        'coverage': ('📰 Coverage', weight_coverage / 100),
+                        'trust': ('🤝 Trust', weight_trust / 100)
+                    }
+    
+                    for dial, score in dial_scores.items():
+                        dial_label, dial_weight = dial_names[dial]
+                        classification = playbook['dial_classifications'][dial]
+    
+                        # Conservative improvement estimates based on classification
+                        if classification == 'critical' and score < 40:
+                            # Critical dials with very low scores have most improvement potential
+                            min_improvement = 3
+                            max_improvement = 8
+                        elif classification == 'low' or score < 50:
+                            # Below-average dials
+                            min_improvement = 2
+                            max_improvement = 5
+                        elif score < 70:
+                            # Average dials
+                            min_improvement = 1
+                            max_improvement = 3
+                        else:
+                            # Already strong dials
+                            min_improvement = 0.5
+                            max_improvement = 2
+    
+                        # Calculate IRCI impact (dial improvement × dial weight)
+                        min_irci_impact = min_improvement * dial_weight
+                        max_irci_impact = max_improvement * dial_weight
+    
+                        # Calculate dollar value range
+                        min_value = min_irci_impact * company_dollar_per_point
+                        max_value = max_irci_impact * company_dollar_per_point
+    
+                        improvements.append({
+                            'dial': dial_label,
+                            'current_score': score,
+                            'classification': classification,
+                            'min_improvement': min_improvement,
+                            'max_improvement': max_improvement,
+                            'min_value': min_value,
+                            'max_value': max_value,
+                            'priority': 1 if classification in ['critical', 'low'] else 2 if score < 70 else 3
+                        })
+    
+                    # Sort by priority (critical/low first)
+                    improvements.sort(key=lambda x: (x['priority'], -x['max_value']))
+    
+                    # Display as cards
+                    for imp in improvements:
+                        color = "🔴" if imp['classification'] == 'critical' else "🟠" if imp['classification'] == 'low' else "🟡" if imp['classification'] == 'medium' else "🟢"
+    
+                        with st.expander(f"{color} **{imp['dial']}** — **\${imp['min_value']/1e6:.0f}M to \${imp['max_value']/1e6:.0f}M** potential value", expanded=imp['priority'] == 1):
+                            col_left, col_right = st.columns([1, 1])
+    
+                            with col_left:
+                                st.metric(
+                                    "Current Score",
+                                    f"{imp['current_score']:.1f}%",
+                                    delta=f"{color} {imp['classification'].capitalize()}"
+                                )
+    
+                            with col_right:
+                                st.metric(
+                                    "Quarterly Improvement Range",
+                                    f"+{imp['min_improvement']:.1f} to +{imp['max_improvement']:.1f} pts"
+                                )
+    
+                            st.markdown(f"""
+                            **What this means:**
+                            - By focusing on {imp['dial'].lower()} improvement initiatives next quarter, you could realistically gain **{imp['min_improvement']:.1f}-{imp['max_improvement']:.1f} points**
+                            - This translates to an estimated **\${imp['min_value']/1e6:.0f}M - \${imp['max_value']/1e6:.0f}M** in enterprise value impact
+                            - See recommendations below for specific actions to achieve these improvements
+    
+                            **Key actions:** Review the {imp['dial'].split()[1]} recommendations in the sections below for concrete next steps.
+                            """)
+    
+                    st.caption(f"""
+                    💡 **About these estimates:**
+                    - $/IRCI Point for {playbook_ticker}: \${company_dollar_per_point:,.0f}
+                    - Improvement ranges based on peer analysis and classification severity
+                    - Critical/low scoring dials have higher improvement potential
+                    - Values are R²-scaled to reflect IR's partial influence on enterprise value
+                    """)
+    
+                # Quick Wins section
+                if playbook['quick_wins']:
+                    st.markdown("---")
+                    st.markdown("### ⚡ Quick Wins")
+                    st.markdown("*Actions you can implement quickly for immediate impact*")
+    
+                    for rec in playbook['quick_wins'][:5]:  # Show top 5 quick wins
+                        with st.expander(f"**{rec['action']}** ({rec['category']})", expanded=False):
+                            st.markdown(rec['description'])
+                            st.caption(f"Priority: {rec['priority'].upper()}")
+    
+                # All Recommendations by priority
+                st.markdown("---")
+                st.markdown("### 📋 All Recommendations")
+    
+                priority_tabs = st.tabs([
+                    f"🔴 High Priority ({playbook['priority_counts']['high']})",
+                    f"🟡 Medium Priority ({playbook['priority_counts']['medium']})",
+                    f"🟢 Low Priority ({playbook['priority_counts']['low']})"
+                ])
+    
+                def display_recommendation(rec):
+                    """Helper function to display a recommendation with all evidence-backed fields"""
+                    with st.container():
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.markdown(f"**{rec['action']}**")
+                        with col2:
+                            if rec.get('quick_win'):
+                                st.caption("⚡ Quick Win")
+    
+                        st.markdown(f"*Category: {rec['category']}*")
+                        st.markdown(f"**What:** {rec.get('what', '')}")
+                        st.markdown(f"**How:** {rec['description']}")
+    
+                        # Show evidence-backed details in an expander
+                        with st.expander("📊 Evidence & Impact Details"):
+                            if rec.get('evidence'):
+                                st.markdown(f"**📚 Research Evidence:**\n{rec['evidence']}")
+                                st.markdown("")
+    
+                            col_a, col_b = st.columns(2)
+                            with col_a:
+                                if rec.get('expected_impact'):
+                                    st.markdown(f"**📈 Expected Impact:** {rec['expected_impact']}")
+                                if rec.get('timeframe'):
+                                    st.markdown(f"**⏱️ Timeframe:** {rec['timeframe']}")
+    
+                            with col_b:
+                                if rec.get('benchmark'):
+                                    st.markdown(f"**🎯 Benchmark:** {rec['benchmark']}")
+    
+                            if rec.get('tools'):
+                                st.markdown(f"**🛠️ Tools & Platforms:** {rec['tools']}")
+    
+                            if rec.get('metrics'):
+                                st.markdown(f"**📊 Metrics to Track:** {rec['metrics']}")
+    
+                        st.markdown("---")
+    
+                with priority_tabs[0]:
+                    high_priority = [r for r in playbook['recommendations'] if r['priority'] == 'high']
+                    if high_priority:
+                        for rec in high_priority:
                             display_recommendation(rec)
                     else:
-                        st.success(f"Your {category} dial is performing well. No specific actions needed.")
-
-        except Exception as e:
-            st.error(f"Error generating playbook: {str(e)}")
-            import traceback
-            st.code(traceback.format_exc())
+                        st.success("No high-priority action items. Great job!")
+    
+                with priority_tabs[1]:
+                    medium_priority = [r for r in playbook['recommendations'] if r['priority'] == 'medium']
+                    if medium_priority:
+                        for rec in medium_priority:
+                            display_recommendation(rec)
+                    else:
+                        st.info("No medium-priority items.")
+    
+                with priority_tabs[2]:
+                    low_priority = [r for r in playbook['recommendations'] if r['priority'] == 'low']
+                    if low_priority:
+                        for rec in low_priority:
+                            display_recommendation(rec)
+                    else:
+                        st.info("No low-priority items.")
+    
+                # Category breakdown
+                st.markdown("---")
+                st.markdown("### 📂 Recommendations by Dial")
+    
+                category_tabs = st.tabs(["💰 Valuation", "💧 Liquidity", "📰 Coverage", "🤝 Trust"])
+    
+                for i, category in enumerate(['Valuation', 'Liquidity', 'Coverage', 'Trust']):
+                    with category_tabs[i]:
+                        category_recs = [r for r in playbook['recommendations'] if r['category'] == category]
+                        if category_recs:
+                            for rec in category_recs:
+                                priority_emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
+                                st.markdown(f"{priority_emoji[rec['priority']]} Priority")
+                                display_recommendation(rec)
+                        else:
+                            st.success(f"Your {category} dial is performing well. No specific actions needed.")
+    
+            except Exception as e:
+                st.error(f"Error generating playbook: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
 
     # SECTION 5 (or SECTION 4 if not multi-quarter): AI Assistant
     if selected_section == "💬 AI Assistant":
