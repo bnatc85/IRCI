@@ -3845,38 +3845,50 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     
                     # Keep numeric columns for proper sorting
                     calendar_display = calendar_df[['date', 'num_events', 'event_types', 'total_irci_impact', 'total_dollar_impact', 'headlines']].copy()
-    
-                    # Rename columns
+
+                    # Format numeric columns as strings with proper formatting
+                    def format_dollar(val):
+                        if pd.isna(val) or val == 0:
+                            return "$0"
+                        try:
+                            val_float = float(val)
+                            if abs(val_float) >= 1e9:
+                                return f"${val_float/1e9:+,.2f}B"
+                            elif abs(val_float) >= 1e6:
+                                return f"${val_float/1e6:+,.2f}M"
+                            elif abs(val_float) >= 1e3:
+                                return f"${val_float/1e3:+,.1f}K"
+                            else:
+                                return f"${val_float:+,.0f}"
+                        except (ValueError, TypeError):
+                            return "N/A"
+
+                    def format_irci(val):
+                        if pd.isna(val):
+                            return "N/A"
+                        try:
+                            return f"{float(val):+.5f}"
+                        except (ValueError, TypeError):
+                            return "N/A"
+
+                    calendar_display['irci_formatted'] = calendar_display['total_irci_impact'].apply(format_irci)
+                    calendar_display['dollar_formatted'] = calendar_display['total_dollar_impact'].apply(format_dollar)
+
+                    # Rename columns and select formatted versions
                     calendar_display = calendar_display.rename(columns={
                         'date': 'Date',
                         'num_events': '# Events',
                         'event_types': 'Event Types',
-                        'total_irci_impact': 'IRCI Impact',
-                        'total_dollar_impact': '$ Impact',
+                        'irci_formatted': 'IRCI Impact',
+                        'dollar_formatted': '$ Impact',
                         'headlines': 'Top Headlines'
-                    })
-    
-                    # Ensure numeric columns are actually numeric for proper sorting
-                    calendar_display['IRCI Impact'] = pd.to_numeric(calendar_display['IRCI Impact'], errors='coerce')
-                    calendar_display['$ Impact'] = pd.to_numeric(calendar_display['$ Impact'], errors='coerce')
-    
-                    # Display calendar as interactive table with column config for formatting
+                    })[['Date', '# Events', 'Event Types', 'IRCI Impact', '$ Impact', 'Top Headlines']]
+
+                    # Display calendar as interactive table
                     st.dataframe(
                         calendar_display,
                         use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "IRCI Impact": st.column_config.NumberColumn(
-                                "IRCI Impact (pts)",
-                                help="Total IRCI impact (points)",
-                                format="%.5f"
-                            ),
-                            "$ Impact": st.column_config.NumberColumn(
-                                "$ Impact",
-                                help="Total dollar impact",
-                                format="$%,.0f"
-                            ),
-                        }
+                        hide_index=True
                     )
     
                     st.caption("""
@@ -3896,12 +3908,12 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 if not timeline_df.empty:
                     # Create a simpler display without complex styling that causes issues
                     display_timeline = timeline_df[['date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'affected_dials']].copy()
-    
+
                     # Add a color indicator column instead of row styling
                     def get_color_indicator(row):
                         event_type = row['event_type']
                         sentiment = row.get('sentiment_score', 0) if 'sentiment_score' in timeline_df.columns else 0
-    
+
                         if event_type == 'news':
                             if sentiment > 0.2:
                                 return '🟢'
@@ -3938,41 +3950,53 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         elif event_type == 'trust_measurement':
                             return '💭'
                         return '•'
-    
+
                     display_timeline.insert(0, 'indicator', timeline_df.apply(get_color_indicator, axis=1))
-    
-                    # Keep numeric columns for proper sorting
-                    display_timeline = display_timeline[['indicator', 'date', 'event_type', 'description', 'irci_impact', 'dollar_impact', 'affected_dials']].rename(columns={
+
+                    # Format numeric columns as strings with proper formatting
+                    def format_dollar(val):
+                        if pd.isna(val) or val == 0:
+                            return "$0"
+                        try:
+                            val_float = float(val)
+                            if abs(val_float) >= 1e9:
+                                return f"${val_float/1e9:+,.2f}B"
+                            elif abs(val_float) >= 1e6:
+                                return f"${val_float/1e6:+,.2f}M"
+                            elif abs(val_float) >= 1e3:
+                                return f"${val_float/1e3:+,.1f}K"
+                            else:
+                                return f"${val_float:+,.0f}"
+                        except (ValueError, TypeError):
+                            return "N/A"
+
+                    def format_irci(val):
+                        if pd.isna(val):
+                            return "N/A"
+                        try:
+                            return f"{float(val):+.5f}"
+                        except (ValueError, TypeError):
+                            return "N/A"
+
+                    display_timeline['irci_formatted'] = display_timeline['irci_impact'].apply(format_irci)
+                    display_timeline['dollar_formatted'] = display_timeline['dollar_impact'].apply(format_dollar)
+
+                    # Select and rename columns
+                    display_timeline = display_timeline[['indicator', 'date', 'event_type', 'description', 'irci_formatted', 'dollar_formatted', 'affected_dials']].rename(columns={
                         'indicator': '',
                         'date': 'Date',
                         'event_type': 'Type',
                         'description': 'Description',
-                        'irci_impact': 'IRCI Impact',
-                        'dollar_impact': '$ Impact',
+                        'irci_formatted': 'IRCI Impact',
+                        'dollar_formatted': '$ Impact',
                         'affected_dials': 'Affected Dials'
                     })
-    
-                    # Ensure numeric columns are actually numeric for proper sorting
-                    display_timeline['IRCI Impact'] = pd.to_numeric(display_timeline['IRCI Impact'], errors='coerce')
-                    display_timeline['$ Impact'] = pd.to_numeric(display_timeline['$ Impact'], errors='coerce')
-    
-                    # Display the dataframe with column config for proper formatting while keeping numeric sorting
+
+                    # Display the dataframe
                     st.dataframe(
                         display_timeline,
                         use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "IRCI Impact": st.column_config.NumberColumn(
-                                "IRCI Impact (pts)",
-                                help="Individual event IRCI impact (points)",
-                                format="%.5f"
-                            ),
-                            "$ Impact": st.column_config.NumberColumn(
-                                "$ Impact",
-                                help="Individual event dollar impact",
-                                format="$%,.0f"
-                            ),
-                        }
+                        hide_index=True
                     )
     
                     st.caption("""
@@ -4315,8 +4339,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     )
                     event_values.append({
                         'Event Type': label,
-                        'IRCI Impact': f"{impact['irci_impact']:+.2f} pts",
-                        'Dollar Impact': f"${impact['dollar_impact']/1e6:+.1f}M" if impact['dollar_impact'] != 0 else "N/A",
+                        'irci_impact_num': impact['irci_impact'],
+                        'dollar_impact_num': impact['dollar_impact'],
                         'Expected CAR': expected_car,
                         'Affected Dials': dial_impact
                     })
@@ -4324,21 +4348,40 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     # If calculation fails, still show the event with expected values
                     event_values.append({
                         'Event Type': label,
-                        'IRCI Impact': "N/A",
-                        'Dollar Impact': "N/A",
+                        'irci_impact_num': 0,
+                        'dollar_impact_num': 0,
                         'Expected CAR': expected_car,
                         'Affected Dials': dial_impact
                     })
-    
-            # Display as a dataframe
+
+            # Create dataframe with numeric columns for sorting
             event_menu_df = pd.DataFrame(event_values)
-    
-            # Color code by impact type
+
+            # Rename numeric columns for display and convert dollar to millions for better display
+            event_menu_df['IRCI Impact (pts)'] = event_menu_df['irci_impact_num']
+            event_menu_df['Dollar Impact ($M)'] = event_menu_df['dollar_impact_num'] / 1e6
+
+            # Select columns for display
+            display_cols = ['Event Type', 'IRCI Impact (pts)', 'Dollar Impact ($M)', 'Expected CAR', 'Affected Dials']
+
+            # Display with numeric columns that can be sorted
             st.dataframe(
-                event_menu_df,
+                event_menu_df[display_cols],
                 use_container_width=True,
                 hide_index=True,
-                height=400
+                height=400,
+                column_config={
+                    "IRCI Impact (pts)": st.column_config.NumberColumn(
+                        "IRCI Impact (pts)",
+                        help="IRCI point impact for this event type",
+                        format="%.3f"
+                    ),
+                    "Dollar Impact ($M)": st.column_config.NumberColumn(
+                        "Dollar Impact ($M)",
+                        help="Dollar impact in millions",
+                        format="$%.2f"
+                    ),
+                }
             )
     
             st.caption("💡 **How to Use**: Review the projected impacts above, then add events to your scenario below to see cumulative effects.")
