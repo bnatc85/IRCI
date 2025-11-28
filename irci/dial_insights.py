@@ -294,16 +294,16 @@ def recommend_optimal_weights(
     dial_cols = ['valuation_pct', 'liquidity_pct', 'coverage_pct', 'sentiment_pct']
 
     # Calculate variance (spread) of each dial across peers
-    variances = df_composite[dial_cols].var()
+    variances = df_composite[dial_cols].var().fillna(0)
 
     # Also calculate coefficient of variation (CV = std / mean)
     # This normalizes for different mean values
-    means = df_composite[dial_cols].mean()
-    stds = df_composite[dial_cols].std()
-    cv = stds / (means + 1)  # Add 1 to avoid division by zero
+    means = df_composite[dial_cols].mean().fillna(0)
+    stds = df_composite[dial_cols].std().fillna(0)
+    cv = (stds / (means + 1)).fillna(0)  # Add 1 to avoid division by zero
 
     # Calculate data availability (how many peers have data for each dial)
-    availability = df_composite[dial_cols].notna().sum() / len(df_composite)
+    availability = (df_composite[dial_cols].notna().sum() / len(df_composite)).fillna(0)
 
     # Optimization strategy selection
     if optimize_for == 'r2' and 'enterprise_value' in df_composite.columns:
@@ -394,6 +394,8 @@ def recommend_optimal_weights(
         else:
             # Fallback to variance-based if optimization fails
             recommended_raw = discriminating_power / (total_power + 1e-10)
+            # Fill any NA values with equal weights before converting
+            recommended_raw = recommended_raw.fillna(0.25)
             recommended_weights = {
                 'valuation': float(recommended_raw['valuation_pct']),
                 'liquidity': float(recommended_raw['liquidity_pct']),
@@ -412,6 +414,9 @@ def recommend_optimal_weights(
             recommended_raw = discriminating_power / total_power
         else:
             recommended_raw = pd.Series([0.25, 0.25, 0.25, 0.25], index=dial_cols)
+
+        # Fill any NA values with equal weights before converting
+        recommended_raw = recommended_raw.fillna(0.25)
 
         # Convert to dictionary with friendly names
         recommended_weights = {
