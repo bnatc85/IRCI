@@ -1066,7 +1066,7 @@ with st.sidebar:
             st.rerun()
 
         # Start Over link - clears analysis and returns to initial state
-        if st.button(" start over ", key="start_over_link", type="tertiary"):
+        if st.button("🔄 Start Over", key="start_over_link", use_container_width=True, type="tertiary"):
             # Clear all analysis data
             for key in ['df_composite', 'df_trust', 'df_val', 'df_cov', 'df_liq', 'news_df',
                         'corporate_events_df', 'selected_section', 'selected_subsection',
