@@ -1548,18 +1548,12 @@ if not show_results and not run_analysis:
         with tabs[0]:
             st.markdown("### How IRCI Works")
 
-            # Embedded YouTube video using iframe
-            st.markdown("""
-            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; margin-bottom: 1rem;">
-                <iframe
-                    src="https://www.youtube.com/embed/ESoWqgkANKU"
-                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
-                    frameborder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowfullscreen>
-                </iframe>
-            </div>
-            """, unsafe_allow_html=True)
+            # Embedded YouTube video using components.iframe
+            components.iframe(
+                src="https://www.youtube.com/embed/ESoWqgkANKU",
+                height=315,
+                scrolling=False
+            )
 
             st.markdown("""
             **IRCI** evaluates companies across four fundamental dimensions:
