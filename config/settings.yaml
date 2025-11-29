@@ -1,0 +1,8 @@
+user_agent: "IRCI/0.1 (brushing@uccs.edu)"
+data_root: "data"
+domain_weights:
+  wsj.com: 1.0
+  bloomberg.com: 1.0
+  reuters.com: 0.9
+  seekingalpha.com: 0.6
+  prnewswire.com: 0.4

@@ -1,0 +1,51 @@
+table,column,required,notes
+FILINGS,FilingDate,yes,ISO date
+FILINGS,Ticker,yes,Uppercase ticker
+FILINGS,CIK,no,Numeric string
+FILINGS,FormType,yes,e.g., 8-K, 10-Q, 10-K
+FILINGS,Accession,no,
+FILINGS,FilingURL,no,
+FILINGS,EventID,yes,Stable key that joins to EVENTS
+PRICES,Date,yes,ISO date
+PRICES,Ticker,yes,
+PRICES,Open,yes,
+PRICES,High,yes,
+PRICES,Low,yes,
+PRICES,Close,yes,
+PRICES,AdjClose,no,
+PRICES,Volume,yes,
+FACTORS,Date,yes,
+FACTORS,Mkt_RF,yes,Excess market return (%)
+FACTORS,SMB,yes,
+FACTORS,HML,yes,
+FACTORS,RF,yes,Risk-free rate (%)
+EVENTS,EventID,yes,
+EVENTS,Ticker,yes,
+EVENTS,EventDate,yes,
+EVENTS,WindowStart,yes,
+EVENTS,WindowEnd,yes,
+EVENTS,MedianAbsMove_FF,yes,Median absolute factor-adjusted return in window
+EVENTS,Calmness_Sign,yes,+1 quiet / -1 noisy
+EVENTS,CalmnessScore,yes,Scaled 0–100
+NEWS,Date,yes,
+NEWS,Ticker,yes,
+NEWS,Source,no,
+NEWS,Title,yes,
+NEWS,URL,no,
+NEWS,SentimentScore,yes,[-1,1] or [0,1] ok; we’ll rescale
+NEWS,Confidence,no,
+NEWS,Language,no,
+DIALS,Quarter,yes,YYYYQ#
+DIALS,Ticker,yes,
+DIALS,Coverage_pct,yes,0–100
+DIALS,Trust_pct,yes,0–100
+DIALS,Liquidity_pct,yes,0–100
+DIALS,Valuation_pct,yes,0–100
+COMPOSITE,Quarter,yes,
+COMPOSITE,Ticker,yes,
+COMPOSITE,wCoverage,yes,0–1
+COMPOSITE,wTrust,yes,0–1
+COMPOSITE,wLiquidity,yes,0–1
+COMPOSITE,wValuation,yes,0–1
+COMPOSITE,CompositePct,yes,0–100
+COMPOSITE,RankInPeer,no,1..N

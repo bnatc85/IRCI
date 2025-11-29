@@ -1,0 +1,19 @@
+{
+  "export_time_utc": "2025-09-13T22:12:43.126995+00:00",
+  "source_dir": "/workspaces/IRCI/exports",
+  "targets": {
+    "excel": "artifacts/IRCI_lowcode_template.xlsx"
+  },
+  "tables_written": {
+    "FILINGS": 0,
+    "PRICES": 0,
+    "FACTORS": 0,
+    "EVENTS": 0,
+    "NEWS": 0
+  },
+  "extras": {
+    "has_weighted": true,
+    "gap_closure_target": 0.5,
+    "valuation_csv": "outputs/valuation_q2.csv"
+  }
+}
