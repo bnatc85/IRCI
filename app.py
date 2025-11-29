@@ -1149,10 +1149,40 @@ with st.sidebar:
     # Update session state
     st.session_state['disclaimer_accepted'] = disclaimer_accepted
 
-    # Small "view terms" link
-    if st.button("view terms", key="view_terms_link", type="tertiary"):
-        st.session_state['show_disclaimer'] = True
-        st.rerun()
+    # Small "view terms" text link in cyan - using custom styled button
+    # Add custom CSS to make this specific button look like a text link
+    st.markdown("""
+    <style>
+    #view-terms-btn button {
+        background: none !important;
+        border: none !important;
+        color: #00CED1 !important;
+        padding: 0 !important;
+        font-size: 0.85em !important;
+        cursor: pointer !important;
+        text-decoration: none !important;
+        min-height: auto !important;
+        height: auto !important;
+    }
+    #view-terms-btn button:hover {
+        text-decoration: underline !important;
+        background: none !important;
+    }
+    #view-terms-btn button p {
+        color: #00CED1 !important;
+    }
+    #view-terms-btn {
+        margin-top: -10px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    with st.container():
+        st.markdown('<div id="view-terms-btn">', unsafe_allow_html=True)
+        if st.button("view terms", key="view_terms_link", type="tertiary"):
+            st.session_state['show_disclaimer'] = True
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Run Analysis button
     run_analysis_clicked = st.button(
