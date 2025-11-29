@@ -1793,6 +1793,7 @@ We combine:
 
 **Investor Recognition & Cost of Capital:**
 - Merton, R. C. (1987). A simple model of capital market equilibrium with incomplete information. *Journal of Finance, 42*(3), 483-510. [DOI](https://doi.org/10.1111/j.1540-6261.1987.tb04565.x)
+- Jensen, M. C. (2005). Agency costs of overvalued equity. *Financial Management, 34*(1), 5-19. [DOI](https://doi.org/10.1111/j.1755-053X.2005.tb00090.x)
 - Bodnaruk, A., & Ostberg, P. (2013). The shareholder base and payout policy. *Journal of Financial and Quantitative Analysis, 48*(3), 729-760.
 
 **Event Studies & Corporate Actions:**
