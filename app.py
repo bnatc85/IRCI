@@ -1591,7 +1591,7 @@ if not show_results and not run_analysis:
 
     # Comprehensive About & Methodology - collapsed by default for cleaner interface
     with st.expander("📚 About IRCI", expanded=False):
-        tabs = st.tabs(["📖 How It Works", "🎯 About IRCI", "👥 Team", "🔬 Validation"])
+        tabs = st.tabs(["📖 How It Works", "🎯 About IRCI", "💡 Why IRCI", "👥 Team", "🔬 Validation"])
     
         with tabs[0]:
             st.markdown("### How IRCI Works")
@@ -1650,8 +1650,66 @@ if not show_results and not run_analysis:
 - **Boards/CFOs:** ROI calculation: "Is \\$Y worth spending to gain 2-3 IRCI points?"
 - **Investors:** Spot IR/disclosure inefficiencies and potential mispricings
             """)
-    
+
         with tabs[2]:
+            st.markdown("""
+### Why IRCI — Beyond the AI Hype
+
+**"Will AI replace IR professionals?"** It's the question everyone's asking. Here's our answer:
+
+---
+
+#### What AI Can Do
+- Draft press releases and earnings scripts
+- Summarize filings and news
+- Generate generic best practices
+- Answer basic investor questions
+
+#### What AI *Can't* Do
+| Capability | Generic AI | IRCI |
+|------------|-----------|------|
+| Know your specific peer group | ❌ | ✅ Custom peer benchmarking |
+| Calculate your $/IRCI point | ❌ | ✅ Regression on actual market data |
+| Factor-adjust your event volatility | ❌ | ✅ Fama-French model integration |
+| Track your progress over time | ❌ | ✅ Quarter-over-quarter comparison |
+| Access real-time SEC EDGAR filings | ❌ | ✅ Live data pipeline |
+| Benchmark against competitors | ❌ | ✅ Peer-relative percentiles |
+
+---
+
+#### The Real Value Proposition
+
+**ChatGPT can write your press release. IRCI tells you if anyone's listening.**
+
+IRCI doesn't replace IR professionals—it makes them *indispensable*:
+
+1. **Quantification for the Board** — "Our Trust dial improved 4 points this quarter, worth ~$30M in enterprise value"
+2. **Strategic Prioritization** — Know exactly which dial to fix first
+3. **Measurable ROI** — Justify IR budgets with concrete numbers
+4. **Competitive Intelligence** — See where peers are winning (and losing)
+
+---
+
+#### Our Philosophy
+
+> *"We use AI for sentiment analysis. We don't use AI for strategy. The difference matters."*
+
+IRCI is built on:
+- **40+ years of peer-reviewed research** — Not training data scraped from the internet
+- **Transparent methodology** — Every calculation is visible and auditable
+- **Objective market data** — Prices, volumes, filings—not opinions
+- **Human judgment where it matters** — The tool identifies problems; you solve them
+
+---
+
+#### The Bottom Line
+
+The IR professional who uses IRCI will outperform the one who doesn't—not because AI replaced their judgment, but because they have *better data* to inform it.
+
+**IRCI: The metrics AI can't guess. The insights your board actually needs.**
+            """)
+
+        with tabs[3]:
             st.markdown("### The Team")
 
             # Bonnie Rushing section with photo
@@ -1709,8 +1767,8 @@ We combine:
 - IRCI prioritizes compliance, transparency, and ethical use
 - This tool is for authorized decision-making and planning—not market manipulation or insider advantage
             """)
-    
-        with tabs[3]:
+
+        with tabs[4]:
             st.markdown("""
 ### Validation & Methodology
 
