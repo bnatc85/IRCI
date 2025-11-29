@@ -1139,68 +1139,18 @@ with st.sidebar:
     # Run Analysis button - prominently placed after quarter selection
     st.markdown("---")
 
-    # Disclaimer checkbox with clickable "terms" link embedded
-    # Use columns to place checkbox and handle the terms link click
-    checkbox_col, link_col = st.columns([10, 1])
+    # Disclaimer checkbox
+    disclaimer_accepted = st.checkbox(
+        "I have read and agree to the terms",
+        value=st.session_state.get('disclaimer_accepted', False),
+        key="disclaimer_checkbox_inline"
+    )
+    st.session_state['disclaimer_accepted'] = disclaimer_accepted
 
-    with checkbox_col:
-        # Custom HTML/CSS for checkbox with inline clickable link
-        st.markdown("""
-        <style>
-        .terms-link {
-            color: #00CED1 !important;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .terms-link:hover {
-            text-decoration: underline;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
-        disclaimer_accepted = st.checkbox(
-            "I have read and agree to the terms",
-            value=st.session_state.get('disclaimer_accepted', False),
-            key="disclaimer_checkbox_inline",
-            help="Click 'terms' to view the full disclaimer"
-        )
-
-    # Tiny hidden button that triggers on terms click - placed inline
-    if st.button("terms", key="view_terms_link", type="tertiary"):
+    # Simple "view terms" caption link
+    if st.button("view terms", key="view_terms_link"):
         st.session_state['show_disclaimer'] = True
         st.rerun()
-
-    # Style the terms button to look like an inline link and position it
-    st.markdown("""
-    <style>
-    /* Hide the separate terms button since we'll use JS to trigger it */
-    [data-testid="stButton"]:has(button[kind="tertiary"]) {
-        position: absolute;
-        margin-top: -32px;
-        margin-left: 215px;
-    }
-    [data-testid="stButton"] button[kind="tertiary"] {
-        background: none !important;
-        border: none !important;
-        color: #00CED1 !important;
-        padding: 0 !important;
-        font-size: 14px !important;
-        min-height: auto !important;
-        height: auto !important;
-        font-weight: normal !important;
-    }
-    [data-testid="stButton"] button[kind="tertiary"]:hover {
-        text-decoration: underline !important;
-        background: none !important;
-    }
-    [data-testid="stButton"] button[kind="tertiary"] p {
-        color: #00CED1 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # Update session state
-    st.session_state['disclaimer_accepted'] = disclaimer_accepted
 
     # Run Analysis button
     run_analysis_clicked = st.button(
