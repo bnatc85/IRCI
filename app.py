@@ -1379,14 +1379,13 @@ with st.sidebar:
                 st.write("❌ df_composite not in session_state")
 
     # Welcome Tour button - at bottom of sidebar for discoverability
-    st.markdown("---")
     if st.button("👋 Show Welcome Tour", use_container_width=True, help="New to IRCI? Watch a video intro and explore quick templates"):
         st.session_state['show_intro'] = True
         st.rerun()
 
-    # Contact information
+    # Contact information (no extra spacing)
     st.markdown("""
-    <div class="contact-info">
+    <div class="contact-info" style="margin-top: 0.5rem;">
         <strong>Contact:</strong><br>
         Bonnie Rushing<br>
         <a href="mailto:brushing@uccs.edu">brushing@uccs.edu</a><br>
