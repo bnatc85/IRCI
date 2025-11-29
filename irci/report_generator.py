@@ -119,106 +119,100 @@ class IRCIReport(FPDF):
 
     def add_cover_page(self, irci_score: float, peer_rank: int, total_peers: int,
                        dial_scores: Dict, dollar_per_point: float = None):
-        """Add professional cover page"""
+        """Add professional cover page - condensed to fit on one page"""
         self.add_page()
         self.is_cover_page = True
 
-        # Dark header section
+        # Compact dark header section
         self.set_fill_color(20, 40, 80)
-        self.rect(0, 0, 210, 80, 'F')
+        self.rect(0, 0, 210, 55, 'F')
 
         # IRCI Logo/Title
-        self.set_font('Arial', 'B', 28)
+        self.set_font('Arial', 'B', 22)
         self.set_text_color(255, 255, 255)
-        self.set_xy(15, 20)
-        self.cell(0, 12, 'IRCI', 0, 1, 'L')
+        self.set_xy(15, 12)
+        self.cell(0, 10, 'IRCI', 0, 1, 'L')
 
-        self.set_font('Arial', '', 14)
-        self.set_xy(15, 35)
-        self.cell(0, 8, 'Investor Relations Composite Index', 0, 1, 'L')
+        self.set_font('Arial', '', 11)
+        self.set_xy(15, 24)
+        self.cell(0, 6, 'Investor Relations Composite Index', 0, 1, 'L')
 
         # Company and Quarter
-        self.set_font('Arial', 'B', 20)
-        self.set_xy(15, 55)
-        self.cell(0, 10, f'{self.ticker} Board Report', 0, 1, 'L')
-
-        self.set_font('Arial', '', 12)
-        self.set_xy(15, 67)
-        self.cell(0, 6, f'{self.quarter}', 0, 1, 'L')
+        self.set_font('Arial', 'B', 16)
+        self.set_xy(15, 36)
+        self.cell(0, 8, f'{self.ticker} Board Report | {self.quarter}', 0, 1, 'L')
 
         self.set_text_color(0, 0, 0)
 
-        # Score summary box
-        self.set_y(95)
-        self.set_font('Arial', 'B', 16)
-        self.cell(0, 10, 'EXECUTIVE SNAPSHOT', 0, 1, 'C')
-        self.ln(5)
+        # Score summary box - more compact
+        self.set_y(62)
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 8, 'EXECUTIVE SNAPSHOT', 0, 1, 'C')
 
-        # Main score card
-        self._draw_score_card(irci_score, peer_rank, total_peers, 60, 115)
+        # Main score card - smaller
+        self._draw_score_card(irci_score, peer_rank, total_peers, 60, 75)
 
-        # Dial scores in a row
-        self.set_y(175)
+        # Dial scores in a row - moved up
+        self.set_y(125)
         self._draw_dial_summary(dial_scores)
 
-        # Dollar value if available
+        # Dollar value if available - more compact
         if dollar_per_point and dollar_per_point > 0:
-            self.set_y(220)
-            self.set_font('Arial', 'B', 12)
-            self.cell(0, 8, 'VALUE PER IRCI POINT', 0, 1, 'C')
-            self.set_font('Arial', 'B', 18)
+            self.set_y(165)
+            self.set_font('Arial', 'B', 10)
+            self.cell(0, 6, 'VALUE PER IRCI POINT', 0, 1, 'C')
+            self.set_font('Arial', 'B', 14)
             if dollar_per_point >= 1e9:
                 value_str = f'${dollar_per_point/1e9:.2f}B'
             else:
                 value_str = f'${dollar_per_point/1e6:.1f}M'
-            self.cell(0, 10, value_str, 0, 1, 'C')
-            self.set_font('Arial', 'I', 9)
+            self.cell(0, 8, value_str, 0, 1, 'C')
+            self.set_font('Arial', 'I', 8)
             self.set_text_color(100, 100, 100)
-            self.cell(0, 6, 'R-squared scaled estimate based on peer regression', 0, 1, 'C')
+            self.cell(0, 5, 'R-squared scaled estimate based on peer regression', 0, 1, 'C')
             self.set_text_color(0, 0, 0)
 
-        # Footer
-        self.set_y(260)
-        self.set_font('Arial', 'I', 9)
+        # Footer - moved up
+        self.set_y(250)
+        self.set_font('Arial', 'I', 8)
         self.set_text_color(128, 128, 128)
-        self.cell(0, 5, f'Generated: {datetime.now().strftime("%B %d, %Y at %H:%M")}', 0, 1, 'C')
-        self.cell(0, 5, 'Confidential - For Board Use Only', 0, 1, 'C')
+        self.cell(0, 4, f'Generated: {datetime.now().strftime("%B %d, %Y at %H:%M")}', 0, 1, 'C')
+        self.cell(0, 4, 'Confidential - For Board Use Only', 0, 1, 'C')
         self.set_text_color(0, 0, 0)
 
         self.is_cover_page = False
 
     def _draw_score_card(self, score: float, rank: int, total: int, x: float, y: float):
-        """Draw the main IRCI score card"""
+        """Draw the main IRCI score card - compact version"""
         # Score circle background
         self.set_fill_color(*self._get_score_color(score))
         self.set_xy(x + 25, y)
 
-        # Large score
-        self.set_font('Arial', 'B', 48)
+        # Large score - smaller
+        self.set_font('Arial', 'B', 36)
         self.set_text_color(0, 0, 0)
-        self.cell(60, 30, f'{score:.0f}%', 0, 1, 'C')
+        self.cell(60, 22, f'{score:.0f}%', 0, 1, 'C')
 
         # Label
-        self.set_font('Arial', 'B', 12)
-        self.set_xy(x + 25, y + 32)
-        self.cell(60, 8, 'IRCI COMPOSITE SCORE', 0, 1, 'C')
+        self.set_font('Arial', 'B', 10)
+        self.set_xy(x + 25, y + 24)
+        self.cell(60, 6, 'IRCI COMPOSITE SCORE', 0, 1, 'C')
 
-        # Rank
-        self.set_font('Arial', '', 11)
-        self.set_xy(x + 25, y + 42)
-        self.cell(60, 6, f'Rank: #{rank} of {total} peers', 0, 1, 'C')
-
-        # Classification
+        # Rank and Classification on same line
         classification = self._classify_score_label(score)
         color = self._get_score_color(score)
-        self.set_font('Arial', 'B', 14)
+        self.set_font('Arial', '', 9)
+        self.set_xy(x + 25, y + 32)
+        self.cell(60, 5, f'#{rank} of {total} peers', 0, 1, 'C')
+
+        self.set_font('Arial', 'B', 11)
         self.set_text_color(*color)
-        self.set_xy(x + 25, y + 50)
-        self.cell(60, 8, classification.upper(), 0, 1, 'C')
+        self.set_xy(x + 25, y + 38)
+        self.cell(60, 6, classification.upper(), 0, 1, 'C')
         self.set_text_color(0, 0, 0)
 
     def _draw_dial_summary(self, dial_scores: Dict):
-        """Draw the four dial scores in a row"""
+        """Draw the four dial scores in a row - compact version"""
         dials = [
             ('VALUATION', dial_scores.get('valuation', 0), '$'),
             ('LIQUIDITY', dial_scores.get('liquidity', 0), '~'),
@@ -232,26 +226,26 @@ class IRCIReport(FPDF):
         for i, (name, score, icon) in enumerate(dials):
             x = start_x + (i * width)
 
-            # Box background
+            # Box background - smaller height
             color = self._get_score_color(score)
             self.set_fill_color(*color)
-            self.rect(x, self.get_y(), width - 2, 35, 'F')
+            self.rect(x, self.get_y(), width - 2, 28, 'F')
 
             # Dial name
-            self.set_font('Arial', 'B', 8)
+            self.set_font('Arial', 'B', 7)
             self.set_text_color(255, 255, 255)
-            self.set_xy(x, self.get_y() + 3)
-            self.cell(width - 2, 5, f'[{icon}] {name}', 0, 0, 'C')
+            self.set_xy(x, self.get_y() + 2)
+            self.cell(width - 2, 4, f'[{icon}] {name}', 0, 0, 'C')
 
-            # Score
-            self.set_font('Arial', 'B', 20)
-            self.set_xy(x, self.get_y() + 10)
-            self.cell(width - 2, 12, f'{score:.0f}%', 0, 0, 'C')
+            # Score - smaller
+            self.set_font('Arial', 'B', 16)
+            self.set_xy(x, self.get_y() + 7)
+            self.cell(width - 2, 10, f'{score:.0f}%', 0, 0, 'C')
 
             # Classification
-            self.set_font('Arial', '', 8)
-            self.set_xy(x, self.get_y() + 22)
-            self.cell(width - 2, 5, self._classify_score_label(score), 0, 0, 'C')
+            self.set_font('Arial', '', 7)
+            self.set_xy(x, self.get_y() + 18)
+            self.cell(width - 2, 4, self._classify_score_label(score), 0, 0, 'C')
 
         self.set_text_color(0, 0, 0)
 
@@ -323,9 +317,11 @@ class IRCIReport(FPDF):
         self.set_font('Arial', '', 8)
         self.cell(width * 0.35, 6, f' {classification}', 0, 1, 'L')
 
-    def add_competitive_matrix(self, df_composite: pd.DataFrame, ticker: str, dial_scores: Dict):
-        """Add competitive positioning matrix"""
-        self.chapter_title('COMPETITIVE POSITIONING')
+    def add_competitive_matrix(self, df_composite: pd.DataFrame, ticker: str, dial_scores: Dict,
+                                df_valuation: pd.DataFrame = None, df_liquidity: pd.DataFrame = None,
+                                df_coverage: pd.DataFrame = None, df_trust: pd.DataFrame = None):
+        """Add competitive positioning matrix with dial breakdown"""
+        self.chapter_title('COMPETITIVE POSITIONING & DIAL ANALYSIS')
 
         # Get top 3 peers plus the company
         df_sorted = df_composite.sort_values('irci_composite_pct', ascending=False)
@@ -388,7 +384,7 @@ class IRCIReport(FPDF):
             self.ln()
 
         self.set_text_color(0, 0, 0)
-        self.ln(3)
+        self.ln(2)
 
         # Analysis text
         company_rank = int(df_sorted['irci_composite_pct'].rank(ascending=False)[df_sorted['ticker'] == ticker].iloc[0])
@@ -399,10 +395,68 @@ class IRCIReport(FPDF):
 
         self.set_font('Arial', 'I', 9)
         if company_rank == 1:
-            self.body_text(f"{ticker} is the IRCI leader in this peer group. Focus on maintaining this position.")
+            self.body_text(f"{ticker} leads this peer group. Focus on maintaining position.")
         else:
-            self.body_text(f"{ticker} ranks #{company_rank}. Gap to leader ({leader}): {gap:.1f} points. "
-                          f"See 90-Day Action Plan for improvement strategies.")
+            self.body_text(f"{ticker} ranks #{company_rank}. Gap to leader ({leader}): {gap:.1f} pts.")
+
+        # Dial breakdown section - integrated from detailed dial analysis
+        self.ln(2)
+        self.section_title(f'{ticker} Dial Breakdown vs Peer Averages')
+
+        # Calculate peer averages
+        avg_val = df_composite['valuation_pct'].mean()
+        avg_liq = df_composite['liquidity_pct'].mean()
+        avg_cov = df_composite['coverage_pct'].mean()
+        avg_trust = df_composite['sentiment_pct'].mean()
+
+        # Compact dial comparison table
+        self.set_font('Arial', 'B', 8)
+        self.set_fill_color(20, 40, 80)
+        self.set_text_color(255, 255, 255)
+        self.cell(45, 6, 'Dial', 1, 0, 'C', fill=True)
+        self.cell(35, 6, f'{ticker}', 1, 0, 'C', fill=True)
+        self.cell(35, 6, 'Peer Avg', 1, 0, 'C', fill=True)
+        self.cell(35, 6, 'Gap', 1, 1, 'C', fill=True)
+        self.set_text_color(0, 0, 0)
+
+        dial_comparisons = [
+            ('Valuation', dial_scores.get('valuation', 0), avg_val),
+            ('Liquidity', dial_scores.get('liquidity', 0), avg_liq),
+            ('Coverage', dial_scores.get('coverage', 0), avg_cov),
+            ('Trust', dial_scores.get('trust', 0), avg_trust),
+        ]
+
+        self.set_font('Arial', '', 8)
+        for dial_name, company_val, peer_avg in dial_comparisons:
+            gap = company_val - peer_avg
+            gap_str = f'+{gap:.1f}' if gap > 0 else f'{gap:.1f}'
+
+            self.cell(45, 5, dial_name, 1, 0, 'L')
+
+            # Company score with color
+            color = self._get_score_color(company_val)
+            self.set_fill_color(*color)
+            self.set_text_color(255, 255, 255)
+            self.cell(35, 5, f'{company_val:.1f}%', 1, 0, 'C', fill=True)
+
+            # Peer avg
+            self.set_fill_color(200, 200, 200)
+            self.set_text_color(0, 0, 0)
+            self.cell(35, 5, f'{peer_avg:.1f}%', 1, 0, 'C', fill=True)
+
+            # Gap with color
+            if gap >= 5:
+                self.set_fill_color(34, 139, 34)
+                self.set_text_color(255, 255, 255)
+            elif gap <= -5:
+                self.set_fill_color(220, 53, 69)
+                self.set_text_color(255, 255, 255)
+            else:
+                self.set_fill_color(255, 255, 255)
+                self.set_text_color(0, 0, 0)
+            self.cell(35, 5, gap_str, 1, 1, 'C', fill=True)
+
+        self.set_text_color(0, 0, 0)
 
     def add_90_day_action_plan(self, playbook: Dict, ticker: str, dial_scores: Dict,
                                 dollar_per_point: float = None):
@@ -733,121 +787,24 @@ def generate_pdf_report(
     # === COVER PAGE ===
     pdf.add_cover_page(irci_score, peer_rank, total_peers, dial_scores, dollar_per_point)
 
-    # === PAGE 2: COMPETITIVE POSITIONING ===
+    # === PAGE 2: COMPETITIVE POSITIONING & DIAL ANALYSIS ===
     pdf.add_page()
     pdf.add_competitive_matrix(df_composite_filtered, ticker, dial_scores)
 
-    # Risk Flags
-    pdf.ln(5)
+    # Risk Flags (on same page as competitive positioning)
+    pdf.ln(3)
     pdf.add_risk_flags(dial_scores, ticker, df_composite_filtered)
 
-    # === PAGE 3: 90-DAY ACTION PLAN ===
+    # === PAGE 3: 90-DAY ACTION PLAN (includes playbook summary) ===
     pdf.add_page()
     pdf.add_90_day_action_plan(playbook, ticker, dial_scores, dollar_per_point)
 
-    # === PAGE 4: ROI ANALYSIS ===
+    # === PAGE 4: ROI ANALYSIS (only if dollar value available) ===
     if dollar_per_point and dollar_per_point > 0:
         pdf.add_page()
         pdf.add_roi_section(ticker, dial_scores, dollar_per_point, playbook)
 
-    # === PAGE 5: DETAILED DIAL ANALYSIS ===
-    pdf.add_page()
-    pdf.chapter_title('DETAILED DIAL ANALYSIS')
-
-    # Calculate averages
-    avg_valuation = df_composite_filtered['valuation_pct'].mean()
-    avg_liquidity = df_composite_filtered['liquidity_pct'].mean()
-    avg_coverage = df_composite_filtered['coverage_pct'].mean()
-    avg_trust = df_composite_filtered['sentiment_pct'].mean()
-
-    # Valuation
-    pdf.section_title('Valuation Dial')
-    pdf.add_score_indicator('Score', dial_scores['valuation'])
-    pdf.add_score_indicator('Peer Avg', avg_valuation)
-
-    val_data = df_valuation_filtered[df_valuation_filtered['ticker'] == ticker].iloc[0]
-    ev_ebitda = val_data['ev_to_ebitda'] if 'ev_to_ebitda' in val_data.index and pd.notna(val_data['ev_to_ebitda']) else None
-    enterprise_value = val_data['enterprise_value'] if 'enterprise_value' in val_data.index and pd.notna(val_data['enterprise_value']) else None
-
-    metrics_text = []
-    if ev_ebitda:
-        metrics_text.append(f"EV/EBITDA: {ev_ebitda:.2f}x")
-    if enterprise_value:
-        metrics_text.append(f"Enterprise Value: ${enterprise_value/1e9:.2f}B")
-
-    if metrics_text:
-        pdf.body_text(" | ".join(metrics_text))
-    pdf.ln(3)
-
-    # Liquidity
-    pdf.section_title('Liquidity Dial')
-    pdf.add_score_indicator('Score', dial_scores['liquidity'])
-    pdf.add_score_indicator('Peer Avg', avg_liquidity)
-
-    liq_data = df_liquidity_filtered[df_liquidity_filtered['ticker'] == ticker].iloc[0]
-    avg_volume = liq_data['avg_volume'] if 'avg_volume' in liq_data.index and pd.notna(liq_data['avg_volume']) else None
-
-    if avg_volume:
-        pdf.body_text(f"Avg Daily Volume: {avg_volume:,.0f} shares")
-    pdf.ln(3)
-
-    # Coverage
-    pdf.section_title('Coverage Dial')
-    pdf.add_score_indicator('Score', dial_scores['coverage'])
-    pdf.add_score_indicator('Peer Avg', avg_coverage)
-
-    cov_data = df_coverage_filtered[df_coverage_filtered['ticker'] == ticker].iloc[0]
-    total_weighted = cov_data['total_weighted_articles'] if 'total_weighted_articles' in cov_data.index and pd.notna(cov_data['total_weighted_articles']) else None
-
-    if total_weighted:
-        pdf.body_text(f"Weighted Media Coverage: {total_weighted:.1f} articles")
-    pdf.ln(3)
-
-    # Trust
-    pdf.section_title('Trust Dial')
-    pdf.add_score_indicator('Score', dial_scores['trust'])
-    pdf.add_score_indicator('Peer Avg', avg_trust)
-
-    trust_data = df_trust_filtered[df_trust_filtered['ticker'] == ticker].iloc[0]
-    media_tone = trust_data['media_tone'] if 'media_tone' in trust_data.index and pd.notna(trust_data['media_tone']) else None
-
-    if media_tone is not None:
-        sentiment_label = "Positive" if media_tone > 60 else "Neutral" if media_tone > 40 else "Negative"
-        pdf.body_text(f"Media Tone: {media_tone:.1f}% ({sentiment_label})")
-
-    # === PAGE 6: FULL PLAYBOOK ===
-    pdf.add_page()
-    pdf.chapter_title('COMPLETE ACTION PLAYBOOK')
-
-    pdf.body_text(playbook['summary'])
-    pdf.ln(3)
-
-    # High priority
-    high_priority = [r for r in playbook['recommendations'] if r['priority'] == 'high']
-    if high_priority:
-        pdf.section_title('High Priority Actions')
-        for i, rec in enumerate(high_priority, 1):
-            pdf.set_font('Arial', 'B', 9)
-            pdf.safe_multi_cell(0, 5, f"{i}. {rec['action']}")
-            pdf.set_font('Arial', '', 8)
-            pdf.safe_multi_cell(0, 4, f"   {rec['description'][:200]}")
-            if rec.get('expected_impact'):
-                pdf.set_font('Arial', 'I', 8)
-                pdf.safe_multi_cell(0, 4, f"   Expected Impact: {rec['expected_impact']}")
-            pdf.ln(2)
-
-    # Medium priority
-    medium_priority = [r for r in playbook['recommendations'] if r['priority'] == 'medium']
-    if medium_priority:
-        pdf.section_title('Medium Priority Actions')
-        for i, rec in enumerate(medium_priority[:5], 1):
-            pdf.set_font('Arial', 'B', 9)
-            pdf.safe_multi_cell(0, 5, f"{i}. {rec['action']}")
-            pdf.set_font('Arial', '', 8)
-            pdf.safe_multi_cell(0, 4, f"   {rec['description'][:150]}")
-            pdf.ln(1)
-
-    # === PAGE 7: MEDIA SENTIMENT (if available) ===
+    # === MEDIA SENTIMENT (if available) ===
     if news_df is not None and not news_df.empty and 'sentiment_score' in news_df.columns:
         pdf.add_page()
         pdf.chapter_title('MEDIA SENTIMENT ANALYSIS')
@@ -891,41 +848,45 @@ def generate_pdf_report(
                 pdf.set_font('Arial', '', 9)
                 pdf.safe_multi_cell(0, 5, f"- {headline}")
 
-    # === FINAL PAGE: METHODOLOGY ===
+    # === FINAL PAGE: METHODOLOGY & DISCLAIMER ===
     pdf.add_page()
     pdf.chapter_title('METHODOLOGY & DISCLAIMER')
 
+    # Condensed IRCI Framework
     pdf.section_title('IRCI Framework')
     pdf.body_text(
-        "The IRCI (Investor Relations Composite Index) measures IR effectiveness across four dimensions:\n"
-        "* Valuation - Market perception relative to fundamentals\n"
-        "* Liquidity - Trading activity and market accessibility\n"
-        "* Coverage - Media attention quality and quantity\n"
-        "* Trust - Sentiment and credibility metrics\n\n"
+        "IRCI measures IR effectiveness across four dials: Valuation (market perception vs fundamentals), "
+        "Liquidity (trading activity), Coverage (media attention), and Trust (sentiment). "
         "Each dial is scored 0-100% based on percentile ranking within the peer group."
     )
 
+    # Condensed Dollar Value Methodology
     pdf.section_title('Dollar Value Methodology')
     pdf.body_text(
-        "Dollar-per-IRCI-point estimates are derived from:\n"
-        "* Linear regression of IRCI scores vs. Enterprise Value across peers\n"
-        "* R-squared scaling to account for IR being one of many value factors\n"
-        "* Company-specific adjustments based on relative size\n\n"
-        "These are planning estimates, not guarantees. Fundamentals drive most value."
+        "We regress Enterprise Value against IRCI scores across your peer group, then scale by R-squared "
+        "to be conservative. Formula: Company $/IRCI = (Company EV / Peer Mean EV) x Slope x R-squared. "
+        "R-squared scaling ensures we only attribute the portion of value explained by IRCI."
     )
 
+    # Peer Group
     pdf.section_title('Peer Group')
     unique_tickers = df_composite_filtered['ticker'].unique().tolist()
     pdf.body_text(f"Analysis includes {len(unique_tickers)} companies: {', '.join(sorted(unique_tickers))}")
 
-    pdf.ln(5)
-    pdf.section_title('Disclaimer')
+    pdf.ln(3)
+    pdf.section_title('Legal Disclaimer')
     pdf.set_font('Arial', 'I', 8)
     pdf.body_text(
-        "This report is for informational purposes only and does not constitute investment advice. "
-        "IRCI scores measure IR efficiency relative to peers and should not be used as the sole basis "
-        "for investment decisions. Past performance does not guarantee future results. "
-        "Value estimates are based on statistical models and actual results may vary significantly."
+        "NOT FINANCIAL ADVICE: IRCI is for informational and educational purposes only. It does not "
+        "constitute financial, investment, or trading advice.\n\n"
+        "NO GUARANTEES: Past performance is not indicative of future results. IRCI scores may contain "
+        "errors. No representation is made that any investment will achieve similar results.\n\n"
+        "DO YOUR OWN RESEARCH: Conduct your own due diligence, consult a qualified financial advisor, "
+        "and review official company filings before making investment decisions.\n\n"
+        "LIMITATION OF LIABILITY: IRCI and its creators shall not be held liable for any losses or "
+        "damages arising from use of this platform. Use is entirely at your own risk.\n\n"
+        "DATA SOURCES: Analysis is based on publicly available information. We cannot guarantee "
+        "completeness or timeliness of all data."
     )
 
     # Output PDF
