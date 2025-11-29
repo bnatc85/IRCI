@@ -817,7 +817,7 @@ def show_intro_modal():
     """)
 
     # YouTube video embed
-    youtube_video_id = "vVHqB0QYIfc"
+    youtube_video_id = "Fyb1rqlCPuA"
     st.markdown(f"""
     <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; background: #000;">
         <iframe
