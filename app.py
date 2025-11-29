@@ -1596,19 +1596,16 @@ if not show_results and not run_analysis:
         with tabs[0]:
             st.markdown("### How IRCI Works")
 
-            # YouTube thumbnail with play button overlay (Streamlit Cloud blocks iframe embeds)
+            # Vimeo video embed
             st.markdown("""
-            <a href="https://www.youtube.com/watch?v=ESoWqgkANKU" target="_blank" style="display: block; position: relative; max-width: 100%;">
-                <img src="https://img.youtube.com/vi/ESoWqgkANKU/maxresdefault.jpg"
-                     alt="Watch: How IRCI Works"
-                     style="width: 100%; border-radius: 8px; cursor: pointer;">
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                            width: 68px; height: 48px; background: rgba(255,0,0,0.8); border-radius: 10px;
-                            display: flex; align-items: center; justify-content: center;">
-                    <div style="width: 0; height: 0; border-left: 20px solid white; border-top: 12px solid transparent; border-bottom: 12px solid transparent; margin-left: 4px;"></div>
-                </div>
-            </a>
-            <p style="text-align: center; color: #888; margin-top: 8px; font-size: 0.9em;">Click to watch on YouTube</p>
+            <div style="padding: 56.25% 0 0 0; position: relative;">
+                <iframe src="https://player.vimeo.com/video/1141717222?badge=0&autopause=0&player_id=0&app_id=58479"
+                        frameborder="0"
+                        allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 8px;"
+                        allowfullscreen>
+                </iframe>
+            </div>
             """, unsafe_allow_html=True)
 
             st.markdown("""
