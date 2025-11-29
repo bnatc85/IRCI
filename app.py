@@ -945,15 +945,16 @@ if st.session_state.get('show_disclaimer', False):
 
 # Running ticker with IRCI questions and insights
 ticker_items = [
-    "What's each IRCI point worth in dollars for my company?",
+    "What was the value of our IR and communications efforts?",
+    "Is it worth it to travel and speak at a major conference?",
     "How does our IR efficiency compare to peers?",
+    "If an advertising campaign costs $10M, is the return worth it?",
     "Are we getting coverage from credible sources or just press wires?",
     "Does the market stay calm or freak out when we announce news?",
     "How easy is it for investors to trade our stock?",
     "Which dial should we prioritize to maximize IR impact?",
-    "+1 IRCI point ≈ measurable enterprise value improvement",
-    "High Coverage = investors don't have to hunt for your story",
-    "If a CEO is forcibly remove, how does this affect value?",
+    "+1 IRCI point ≈ $XX Millions.",
+    "If a CEO is forcibly removed, how does this affect value?",
     "What is the value of a social media campaign?",
 ]
 
@@ -3861,36 +3862,19 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 # Calculation methodology explainer
                 with st.expander("🔢 How We Calculate $/IRCI Point"):
                     st.markdown(f"""
-                    ### Percentage-Based Approach (Prevents Unrealistic Trillion-Dollar Values)
+                    ### Methodology: EV-Based Percentage Caps
 
-                    **The Problem with Regression-Only:**
-                    - Old approach: Used cross-sectional regression slope directly
-                    - For large companies (\\$500B+), this could produce absurd results like "\\$50B per IRCI point"
-                    - A 10-point gap would imply \\$500B upside (100% of the company's value!)
+                    $/IRCI point is capped at **1% of enterprise value** (scaled by R²) to prevent unrealistic values for large companies.
 
-                    **Our Solution: Academic-Backed Percentage Caps**
+                    **Formula:** `$/IRCI Point = EV × 1% × R²`
 
-                    We cap \\$/IRCI point at **1% of enterprise value per point** (scaled by R²):
-
-                    ```
-                    \\$/IRCI Point = EV × 1% × R²
-                    ```
-
-                    **Why 1% per point?**
-                    - Academic research: IR contributes **5-15% to firm value** over long term
-                    - A 10-point IRCI gap → max 10% of EV (within academic range)
-                    - A 5-point quarterly improvement → 5% × 10% factor = 0.5% of EV (realistic)
+                    **Why 1%?** Academic research shows IR contributes 5-15% to firm value long-term. A 10-point IRCI gap = max 10% of EV (within that range).
 
                     **Example (R² = {r2_score:.2f}):**
-                    - \\$500B company: \\${500 * 0.01 * r2_score:,.1f}B per IRCI point
-                    - 10-point gap to top performer: \\${500 * 0.01 * r2_score * 10:,.1f}B potential upside ({500 * 0.01 * r2_score * 10 / 5:.1f}% of EV)
-                    - 5-point quarterly improvement: \\${500 * 0.01 * r2_score * 5 * 0.1:,.1f}B IR contribution ({500 * 0.01 * r2_score * 5 * 0.1 / 5:.2f}% of EV)
+                    - $500B company → ${500 * 0.01 * r2_score:,.1f}B per point
+                    - 10-point gap → ${500 * 0.01 * r2_score * 10:,.1f}B potential upside
 
-                    This ensures dollar values are always proportional to company size and capped at realistic levels based on peer-reviewed academic research.
-
-                    **Academic Sources:**
-                    - Bushee & Miller (2012): IR contributes 5-10% to firm value
-                    - Agarwal et al. (2016): 8-12% higher institutional ownership from IR
+                    **Sources:** Bushee & Miller (2012), Agarwal et al. (2016)
                     """)
 
                 # IR Contribution Value Summary
