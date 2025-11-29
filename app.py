@@ -2066,38 +2066,51 @@ elif run_analysis:
             if news_list:
                 news_df = pd.concat(news_list, ignore_index=True)
 
-                # Add sentiment scores to each article using FinBERT
+                # Add sentiment scores to each article using FinBERT or VADER
                 status_text.text("Analyzing sentiment for news articles...")
+                headlines = news_df['headline'].fillna('').astype(str).tolist()
+                sentiment_scores = []
+                sentiment_method = "None"
+
+                # Filter out empty headlines for analysis
+                valid_headlines = [h.strip() for h in headlines if h.strip()]
+                print(f"Analyzing sentiment for {len(valid_headlines)} non-empty headlines out of {len(headlines)} total")
+
+                # Try FinBERT first
                 try:
                     from irci.trust import finbert_score
-                    from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-
-                    headlines = news_df['headline'].fillna('').astype(str).tolist()
+                    fb_scores = finbert_score(valid_headlines) if valid_headlines else None
+                    if fb_scores and len(fb_scores) == len(valid_headlines):
+                        # Map scores back to original headlines (empty = 0.0)
+                        score_iter = iter(fb_scores)
+                        sentiment_scores = [next(score_iter) if h.strip() else 0.0 for h in headlines]
+                        sentiment_method = "FinBERT"
+                        print(f"✓ FinBERT scored {len(fb_scores)} headlines")
+                except Exception as e:
+                    print(f"FinBERT failed: {e}")
                     sentiment_scores = []
 
-                    # Try FinBERT first
-                    fb_scores = finbert_score(headlines)
-                    if fb_scores:
-                        sentiment_scores = fb_scores
-                        sentiment_method = "FinBERT"
-                    else:
-                        # Fallback to VADER
+                # Fallback to VADER if FinBERT didn't work
+                if not sentiment_scores or sentiment_method == "None":
+                    try:
+                        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
                         sia = SentimentIntensityAnalyzer()
                         sentiment_scores = [sia.polarity_scores(h)["compound"] for h in headlines]
                         sentiment_method = "VADER"
+                        print(f"✓ VADER scored {len(sentiment_scores)} headlines")
+                    except Exception as e:
+                        print(f"VADER also failed: {e}")
+                        sentiment_scores = [0.0] * len(headlines)
+                        sentiment_method = "None (fallback to 0)"
 
-                    news_df['sentiment_score'] = sentiment_scores
+                news_df['sentiment_score'] = sentiment_scores
 
-                    # Add sentiment label
-                    news_df['sentiment'] = news_df['sentiment_score'].apply(
-                        lambda x: 'positive' if x > 0.1 else ('negative' if x < -0.1 else 'neutral')
-                    )
+                # Add sentiment label
+                news_df['sentiment'] = news_df['sentiment_score'].apply(
+                    lambda x: 'positive' if x > 0.1 else ('negative' if x < -0.1 else 'neutral')
+                )
 
-                    print(f"✓ Sentiment analysis complete using {sentiment_method}")
-                except Exception as e:
-                    print(f"Warning: Could not run sentiment analysis: {e}")
-                    news_df['sentiment_score'] = 0.0
-                    news_df['sentiment'] = 'neutral'
+                print(f"✓ Sentiment analysis complete using {sentiment_method}")
 
                 success_tickers = [t for t, c in news_counts.items() if c > 0]
                 failed_tickers = [t for t, c in news_counts.items() if c == 0]

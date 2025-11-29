@@ -493,20 +493,29 @@ def trust_quarter_for_symbol(
             nd["headline"] = nd["title"].astype(str)
         m_ticker = nd["ticker"].astype(str).str.upper().eq(symbol.upper()) if "ticker" in nd.columns else True
         m_win = (nd["date"] >= q_start) & (nd["date"] <= q_end)
-        texts = nd.loc[m_ticker & m_win, "headline"].dropna().astype(str).tolist()
+        raw_texts = nd.loc[m_ticker & m_win, "headline"].dropna().astype(str).tolist()
+        # Filter out empty strings
+        texts = [t.strip() for t in raw_texts if t.strip()]
+        log.info("Trust media tone: %s has %d non-empty headlines (from %d total)", symbol, len(texts), len(raw_texts))
 
     if texts:
         scores = None
+        # Try FinBERT first
         try:
             scores = finbert_score(texts)
-        except Exception:
+            if scores:
+                log.info("FinBERT scored %d headlines for %s", len(scores), symbol)
+        except Exception as e:
+            log.warning("FinBERT failed for %s: %s", symbol, e)
             scores = None
+
         if scores:
             raw = float(np.mean(scores))
             media_tone_raw = float(np.clip(raw * 0.6, -0.5, 0.5))
             media_tone_src = "ProsusAI/finbert"
             media_tone_n   = int(len(scores))
         else:
+            # Fallback to VADER - this should always work
             try:
                 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
                 sia = SentimentIntensityAnalyzer()
@@ -516,8 +525,9 @@ def trust_quarter_for_symbol(
                     media_tone_raw = float(np.clip(raw * 0.4, -0.3, 0.3))
                     media_tone_src = "vader"
                     media_tone_n   = int(len(vs))
-            except Exception:
-                pass
+                    log.info("VADER scored %d headlines for %s, mean=%.3f", len(vs), symbol, raw)
+            except Exception as e:
+                log.warning("VADER also failed for %s: %s", symbol, e)
 
     if np.isfinite(media_tone_raw):
         k = 4.0  # reliability shrink
