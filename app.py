@@ -1746,44 +1746,6 @@ We combine:
 **Industry:** MZ Group (2024), Brunswick Group (2023)
                 """)
 
-    # Show example
-    with st.expander("📖 Quick Start Guide"):
-        st.markdown("""
-        ### Quick Start Guide
-
-        **New to IRCI?** Click the "👋 Show Welcome Tour" button in the sidebar for an interactive intro with video tutorial and quick templates!
-
-        **Already familiar?** Here's how to run an analysis:
-
-        1. **Choose Your Companies**
-           - Use the "Find Peer Companies" tool in the sidebar (optional but recommended)
-           - Or manually enter tickers in the "Company Tickers" field
-           - Pick 2-5 comparable companies for best results
-
-        2. **Select Time Period**
-           - Choose one or multiple quarters from the dropdown
-           - Recent quarters (2024Q3+) have better news coverage data
-           - Multi-quarter selection enables trend analysis
-
-        3. **Adjust Weights** (optional)
-           - Default weights: 35% Valuation, 35% Liquidity, 15% Coverage, 15% Trust
-           - Use the sliders to customize weights for your company's context
-           - Must sum to 100%
-
-        4. **Run Analysis**
-           - Click the "🚀 Run Analysis" button in the sidebar
-           - Takes ~30-60 seconds per company
-           - Navigation menu appears when analysis completes
-
-        5. **Explore Results**
-           - **Company Analysis** - IRCI scores, rankings, and dial breakdowns
-           - **Value Analysis** - Dollar-per-point estimates and improvement opportunities
-           - **Playbook & Events** - Actionable recommendations and event timeline
-           - **AI Assistant** - Ask questions about your results
-
-        💡 **Pro Tip:** Start with a peer template from the Welcome Tour to see IRCI in action immediately!
-        """)
-
 elif run_analysis:
     # Clear the previous completion flag when starting new analysis
     st.session_state['analysis_just_completed'] = False
