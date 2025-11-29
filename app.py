@@ -1850,6 +1850,65 @@ We combine:
             - Day trading or market timing
             - Guaranteeing specific ROI
             - Ignoring fundamentals or macro trends
+
+            ---
+
+            #### Academic References
+
+            **Core IR Research:**
+            - Bushee, B. J., & Miller, G. S. (2012). Investor relations, firm visibility, and investor following. *The Accounting Review, 87*(3), 867-897.
+            - Agarwal, V., Liao, C., Nash, J., & Taffler, R. (2016). Investor relations, information asymmetry, and market value. *Accounting and Business Research, 46*(1), 31-50.
+            - Kirk, M., & Vincent, J. (2014). Professional investor relations within the firm. *The Accounting Review, 89*(4), 1421-1452.
+            - National Investor Relations Institute (NIRI). (2019). Measuring the Value of IR: A Meta-Analysis.
+
+            **Investor Recognition & Cost of Capital:**
+            - Merton, R. C. (1987). A simple model of capital market equilibrium with incomplete information. *Journal of Finance, 42*(3), 483-510.
+            - Bodnaruk, A., & Ostberg, P. (2013). The shareholder base and payout policy. *Journal of Financial and Quantitative Analysis, 48*(3), 729-760.
+
+            **Event Studies & Corporate Actions:**
+            - Ball, R., & Brown, P. (1968). An empirical evaluation of accounting income numbers. *Journal of Accounting Research, 6*(2), 159-178.
+            - Bernard, V. L., & Thomas, J. K. (1989). Post-earnings-announcement drift: Delayed price response or risk premium? *Journal of Accounting Research, 27*, 1-36.
+            - Huson, M. R., Malatesta, P. H., & Parrino, R. (2004). Managerial succession and firm performance. *Journal of Financial Economics, 74*(2), 237-275.
+            - Mian, S. (2001). On the choice and replacement of chief financial officers. *Journal of Financial Economics, 60*(1), 143-175.
+            - Clayton, M. C., Hartzell, J. C., & Rosenberg, J. (2005). The impact of CEO turnover on equity volatility. *Journal of Business, 78*(5), 1779-1808.
+            - Michaely, R., Thaler, R. H., & Womack, K. L. (1995). Price reactions to dividend initiations and omissions. *Journal of Finance, 50*(2), 573-608.
+            - Ikenberry, D., Lakonishok, J., & Vermaelen, T. (1995). Market underreaction to open market share repurchases. *Journal of Financial Economics, 39*(2-3), 181-208.
+
+            **Media, Disclosure & Information Asymmetry:**
+            - Chen, H., De, P., Hu, Y., & Hwang, B. H. (2015). The role of the media in disseminating insider-trading news. *Review of Financial Studies, 28*(5), 1434-1463.
+            - Neuhierl, A., Scherbina, A., & Schlusche, B. (2013). Market reaction to corporate press releases. *Journal of Financial and Quantitative Analysis, 48*(4), 1207-1240.
+            - Grullon, G., Kanatas, G., & Weston, J. P. (2004). Advertising, breadth of ownership, and liquidity. *Review of Financial Studies, 17*(2), 439-461.
+            - Diamond, D. W., & Verrecchia, R. E. (1991). Disclosure, liquidity, and the cost of capital. *Journal of Finance, 46*(4), 1325-1359.
+            - Healy, P. M., & Palepu, K. G. (2001). Information asymmetry, corporate disclosure, and the capital markets. *Journal of Accounting and Economics, 31*(1-3), 405-440.
+            - Botosan, C. A. (1997). Disclosure level and the cost of equity capital. *The Accounting Review, 72*(3), 323-349.
+
+            **Analyst Coverage & Institutional Investors:**
+            - Irvine, P. J. (2003). The incremental impact of analyst initiation of coverage. *Journal of Financial Economics, 68*(1), 169-202.
+            - Bhushan, R. (1989). Firm characteristics and analyst following. *Journal of Accounting and Economics, 11*(2-3), 255-274.
+            - Francis, J., Hanna, J. D., & Philbrick, D. R. (1997). Management communications with securities analysts. *Journal of Accounting and Economics, 24*(3), 363-394.
+            - Green, T. C., Jame, R., Markov, S., & Subasi, M. (2014). Access to management and the informativeness of analyst research. *Journal of Financial Economics, 114*(2), 239-255.
+
+            **Liquidity & Trading:**
+            - Amihud, Y. (2002). Illiquidity and stock returns: Cross-section and time-series effects. *Journal of Financial Markets, 5*(1), 31-56.
+            - Dittmar, A. K., & Field, L. C. (2015). Can managers time the market? Evidence using repurchase price data. *Journal of Financial Economics, 115*(2), 261-282.
+            - Grullon, G., & Michaely, R. (2004). The information content of share repurchase programs. *Journal of Finance, 59*(2), 651-680.
+            - Brown, S., Hillegeist, S. A., & Lo, K. (1999). Conference calls and information asymmetry. *Journal of Accounting and Economics, 37*(3), 343-366.
+
+            **Governance & Valuation:**
+            - Gompers, P., Ishii, J., & Metrick, A. (2003). Corporate governance and equity prices. *Quarterly Journal of Economics, 118*(1), 107-156.
+            - Brown, L. D., & Caylor, M. L. (2006). Corporate governance and firm valuation. *Journal of Accounting and Public Policy, 25*(4), 409-434.
+            - Greenwald, B. C., & Kahn, J. (2005). *Competition Demystified: A Radically Simplified Approach to Business Strategy*. Portfolio.
+
+            **Factor Models:**
+            - Fama, E. F., & French, K. R. (2015). A five-factor asset pricing model. *Journal of Financial Economics, 116*(1), 1-22.
+
+            **Sentiment Analysis Tools:**
+            - FinBERT: Araci, D. (2019). FinBERT: Financial sentiment analysis with pre-trained language models. *arXiv preprint arXiv:1908.10063*.
+            - VADER: Hutto, C. J., & Gilbert, E. (2014). VADER: A parsimonious rule-based model for sentiment analysis of social media text. *ICWSM*.
+
+            **Industry Research:**
+            - MZ Group (2024). Investor Day Impact Analysis.
+            - Brunswick Group (2023). Social Media and Institutional Investors Survey.
         """)
 
     # Show example
