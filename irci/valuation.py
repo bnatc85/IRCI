@@ -57,8 +57,25 @@ def median_anchored_pct(s: pd.Series, lower_is_better: bool = False) -> pd.Serie
     - For x >= median: linear from median..max -> 50..100
     If all values equal, returns 50 for all.
     If lower_is_better=True, invert (so lower values -> higher %).
+
+    Special handling for small peer groups:
+    - With only 2 valid values: compress range to 30-70% instead of 0-100%
+      (insufficient data for extreme rankings)
+    - With only 1 valid value: return 50%
     """
     s = s.astype(float)
+    valid = s.dropna()
+    n_valid = len(valid)
+
+    # Handle edge cases with insufficient peer data
+    if n_valid == 0:
+        return pd.Series(index=s.index, dtype="float64")  # all NaN
+    if n_valid == 1:
+        # Single value - can't rank against peers, give neutral 50%
+        pct = pd.Series(index=s.index, dtype="float64")
+        pct.loc[valid.index] = 50.0
+        return 100.0 - pct if lower_is_better else pct
+
     med = s.median(skipna=True)
 
     lower = s[s <= med]
@@ -84,6 +101,12 @@ def median_anchored_pct(s: pd.Series, lower_is_better: bool = False) -> pd.Serie
         pct.loc[s > med] = 50.0 + (s.loc[s > med] - med) / (hi_max - med) * 50.0
     else:
         pct.loc[s > med] = 50.0
+
+    # With only 2 valid values, compress range to avoid extreme 0%/100%
+    # This indicates limited peer comparison data
+    if n_valid == 2:
+        # Compress from [0,100] to [30,70] centered at 50
+        pct = 30.0 + (pct / 100.0) * 40.0
 
     return 100.0 - pct if lower_is_better else pct
 
