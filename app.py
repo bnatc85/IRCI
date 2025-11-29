@@ -558,9 +558,163 @@ components.html(
     height=0
 )
 
-# Header
-st.markdown('<div class="main-header">IRCI Analysis Platform</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuation Analysis</div>', unsafe_allow_html=True)
+# Header - IRCI Analysis Platform with 4 Dials (CSS)
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    .irci-header {
+        max-width: 1100px;
+        margin: 0 auto;
+        background: linear-gradient(135deg, #0d1421 0%, #1a2435 50%, #0d1421 100%);
+        border-radius: 20px;
+        padding: 28px 32px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 80px rgba(59, 130, 246, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        margin-bottom: 1.5rem;
+    }
+    .header-top { text-align: center; margin-bottom: 24px; }
+    .main-title-new {
+        font-size: clamp(28px, 4vw, 40px);
+        font-weight: 800;
+        background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+        letter-spacing: -0.02em;
+    }
+    .subtitle { font-size: 15px; color: #e2e8f0; font-weight: 400; letter-spacing: 0.02em; }
+    .subtitle span { color: #ffffff; font-weight: 500; }
+    .dials-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    @media (max-width: 900px) { .dials-grid { grid-template-columns: repeat(2, 1fr); } .irci-header { padding: 20px; } }
+    @media (max-width: 500px) { .dials-grid { grid-template-columns: 1fr; } }
+    .dial-card {
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        padding: 16px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        text-align: center;
+    }
+    .dial-card::before {
+        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+        border-radius: 16px 16px 0 0; opacity: 0; transition: opacity 0.3s ease;
+    }
+    .dial-card:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.12); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3); }
+    .dial-card:hover::before { opacity: 1; }
+    .dial-card.coverage::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .dial-card.trust::before { background: linear-gradient(90deg, #a855f7, #c084fc); }
+    .dial-card.liquidity::before { background: linear-gradient(90deg, #06b6d4, #22d3ee); }
+    .dial-card.valuation::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .dial-card:hover.coverage { box-shadow: 0 8px 30px rgba(59, 130, 246, 0.15); }
+    .dial-card:hover.trust { box-shadow: 0 8px 30px rgba(168, 85, 247, 0.15); }
+    .dial-card:hover.liquidity { box-shadow: 0 8px 30px rgba(6, 182, 212, 0.15); }
+    .dial-card:hover.valuation { box-shadow: 0 8px 30px rgba(245, 158, 11, 0.15); }
+    /* Animated Gauge - oscillating */
+    .gauge-container { width: 70px; height: 70px; margin: 0 auto 12px; position: relative; }
+    .gauge-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 6; }
+    .gauge-fill { fill: none; stroke-width: 6; stroke-linecap: round; transform: rotate(-90deg); transform-origin: center; }
+    .coverage .gauge-fill { stroke: url(#coverage-gradient); animation: gauge-oscillate-1 4s ease-in-out infinite; }
+    .trust .gauge-fill { stroke: url(#trust-gradient); animation: gauge-oscillate-2 4.5s ease-in-out infinite; }
+    .liquidity .gauge-fill { stroke: url(#liquidity-gradient); animation: gauge-oscillate-3 5s ease-in-out infinite; }
+    .valuation .gauge-fill { stroke: url(#valuation-gradient); animation: gauge-oscillate-4 4.2s ease-in-out infinite; }
+    .gauge-text { display: none; }
+    @keyframes gauge-oscillate-1 { 0%, 100% { stroke-dasharray: 94 157; } 50% { stroke-dasharray: 126 157; } }
+    @keyframes gauge-oscillate-2 { 0%, 100% { stroke-dasharray: 78 157; } 50% { stroke-dasharray: 110 157; } }
+    @keyframes gauge-oscillate-3 { 0%, 100% { stroke-dasharray: 86 157; } 50% { stroke-dasharray: 118 157; } }
+    @keyframes gauge-oscillate-4 { 0%, 100% { stroke-dasharray: 70 157; } 50% { stroke-dasharray: 102 157; } }
+    .dial-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.01em; }
+    .coverage .dial-title { color: #60a5fa; }
+    .trust .dial-title { color: #c084fc; }
+    .liquidity .dial-title { color: #22d3ee; }
+    .valuation .dial-title { color: #fbbf24; }
+    .dial-description { font-size: 12px; color: #e2e8f0; line-height: 1.5; }
+    .tagline { text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+    .tagline-text { font-size: 14px; color: #e2e8f0; font-weight: 500; }
+    .tagline-text strong { color: #d4af37; font-weight: 600; }
+</style>
+""", unsafe_allow_html=True)
+
+# Header - IRCI Analysis Platform with 4 Dials (HTML)
+st.markdown("""
+<svg width="0" height="0">
+    <defs>
+        <linearGradient id="coverage-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#3b82f6"/>
+            <stop offset="100%" style="stop-color:#60a5fa"/>
+        </linearGradient>
+        <linearGradient id="trust-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#a855f7"/>
+            <stop offset="100%" style="stop-color:#c084fc"/>
+        </linearGradient>
+        <linearGradient id="liquidity-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#06b6d4"/>
+            <stop offset="100%" style="stop-color:#22d3ee"/>
+        </linearGradient>
+        <linearGradient id="valuation-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#f59e0b"/>
+            <stop offset="100%" style="stop-color:#fbbf24"/>
+        </linearGradient>
+    </defs>
+</svg>
+<div class="irci-header">
+    <div class="header-top">
+        <h1 class="main-title-new">IRCI Analysis Platform</h1>
+        <p class="subtitle">Quantify IR Excellence with <span>Coverage</span>, <span>Trust</span>, <span>Liquidity</span> & <span>Valuation</span></p>
+    </div>
+    <div class="dials-grid">
+        <div class="dial-card coverage">
+            <div class="gauge-container">
+                <svg viewBox="0 0 60 60">
+                    <circle class="gauge-bg" cx="30" cy="30" r="25"/>
+                    <circle class="gauge-fill" cx="30" cy="30" r="25" stroke-dasharray="0 157"/>
+                    <text class="gauge-text" x="30" y="30">80</text>
+                </svg>
+            </div>
+            <h3 class="dial-title">Coverage</h3>
+            <p class="dial-description">SEC filings & media visibility</p>
+        </div>
+        <div class="dial-card trust">
+            <div class="gauge-container">
+                <svg viewBox="0 0 60 60">
+                    <circle class="gauge-bg" cx="30" cy="30" r="25"/>
+                    <circle class="gauge-fill" cx="30" cy="30" r="25" stroke-dasharray="0 157"/>
+                    <text class="gauge-text" x="30" y="30">70</text>
+                </svg>
+            </div>
+            <h3 class="dial-title">Trust</h3>
+            <p class="dial-description">Sentiment & event stability</p>
+        </div>
+        <div class="dial-card liquidity">
+            <div class="gauge-container">
+                <svg viewBox="0 0 60 60">
+                    <circle class="gauge-bg" cx="30" cy="30" r="25"/>
+                    <circle class="gauge-fill" cx="30" cy="30" r="25" stroke-dasharray="0 157"/>
+                    <text class="gauge-text" x="30" y="30">75</text>
+                </svg>
+            </div>
+            <h3 class="dial-title">Liquidity</h3>
+            <p class="dial-description">Trading metrics vs peers</p>
+        </div>
+        <div class="dial-card valuation">
+            <div class="gauge-container">
+                <svg viewBox="0 0 60 60">
+                    <circle class="gauge-bg" cx="30" cy="30" r="25"/>
+                    <circle class="gauge-fill" cx="30" cy="30" r="25" stroke-dasharray="0 157"/>
+                    <text class="gauge-text" x="30" y="30">65</text>
+                </svg>
+            </div>
+            <h3 class="dial-title">Valuation</h3>
+            <p class="dial-description">EV/EBITDA peer comparison</p>
+        </div>
+    </div>
+    <div class="tagline">
+        <p class="tagline-text"><strong>Four dials.</strong> One score. <strong>Clear direction.</strong></p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # Mobile menu hint - pure HTML/CSS (Safari compatible)
 st.markdown("""
@@ -690,7 +844,7 @@ def show_intro_modal():
 
     **3. Run Analysis** 🚀
     - Click the big "Run Analysis" button in the sidebar
-    - Takes ~30-60 seconds depending on company count
+    - Takes ~1-4 minutes depending on company count
     - Get instant IRCI scores, peer rankings, and actionable insights
 
     **💡 Tip:** Start with a quick template below to see IRCI in action!
@@ -808,8 +962,6 @@ with st.sidebar:
     if st.button("👋 Show Welcome Tour", use_container_width=True):
         st.session_state['show_intro'] = True
         st.rerun()
-
-    st.markdown("---")
 
     # Navigation at the top (only show after analysis is run)
     if st.session_state.get('df_composite') is not None:
@@ -1367,26 +1519,6 @@ if not show_results and not run_analysis:
     # Welcome screen
     st.markdown("---")
 
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.markdown("### 📰 Coverage")
-        st.markdown("SEC filings + media visibility (auto-fetched)")
-
-    with col2:
-        st.markdown("### 💭 Trust")
-        st.markdown("News sentiment + event stability (auto-analyzed)")
-
-    with col3:
-        st.markdown("### 💧 Liquidity")
-        st.markdown("Market microstructure & trading metrics")
-
-    with col4:
-        st.markdown("### 💰 Valuation")
-        st.markdown("EV/EBITDA peer comparison")
-
-    st.markdown("---")
-
     # Important disclaimers - collapsible for cleaner interface
     with st.expander("⚠️ **Important Disclaimers**", expanded=False):
         st.markdown("""
@@ -1402,7 +1534,7 @@ if not show_results and not run_analysis:
         st.success("✓ Analysis loaded! Scroll down to view results or select a new peer group above to start fresh.")
 
     # Comprehensive About & Methodology - collapsed by default for cleaner interface
-    with st.expander("📚 Documentation & Background (How It Works, About IRCI, Team, Validation)", expanded=False):
+    with st.expander("📚 About IRCI", expanded=False):
         tabs = st.tabs(["📖 How It Works", "🎯 About IRCI", "👥 Team", "🔬 Validation"])
     
         with tabs[0]:
@@ -1563,7 +1695,7 @@ if not show_results and not run_analysis:
             with col2:
                 st.markdown("""
 **Bonnie Rushing**
-*PhD Student, University of Colorado Colorado Springs*
+*PhD Scholar, University of Colorado Colorado Springs*
 
 - Master's Degree in Strategic Intelligence
 - Military service in special operations and signals intelligence
@@ -2250,7 +2382,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 else:
     # Show results structure preview before analysis
     st.markdown("---")
-    st.markdown("## 📋 What You'll Get After Analysis")
+    st.markdown("## 📋 What's Included")
     st.caption("Run an analysis to see these sections populated with your peer group data")
 
     with st.expander("📊 **Company Analysis** - Peer rankings and score breakdowns", expanded=True):
