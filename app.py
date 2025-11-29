@@ -1866,6 +1866,38 @@ elif run_analysis:
 
     st.caption(f"⏱️ Estimated time: ~{time_display} | Analyzing {len(tickers)} companies across {len(selected_quarters)} quarter(s)")
 
+    # === WHILE YOU WAIT: AI vs IRCI Info Box ===
+    with st.expander("📖 **While You Wait: Why IRCI in an AI World?**", expanded=True):
+        st.markdown("""
+<div style="font-size: 0.95em;">
+
+**The AI Hype vs. IR Reality**
+
+| What AI Chatbots Do | What IRCI Does |
+|---------------------|----------------|
+| Generate plausible-sounding text | Measure actual market outcomes |
+| Summarize what's already written | Quantify what competitors are achieving |
+| Offer generic "best practices" | Show your specific gaps vs peers |
+| Can't verify their own claims | Every metric is auditable and sourced |
+
+**Why This Matters for IR Professionals**
+
+IR is about **trust, credibility, and measurable outcomes** - the exact areas where AI hallucinates most. IRCI provides:
+
+- **Objective peer benchmarking** - Not opinions, actual performance data
+- **Quantified dollar impact** - R²-scaled to be conservative, not inflated
+- **Board-ready proof** - Every score traces back to verifiable sources
+- **Human judgment amplified** - You interpret the data, IRCI does the math
+
+**The Bottom Line**
+
+AI can write your press release. It can't tell you if anyone read it, whether it moved your stock, or how you compare to competitors. IRCI answers those questions with data, not guesses.
+
+*Your expertise + IRCI's measurement = Defensible, repeatable IR strategy*
+
+</div>
+        """, unsafe_allow_html=True)
+
     # Store results for all quarters
     all_quarters_results = {}
 
