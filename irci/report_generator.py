@@ -244,7 +244,7 @@ class IRCIReport(FPDF):
             self.set_font('Arial', 'B', 7)
             self.set_text_color(255, 255, 255)
             self.set_xy(x, start_y + 2)
-            self.cell(width - 2, 4, f'[{icon}] {name}', 0, 0, 'C')
+            self.cell(width - 2, 4, name, 0, 0, 'C')
 
             # Score - smaller
             self.set_font('Arial', 'B', 16)
