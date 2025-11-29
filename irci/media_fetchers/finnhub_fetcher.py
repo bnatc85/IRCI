@@ -79,18 +79,53 @@ def finnhub_fetcher(ticker: str, q_start, q_end, settings) -> pd.DataFrame:
         else:
             df['headline'] = ""
 
-        # Extract source
+        # Extract source - Finnhub provides source name directly
         if 'source' in df.columns:
-            df['source'] = df['source']
+            df['source'] = df['source'].fillna("Finnhub")
         else:
             df['source'] = "Finnhub"
 
-        # Extract domain from URL
-        if 'url' in df.columns:
-            df['domain'] = df['url'].apply(lambda u: urlparse(str(u)).netloc.lower() if pd.notna(u) else "")
-        else:
-            df['url'] = ""
-            df['domain'] = ""
+        # For domain, use the source name converted to domain format
+        # Finnhub URLs are proxied (finnhub.io/api/news?id=...), so we derive domain from source
+        # Common mappings: "SeekingAlpha" -> "seekingalpha.com", "Yahoo" -> "yahoo.com", etc.
+        source_to_domain = {
+            'seekingalpha': 'seekingalpha.com',
+            'yahoo': 'yahoo.com',
+            'reuters': 'reuters.com',
+            'bloomberg': 'bloomberg.com',
+            'cnbc': 'cnbc.com',
+            'marketwatch': 'marketwatch.com',
+            'benzinga': 'benzinga.com',
+            'thestreet': 'thestreet.com',
+            'investorplace': 'investorplace.com',
+            'fool': 'fool.com',
+            'motleyfool': 'fool.com',
+            'barrons': 'barrons.com',
+            'wsj': 'wsj.com',
+            'ft': 'ft.com',
+            'forbes': 'forbes.com',
+            'businessinsider': 'businessinsider.com',
+            'techcrunch': 'techcrunch.com',
+            'zacks': 'zacks.com',
+            'investopedia': 'investopedia.com',
+            'thefly': 'thefly.com',
+            'accesswire': 'accesswire.com',
+            'prnewswire': 'prnewswire.com',
+            'businesswire': 'businesswire.com',
+            'globenewswire': 'globenewswire.com',
+        }
+
+        def source_to_domain_name(source):
+            if pd.isna(source) or not source:
+                return ""
+            s = str(source).lower().replace(" ", "").replace(".", "")
+            # Check mapping first
+            if s in source_to_domain:
+                return source_to_domain[s]
+            # Otherwise, try to create domain from source name
+            return f"{s}.com"
+
+        df['domain'] = df['source'].apply(source_to_domain_name)
 
         # Finnhub news is primarily English
         df['lang'] = "en"

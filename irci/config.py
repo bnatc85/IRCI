@@ -54,19 +54,9 @@ class Settings:
         if ua_env:
             s.user_agent = ua_env
 
-        dw_env = os.getenv("IRCI_DOMAIN_WEIGHTS")
-        if dw_env:
-            try:
-                dwj = json.loads(dw_env)
-                if isinstance(dwj, dict):
-                    s.domain_weights = {str(k).lower(): float(v) for k, v in dwj.items()}
-            except Exception as e:
-                import warnings
-                warnings.warn(f"IRCI_DOMAIN_WEIGHTS not valid JSON: {e}")
-
-        # --- Sensible defaults if unset ---
-        if not s.domain_weights:
-            s.domain_weights = {
+        # --- Domain weights: ALWAYS start with defaults, then extend/override with env ---
+        # This ensures we have a comprehensive list of domains
+        default_domain_weights = {
                 # Tier 1: Premium financial news (1.0)
                 "wsj.com": 1.0,
                 "bloomberg.com": 1.0,
@@ -116,4 +106,33 @@ class Settings:
                 "accesswire.com": 0.35,
                 "newsfilecorp.com": 0.3,
             }
+
+        # Start with defaults
+        s.domain_weights = default_domain_weights.copy()
+
+        # Extend/override with YAML config if present
+        if Path(cfg_path).exists():
+            try:
+                import yaml
+                with open(cfg_path, "r") as f:
+                    y = yaml.safe_load(f) or {}
+                dw = y.get("domain_weights")
+                if isinstance(dw, dict):
+                    for k, v in dw.items():
+                        s.domain_weights[str(k).lower()] = float(v)
+            except Exception:
+                pass
+
+        # Extend/override with env variable if present
+        dw_env = os.getenv("IRCI_DOMAIN_WEIGHTS")
+        if dw_env:
+            try:
+                dwj = json.loads(dw_env)
+                if isinstance(dwj, dict):
+                    for k, v in dwj.items():
+                        s.domain_weights[str(k).lower()] = float(v)
+            except Exception as e:
+                import warnings
+                warnings.warn(f"IRCI_DOMAIN_WEIGHTS not valid JSON: {e}")
+
         return s
