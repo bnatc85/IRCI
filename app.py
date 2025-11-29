@@ -566,14 +566,14 @@ st.markdown("""
         max-width: 1100px;
         margin: 0 auto;
         background: linear-gradient(135deg, #0d1421 0%, #1a2435 50%, #0d1421 100%);
-        border-radius: 20px;
-        padding: 28px 32px;
+        border-radius: 16px;
+        padding: 20px 28px 16px;
         border: 1px solid rgba(255, 255, 255, 0.06);
         box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 80px rgba(59, 130, 246, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        margin-bottom: 1.5rem;
+        margin-bottom: 0.75rem;
     }
-    .header-top { text-align: center; margin-bottom: 24px; }
+    .header-top { text-align: center; margin-bottom: 16px; }
     .main-title-new {
         font-size: clamp(28px, 4vw, 40px);
         font-weight: 800;
@@ -591,12 +591,15 @@ st.markdown("""
     .dial-card {
         background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
         border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 16px;
-        padding: 16px;
+        border-radius: 14px;
+        padding: 12px;
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
         text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
     .dial-card::before {
         content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
@@ -613,7 +616,7 @@ st.markdown("""
     .dial-card:hover.liquidity { box-shadow: 0 8px 30px rgba(6, 182, 212, 0.15); }
     .dial-card:hover.valuation { box-shadow: 0 8px 30px rgba(245, 158, 11, 0.15); }
     /* Animated Gauge - oscillating */
-    .gauge-container { width: 70px; height: 70px; margin: 0 auto 12px; position: relative; }
+    .gauge-container { width: 60px; height: 60px; margin: 0 auto 8px; position: relative; }
     .gauge-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 6; }
     .gauge-fill { fill: none; stroke-width: 6; stroke-linecap: round; transform: rotate(-90deg); transform-origin: center; }
     .coverage .gauge-fill { stroke: url(#coverage-gradient); animation: gauge-oscillate-1 4s ease-in-out infinite; }
@@ -625,14 +628,14 @@ st.markdown("""
     @keyframes gauge-oscillate-2 { 0%, 100% { stroke-dasharray: 78 157; } 50% { stroke-dasharray: 110 157; } }
     @keyframes gauge-oscillate-3 { 0%, 100% { stroke-dasharray: 86 157; } 50% { stroke-dasharray: 118 157; } }
     @keyframes gauge-oscillate-4 { 0%, 100% { stroke-dasharray: 70 157; } 50% { stroke-dasharray: 102 157; } }
-    .dial-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.01em; }
+    .dial-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.01em; }
     .coverage .dial-title { color: #60a5fa; }
     .trust .dial-title { color: #c084fc; }
     .liquidity .dial-title { color: #22d3ee; }
     .valuation .dial-title { color: #fbbf24; }
-    .dial-description { font-size: 12px; color: #e2e8f0; line-height: 1.5; }
-    .tagline { text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
-    .tagline-text { font-size: 14px; color: #e2e8f0; font-weight: 500; }
+    .dial-description { font-size: 11px; color: #e2e8f0; line-height: 1.4; }
+    .tagline { text-align: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+    .tagline-text { font-size: 13px; color: #e2e8f0; font-weight: 500; }
     .tagline-text strong { color: #d4af37; font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
@@ -2790,14 +2793,31 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 'valuation_quartile': 'Quartile'
             })
 
+            # Create display dataframe with proper formatting for PEG ratio
+            df_val_display = df_val[val_cols].copy()
+            if 'peg_ratio' in df_val_display.columns:
+                # Replace None, NaN, and invalid values with "N/A"
+                df_val_display['peg_ratio'] = df_val_display['peg_ratio'].apply(
+                    lambda x: "N/A" if pd.isna(x) or x is None or str(x).lower() in ('none', 'nan', '') else f"{x:.2f}"
+                )
+
             st.dataframe(
-                df_val[val_cols].rename(columns=val_rename),
+                df_val_display.rename(columns=val_rename),
                 use_container_width=True,
                 hide_index=True
             )
 
+            st.caption("""
+💡 **Metric Definitions:**
+• **EV/EBITDA** = Enterprise Value ÷ EBITDA. Lower means cheaper relative to earnings.
+• **Peer Avg** = Average EV/EBITDA of peer group (excluding the company itself).
+• **Gap %** = Difference from peer average. Negative = discount, Positive = premium.
+• **Quartile** = Ranking within peer group (1 = cheapest, 4 = most expensive).
+
+📚 **Why discounts score higher:** Based on Merton's (1987) Investor Recognition Hypothesis - stocks with lower visibility often trade at discounts. IRCI assumes discounts represent potential IR opportunity to improve market perception and close the gap. However, discounts may also reflect fundamental issues unrelated to IR. Premiums may indicate IR success (market fully recognizes value) rather than a problem. Interpret in context of fundamentals.
+""")
             if 'peg_ratio' in df_val.columns:
-                st.caption("💡 **PEG Ratio** (Price/Earnings to Growth) from Alpha Vantage - Growth-adjusted valuation metric. Lower is generally better (typically <1.0 indicates undervalued relative to growth).")
+                st.caption("• **PEG Ratio** = Price/Earnings ÷ Growth Rate. Lower is better (<1.0 often indicates undervalued relative to growth).")
 
         with st.expander("💧 Liquidity Details", expanded=False):
             # Build liquidity columns list
@@ -2823,6 +2843,13 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 hide_index=True
             )
 
+            st.caption("""
+💡 **Metric Definitions:**
+• **Amihud (×10⁶)** = Price impact measure. Lower = more liquid. Shows how much price moves per dollar of volume.
+• **Spread (bps)** = Bid-ask spread in basis points. Lower = tighter spreads = better liquidity.
+• **Turnover** = Trading volume ÷ shares outstanding. Higher = more actively traded.
+""")
+
         with st.expander("📰 Coverage Details", expanded=False):
             # Calculate high-quality article counts
             df_cov_display = df_cov.copy()
@@ -2835,8 +2862,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 s = Settings.load()
                 domain_weights = s.domain_weights or {}
 
-                # Define high-quality threshold (0.8 = top tier sources)
-                HIGH_QUALITY_THRESHOLD = 0.8
+                # Define high-quality threshold (0.7 = reputable sources and above)
+                HIGH_QUALITY_THRESHOLD = 0.7
 
                 # Filter news for current quarter if multi-quarter mode
                 news_for_quarter = news_df.copy()
@@ -2846,15 +2873,19 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 # Count high-quality articles per ticker
                 high_quality_counts = []
                 for ticker in df_cov_display['ticker']:
-                    ticker_news = news_for_quarter[news_for_quarter.get('ticker', '') == ticker] if 'ticker' in news_for_quarter.columns else news_for_quarter
+                    # Filter by ticker if column exists
+                    if 'ticker' in news_for_quarter.columns:
+                        ticker_news = news_for_quarter[news_for_quarter['ticker'] == ticker]
+                    else:
+                        ticker_news = news_for_quarter
 
                     if not ticker_news.empty:
                         # Normalize domains
-                        domains = ticker_news['domain'].astype(str).str.lower().str.removeprefix("www.")
+                        domains = ticker_news['domain'].astype(str).str.lower().str.replace(r'^www\.', '', regex=True)
 
                         # Count articles from high-quality domains
                         high_qual_count = sum(
-                            domain_weights.get(dom, 0.5) >= HIGH_QUALITY_THRESHOLD
+                            domain_weights.get(dom, 0.3) >= HIGH_QUALITY_THRESHOLD
                             for dom in domains
                         )
                     else:
@@ -2890,8 +2921,25 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 hide_index=True
             )
 
+            st.caption("""
+💡 **Metric Definitions:**
+• **8-K Count** = Number of 8-K filings (material events) in the quarter. More filings = more disclosure activity.
+• **Days to 10-Q/K** = Days after quarter-end until 10-Q (or 10-K) was filed. Fewer days = faster reporting.
+""")
             if 'high_quality_articles' in df_cov_display.columns:
-                st.caption("💡 **High-Quality Articles** = Articles from top-tier sources (WSJ, Bloomberg, Reuters, etc. with domain weight ≥ 0.8). These sources have higher credibility and reach.")
+                st.caption("• **High-Quality Articles** = Articles from top-tier sources (weight ≥ 0.7): WSJ, Bloomberg, Reuters, CNBC, Forbes, Barron's, MarketWatch, Motley Fool, Benzinga, etc.")
+
+            # Show domain breakdown for debugging/transparency
+            if news_df is not None and not news_df.empty and 'domain' in news_df.columns:
+                with st.expander("📊 News Source Breakdown", expanded=False):
+                    # Get domain counts
+                    domain_counts = news_df['domain'].value_counts().head(20)
+                    if not domain_counts.empty:
+                        st.markdown("**Top news sources in your analysis:**")
+                        for dom, count in domain_counts.items():
+                            weight = domain_weights.get(dom, 0.3)
+                            quality = "✅ High-quality" if weight >= 0.7 else "⚪ Standard"
+                            st.markdown(f"• `{dom}`: {count} articles ({quality}, weight: {weight})")
 
         with st.expander("💭 Trust Details", expanded=False):
             # Build trust columns list
@@ -2918,6 +2966,15 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 use_container_width=True,
                 hide_index=True
             )
+
+            st.caption("""
+💡 **Metric Definitions:**
+• **Event Calm %** = How stable the stock was on earnings/event days vs normal days. Higher = less volatility around events.
+• **Baseline Calm %** = Stock's normal volatility relative to peers. Higher = more stable day-to-day.
+• **Media Tone %** = Sentiment score from news coverage. Higher = more positive coverage.
+• **Events** = Number of corporate events (earnings, announcements) analyzed.
+• **Articles** = Number of news articles analyzed for sentiment.
+""")
 
     # SECTION 2: Trend Analysis (only for multi-quarter data)
     if is_multi_quarter and selected_section == "📈 Trends":

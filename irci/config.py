@@ -71,27 +71,49 @@ class Settings:
                 "wsj.com": 1.0,
                 "bloomberg.com": 1.0,
                 "ft.com": 1.0,
+                "nytimes.com": 1.0,
+                "washingtonpost.com": 0.95,
 
-                # Tier 2: Major news & business (0.9)
+                # Tier 2: Major financial/business news (0.85-0.9)
                 "reuters.com": 0.9,
                 "cnbc.com": 0.9,
                 "forbes.com": 0.9,
+                "barrons.com": 0.9,
                 "businessinsider.com": 0.85,
+                "fortune.com": 0.85,
+                "economist.com": 0.9,
 
-                # Tier 3: Reputable sources (0.7-0.8)
-                "theverge.com": 0.75,
+                # Tier 3: Reputable financial sources (0.7-0.8)
+                "marketwatch.com": 0.8,
+                "fool.com": 0.75,  # Motley Fool - common in FMP
+                "benzinga.com": 0.75,  # Common in FMP
+                "investorplace.com": 0.7,
+                "thestreet.com": 0.7,
+                "zacks.com": 0.7,
+                "kiplinger.com": 0.75,
+                "investors.com": 0.75,  # Investor's Business Daily
+
+                # Tier 4: Tech/specialized news (0.7-0.75)
                 "techcrunch.com": 0.75,
+                "theverge.com": 0.75,
                 "arstechnica.com": 0.75,
-                "marketwatch.com": 0.7,
+                "wired.com": 0.7,
+                "cnet.com": 0.7,
+                "engadget.com": 0.65,
 
-                # Tier 4: General coverage (0.5-0.6)
+                # Tier 5: General financial coverage (0.5-0.65)
                 "seekingalpha.com": 0.6,
-                "yahoo.com": 0.5,
-                "investing.com": 0.5,
+                "yahoo.com": 0.55,
+                "finance.yahoo.com": 0.55,
+                "investing.com": 0.55,
+                "moneycontrol.com": 0.5,
+                "stocktwits.com": 0.4,
 
-                # Tier 5: Press releases (0.3-0.4)
+                # Tier 6: Press releases & wire services (0.3-0.4)
                 "prnewswire.com": 0.4,
                 "businesswire.com": 0.4,
-                "globenewswire.com": 0.3,
+                "globenewswire.com": 0.35,
+                "accesswire.com": 0.35,
+                "newsfilecorp.com": 0.3,
             }
         return s
