@@ -156,9 +156,9 @@ class IRCIReport(FPDF):
         self.set_y(125)
         self._draw_dial_summary(dial_scores)
 
-        # Dollar value if available - more compact
+        # Dollar value if available - position AFTER dial boxes (which are 28px tall)
         if dollar_per_point and dollar_per_point > 0:
-            self.set_y(165)
+            self.set_y(160)  # 125 + 28 + 7 spacing
             self.set_font('Arial', 'B', 10)
             self.cell(0, 6, 'VALUE PER IRCI POINT', 0, 1, 'C')
             self.set_font('Arial', 'B', 14)
@@ -426,12 +426,15 @@ class IRCIReport(FPDF):
             ('Trust', dial_scores.get('trust', 0), avg_trust),
         ]
 
-        self.set_font('Arial', '', 8)
         for dial_name, company_val, peer_avg in dial_comparisons:
             gap = company_val - peer_avg
             gap_str = f'+{gap:.1f}' if gap > 0 else f'{gap:.1f}'
 
-            self.cell(45, 5, dial_name, 1, 0, 'L')
+            # Dial name cell - reset to black text, white background
+            self.set_font('Arial', '', 8)
+            self.set_fill_color(255, 255, 255)
+            self.set_text_color(0, 0, 0)
+            self.cell(45, 5, dial_name, 1, 0, 'L', fill=False)
 
             # Company score with color
             color = self._get_score_color(company_val)
@@ -803,50 +806,6 @@ def generate_pdf_report(
     if dollar_per_point and dollar_per_point > 0:
         pdf.add_page()
         pdf.add_roi_section(ticker, dial_scores, dollar_per_point, playbook)
-
-    # === MEDIA SENTIMENT (if available) ===
-    if news_df is not None and not news_df.empty and 'sentiment_score' in news_df.columns:
-        pdf.add_page()
-        pdf.chapter_title('MEDIA SENTIMENT ANALYSIS')
-
-        ticker_news = news_df[news_df['ticker'] == ticker].copy()
-
-        if not ticker_news.empty:
-            total_articles = len(ticker_news)
-            avg_sentiment = ticker_news['sentiment_score'].mean()
-            positive_count = len(ticker_news[ticker_news['sentiment_score'] > 0.1])
-            negative_count = len(ticker_news[ticker_news['sentiment_score'] < -0.1])
-
-            pdf.section_title('Sentiment Overview')
-            pdf.body_text(
-                f"Total Articles: {total_articles}\n"
-                f"Average Sentiment: {avg_sentiment:+.3f}\n"
-                f"Positive: {positive_count} ({positive_count/total_articles*100:.0f}%) | "
-                f"Negative: {negative_count} ({negative_count/total_articles*100:.0f}%)"
-            )
-
-            # Top positive
-            pdf.section_title('Most Positive Coverage')
-            positive_news = ticker_news[ticker_news['sentiment_score'] > 0].sort_values(
-                'sentiment_score', ascending=False
-            ).head(3)
-
-            for _, article in positive_news.iterrows():
-                headline = article.get('headline', 'No headline')[:100]
-                pdf.set_font('Arial', '', 9)
-                pdf.safe_multi_cell(0, 5, f"+ {headline}")
-
-            # Top negative
-            pdf.ln(3)
-            pdf.section_title('Most Negative Coverage')
-            negative_news = ticker_news[ticker_news['sentiment_score'] < 0].sort_values(
-                'sentiment_score', ascending=True
-            ).head(3)
-
-            for _, article in negative_news.iterrows():
-                headline = article.get('headline', 'No headline')[:100]
-                pdf.set_font('Arial', '', 9)
-                pdf.safe_multi_cell(0, 5, f"- {headline}")
 
     # === FINAL PAGE: METHODOLOGY & DISCLAIMER ===
     pdf.add_page()
