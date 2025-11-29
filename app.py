@@ -728,6 +728,73 @@ def show_intro_modal():
         st.session_state['show_intro'] = False
         st.rerun()
 
+# Legal Disclaimer Modal
+@st.dialog("⚠️ Legal Disclaimer", width="large")
+def show_disclaimer_modal():
+    st.markdown("""
+    ### Important Notice
+
+    By clicking **"I Accept"** below, you acknowledge and agree to the following:
+
+    ---
+
+    **📊 Not Financial Advice**
+
+    The information provided by IRCI (Investor Relations Competitive Intelligence) is for **informational and educational purposes only**. It does not constitute financial advice, investment advice, trading advice, or any other sort of advice. You should not treat any of the platform's content as such.
+
+    ---
+
+    **⚠️ No Guarantees**
+
+    - Past performance is not indicative of future results
+    - The IRCI scores and analysis are based on publicly available data and proprietary algorithms that may contain errors or inaccuracies
+    - Market conditions can change rapidly and unpredictably
+    - No representation is made that any investment will achieve results similar to those shown
+
+    ---
+
+    **🔍 Do Your Own Research**
+
+    Before making any investment decisions, you should:
+    - Conduct your own due diligence
+    - Consult with a qualified financial advisor
+    - Consider your personal financial situation and risk tolerance
+    - Review official company filings and disclosures
+
+    ---
+
+    **📜 Limitation of Liability**
+
+    IRCI and its creators shall not be held liable for any losses, damages, or costs arising from the use of this platform or reliance on its outputs. Use of this tool is entirely at your own risk.
+
+    ---
+
+    **🔒 Data Sources**
+
+    Analysis is based on publicly available information from sources including SEC filings, financial news outlets, and market data providers. While we strive for accuracy, we cannot guarantee the completeness or timeliness of all data.
+    """)
+
+    st.markdown("---")
+
+    # Checkbox for acknowledgment
+    accept_checkbox = st.checkbox(
+        "I have read and understand this disclaimer",
+        key="disclaimer_checkbox"
+    )
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("✅ I Accept", use_container_width=True, type="primary", disabled=not accept_checkbox):
+            st.session_state['disclaimer_accepted'] = True
+            st.session_state['show_disclaimer'] = False
+            st.session_state['run_analysis_confirmed'] = True
+            st.rerun()
+
+    with col2:
+        if st.button("❌ Cancel", use_container_width=True):
+            st.session_state['show_disclaimer'] = False
+            st.rerun()
+
 # Initialize intro state (only show on very first visit after authentication)
 # Initialize intro modal state - only show once per session after authentication
 if 'intro_shown_once' not in st.session_state:
@@ -735,6 +802,16 @@ if 'intro_shown_once' not in st.session_state:
 
 if 'show_intro' not in st.session_state:
     st.session_state['show_intro'] = False
+
+# Initialize disclaimer state
+if 'disclaimer_accepted' not in st.session_state:
+    st.session_state['disclaimer_accepted'] = False
+
+if 'show_disclaimer' not in st.session_state:
+    st.session_state['show_disclaimer'] = False
+
+if 'run_analysis_confirmed' not in st.session_state:
+    st.session_state['run_analysis_confirmed'] = False
 
 # Auto-show intro on first authentication (only once)
 if st.session_state.get('authenticated', False) and not st.session_state.get('intro_shown_once', False):
@@ -746,6 +823,10 @@ if st.session_state.get('show_intro', False):
     show_intro_modal()
     # Reset show_intro after displaying - handles case where user closes via X or clicking outside
     st.session_state['show_intro'] = False
+
+# Show disclaimer modal if requested
+if st.session_state.get('show_disclaimer', False):
+    show_disclaimer_modal()
 
 # Sidebar
 with st.sidebar:
@@ -941,12 +1022,28 @@ with st.sidebar:
 
     # Run Analysis button - prominently placed after quarter selection
     st.markdown("---")
-    run_analysis = st.button(
+    run_analysis_clicked = st.button(
         "🚀 Run Analysis",
         type="primary",
         use_container_width=True,
         help="Start analyzing the selected companies for the chosen quarter"
     )
+
+    # Handle Run Analysis button click - show disclaimer if not accepted
+    if run_analysis_clicked:
+        if not st.session_state.get('disclaimer_accepted', False):
+            st.session_state['show_disclaimer'] = True
+            st.rerun()
+        else:
+            st.session_state['run_analysis_confirmed'] = True
+
+    # Determine if we should actually run the analysis
+    run_analysis = st.session_state.get('run_analysis_confirmed', False)
+
+    # Reset the confirmed flag after reading it
+    if run_analysis:
+        st.session_state['run_analysis_confirmed'] = False
+
     st.markdown("---")
 
     # Weights configuration
