@@ -886,8 +886,8 @@ def show_intro_modal():
         st.session_state['show_intro'] = False
         st.rerun()
 
-# Legal Disclaimer Modal
-@st.dialog("⚠️ Legal Disclaimer")
+# Legal Disclaimer Modal (shown when clicking "View full terms" link)
+@st.dialog("📜 Legal Disclaimer - Full Terms")
 def show_disclaimer_modal():
     st.markdown("""
 **📊 Not Financial Advice** — IRCI is for informational and educational purposes only. It does not constitute financial, investment, or trading advice.
@@ -899,26 +899,14 @@ def show_disclaimer_modal():
 **📜 Limitation of Liability** — IRCI and its creators shall not be held liable for any losses or damages arising from use of this platform. Use is entirely at your own risk.
 
 **🔒 Data Sources** — Analysis is based on publicly available information. We cannot guarantee completeness or timeliness of all data.
+
+---
+*By checking the disclaimer box and running analysis, you acknowledge that you have read, understood, and agree to these terms.*
     """)
 
-    # Checkbox for acknowledgment
-    accept_checkbox = st.checkbox(
-        "I have read and understand this disclaimer",
-        key="disclaimer_checkbox"
-    )
-
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        if st.button("✅ I Accept", use_container_width=True, type="primary", disabled=not accept_checkbox):
-            st.session_state['disclaimer_accepted'] = True
-            st.session_state['show_disclaimer'] = False
-            st.session_state['pending_analysis'] = True  # Flag to show "click again" message
-            st.rerun()
-
-    with col2:
-        if st.button("❌ Cancel", use_container_width=True):
-            st.session_state['show_disclaimer'] = False
-            st.rerun()
+    if st.button("✓ Close", use_container_width=True, type="primary"):
+        st.session_state['show_disclaimer'] = False
+        st.rerun()
 
 # Initialize intro state (only show on very first visit after authentication)
 # Initialize intro modal state - only show once per session after authentication
@@ -1147,25 +1135,36 @@ with st.sidebar:
 
     # Run Analysis button - prominently placed after quarter selection
     st.markdown("---")
+
+    # Disclaimer checkbox with link to view full terms
+    disclaimer_col1, disclaimer_col2 = st.columns([3, 1])
+    with disclaimer_col1:
+        disclaimer_accepted = st.checkbox(
+            "I have read and agree to the terms",
+            value=st.session_state.get('disclaimer_accepted', False),
+            key="disclaimer_checkbox_inline",
+            help="You must agree to the disclaimer before running analysis"
+        )
+        # Update session state
+        st.session_state['disclaimer_accepted'] = disclaimer_accepted
+
+    with disclaimer_col2:
+        if st.button("📜 View terms", use_container_width=True, type="secondary"):
+            st.session_state['show_disclaimer'] = True
+            st.rerun()
+
+    # Run Analysis button
     run_analysis_clicked = st.button(
         "🚀 Run Analysis",
         type="primary",
         use_container_width=True,
-        help="Start analyzing the selected companies for the chosen quarter"
+        disabled=not st.session_state.get('disclaimer_accepted', False),
+        help="Start analyzing the selected companies for the chosen quarter" if st.session_state.get('disclaimer_accepted', False) else "Please accept the disclaimer first"
     )
 
-    # Handle Run Analysis button click - show disclaimer if not accepted
+    # Handle Run Analysis button click
     if run_analysis_clicked:
-        if not st.session_state.get('disclaimer_accepted', False):
-            st.session_state['show_disclaimer'] = True
-            st.rerun()
-        else:
-            st.session_state['run_analysis_confirmed'] = True
-
-    # Check if user just accepted disclaimer (pending_analysis flag)
-    if st.session_state.get('pending_analysis', False):
-        st.session_state['pending_analysis'] = False
-        st.success("✅ Disclaimer accepted! Click **Run Analysis** to start.")
+        st.session_state['run_analysis_confirmed'] = True
 
     # Determine if we should actually run the analysis
     run_analysis = st.session_state.get('run_analysis_confirmed', False)
