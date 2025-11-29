@@ -1877,14 +1877,16 @@ elif run_analysis:
 | Offer generic "best practices" | Show your specific gaps vs peers |
 | Can't verify their own claims | Every metric is auditable and sourced |
 
-**Why This Matters for IR Professionals**
+**What AI *Can't* Do**
 
-IR is about **trust, credibility, and measurable outcomes** - the exact areas where AI hallucinates most. IRCI provides:
-
-- **Objective peer benchmarking** - Not opinions, actual performance data
-- **Quantified dollar impact** - R²-scaled to be conservative, not inflated
-- **Board-ready proof** - Every score traces back to verifiable sources
-- **Human judgment amplified** - You interpret the data, IRCI does the math
+| Capability | Generic AI | IRCI |
+|------------|-----------|------|
+| Know your specific peer group | ❌ | ✅ Custom peer benchmarking |
+| Calculate your \$/IRCI point | ❌ | ✅ Regression on actual market data |
+| Factor-adjust your event volatility | ❌ | ✅ Fama-French model integration |
+| Track your progress over time | ❌ | ✅ Quarter-over-quarter comparison |
+| Access real-time SEC EDGAR filings | ❌ | ✅ Live data pipeline |
+| Benchmark against competitors | ❌ | ✅ Peer-relative percentiles |
 
 **The Bottom Line**
 
