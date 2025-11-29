@@ -2159,6 +2159,17 @@ elif run_analysis:
                 apikey=s.fmp_api_key,
                 s=s
             )
+
+            # Debug: Show media tone calculation results
+            if not df_trust.empty:
+                for _, row in df_trust.iterrows():
+                    ticker = row.get('ticker', 'Unknown')
+                    media_tone_n = row.get('media_tone_n', 0)
+                    media_tone_raw = row.get('media_tone_raw', None)
+                    media_tone_src = row.get('media_tone_src', 'None')
+                    p_media_tone = row.get('p_media_tone', None)
+                    print(f"[TRUST DEBUG] {ticker}: media_tone_n={media_tone_n}, media_tone_raw={media_tone_raw}, src={media_tone_src}, p_media_tone={p_media_tone}")
+
             if not df_trust.empty:
                 if "quarter_end" not in df_trust.columns:
                     df_trust["quarter_end"] = quarter_end_dt

@@ -505,8 +505,10 @@ def trust_quarter_for_symbol(
             scores = finbert_score(texts)
             if scores:
                 log.info("FinBERT scored %d headlines for %s", len(scores), symbol)
+                print(f"[SENTIMENT] FinBERT scored {len(scores)} headlines for {symbol}")
         except Exception as e:
             log.warning("FinBERT failed for %s: %s", symbol, e)
+            print(f"[SENTIMENT] FinBERT failed for {symbol}: {e}")
             scores = None
 
         if scores:
@@ -516,6 +518,7 @@ def trust_quarter_for_symbol(
             media_tone_n   = int(len(scores))
         else:
             # Fallback to VADER - this should always work
+            print(f"[SENTIMENT] Trying VADER for {symbol} with {len(texts)} texts...")
             try:
                 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
                 sia = SentimentIntensityAnalyzer()
@@ -526,8 +529,14 @@ def trust_quarter_for_symbol(
                     media_tone_src = "vader"
                     media_tone_n   = int(len(vs))
                     log.info("VADER scored %d headlines for %s, mean=%.3f", len(vs), symbol, raw)
+                    print(f"[SENTIMENT] VADER success for {symbol}: {len(vs)} headlines, mean={raw:.4f}, media_tone_raw={media_tone_raw:.4f}")
+                else:
+                    print(f"[SENTIMENT] VADER returned empty list for {symbol}")
             except Exception as e:
                 log.warning("VADER also failed for %s: %s", symbol, e)
+                print(f"[SENTIMENT] VADER failed for {symbol}: {e}")
+    else:
+        print(f"[SENTIMENT] No texts found for {symbol}")
 
     if np.isfinite(media_tone_raw):
         k = 4.0  # reliability shrink
