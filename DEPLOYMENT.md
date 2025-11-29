@@ -1,144 +1,80 @@
-# 🚀 IRCI Deployment Guide - Streamlit Community Cloud
+# IRCI Deployment Guide
 
-This guide will help you deploy the IRCI Analysis Platform to Streamlit Community Cloud.
+## Streamlit Cloud Configuration
 
-## Prerequisites
+The IRCI app is deployed on Streamlit Cloud at: https://ircibeta.streamlit.app/
 
-- GitHub account
-- Streamlit Community Cloud account (sign up at https://share.streamlit.io)
-- API keys for:
-  - Financial Modeling Prep (FMP)
-  - OpenAI (for AI Assistant feature)
-  - Alpha Vantage (optional)
+### Important: Branch Configuration
 
-## Step 1: Push Code to GitHub
+**Streamlit Cloud is configured to deploy from the `irci-bridge` branch, NOT `main`.**
 
-Your code is already in the `irci-bridge` branch. Push it to GitHub:
+This means:
+- All development work happens on `main` branch
+- Changes must be merged to `irci-bridge` to appear on the live app
+
+### How to Deploy Changes
+
+After making changes on `main`, run these commands to deploy:
 
 ```bash
-git push origin irci-bridge
-```
-
-Or if you want to deploy from main:
-```bash
+# 1. Make sure you're on main and changes are committed
 git checkout main
-git merge irci-bridge
-git push origin main
+git status  # Should show "nothing to commit, working tree clean"
+
+# 2. Switch to irci-bridge and merge changes from main
+git checkout irci-bridge
+git merge main -m "Merge main into irci-bridge - [describe changes]"
+
+# 3. Push to deploy
+git push origin irci-bridge
+
+# 4. Switch back to main for continued development
+git checkout main
 ```
 
-## Step 2: Sign Up for Streamlit Community Cloud
-
-1. Go to https://share.streamlit.io
-2. Sign in with your GitHub account
-3. Authorize Streamlit to access your repositories
-
-## Step 3: Deploy Your App
-
-1. Click **"New app"** button
-2. Fill in the deployment settings:
-   - **Repository**: Select your IRCI repository
-   - **Branch**: `irci-bridge` (or `main` if you merged)
-   - **Main file path**: `app.py`
-   - **App URL** (optional): Choose a custom subdomain
-
-3. Click **"Deploy"**
-
-## Step 4: Configure Secrets
-
-After deployment (or before), add your API keys and access code:
-
-1. In the Streamlit Cloud dashboard, go to your app
-2. Click the **"⚙️ Settings"** button
-3. Go to **"Secrets"** section
-4. Copy the contents of `.streamlit/secrets.toml.example`
-5. Paste into the secrets editor
-6. Replace the placeholder values with your actual keys:
-
-```toml
-# Financial Modeling Prep API Key
-FMP_API_KEY = "your_actual_fmp_key"
-
-# OpenAI API Key (for AI Assistant)
-OPENAI_API_KEY = "your_actual_openai_key"
-
-# Alpha Vantage API Key (optional)
-ALPHA_VANTAGE_API_KEY = "your_actual_alpha_vantage_key"
-
-# Access Code (change to your custom code)
-ACCESS_CODE = "Melissa2019"
-```
-
-7. Click **"Save"**
-
-## Step 5: Your App is Live! 🎉
-
-Your app will be available at:
-```
-https://your-app-name.streamlit.app
-```
-
-## Configuration Files
-
-- **`.streamlit/config.toml`**: Production settings (already configured)
-- **`.streamlit/secrets.toml.example`**: Template for secrets (DO NOT commit actual secrets.toml)
-- **`requirements.txt`**: Python dependencies (already configured)
-
-## Updating Your Deployed App
-
-Streamlit Cloud automatically redeploys when you push to your connected branch:
+### Quick One-Liner to Deploy
 
 ```bash
-git add .
-git commit -m "Update app"
-git push origin irci-bridge
+git checkout irci-bridge && git merge main -m "Deploy latest changes" && git push origin irci-bridge && git checkout main
 ```
 
-Your app will rebuild and redeploy automatically!
+### If Streamlit Cloud Doesn't Update
 
-## Troubleshooting
+1. Go to https://share.streamlit.io/
+2. Find the ircibeta app
+3. Click the ⋮ menu → "Reboot app"
 
-### App Won't Start
-- Check the logs in Streamlit Cloud dashboard
-- Verify all secrets are set correctly
-- Ensure requirements.txt includes all dependencies
+Or from the app itself:
+1. Go to https://ircibeta.streamlit.app/
+2. Click ☰ menu (bottom right)
+3. Click "Reboot app"
 
-### "Module not found" Errors
-- Add missing packages to requirements.txt
-- Push changes to trigger rebuild
+### Streamlit Cloud Settings
 
-### API Errors
-- Verify API keys in secrets are correct
-- Check API key quotas/limits
+To check or change deployment settings:
+1. Go to https://share.streamlit.io/
+2. Click on the ircibeta app
+3. Click "Settings" (gear icon)
 
-### Access Code Not Working
-- Verify ACCESS_CODE is set in secrets
-- Check for typos (case-sensitive)
+Current settings should be:
+- **Repository**: bnatc85/IRCI
+- **Branch**: irci-bridge
+- **Main file path**: app.py
 
-## Managing Resources
+### Environment Variables
 
-**Free Tier Limits:**
-- 1 GB RAM per app
-- Apps sleep after inactivity
-- Wake up automatically when accessed
+Streamlit Cloud uses secrets configured in the dashboard, NOT the local `.env` file.
 
-**Tips to optimize:**
-- Use `@st.cache_data` for expensive operations
-- Limit data fetching where possible
-- Consider pagination for large datasets
+To update secrets:
+1. Go to Streamlit Cloud dashboard
+2. Click on app → Settings → Secrets
+3. Add secrets in TOML format
 
-## Security Notes
+### Branches Overview
 
-- ✅ Access code provides basic protection
-- ✅ API keys stored securely in Streamlit secrets
-- ✅ HTTPS enabled by default
-- ⚠️ For production use, consider proper authentication
+| Branch | Purpose |
+|--------|---------|
+| `main` | Active development, all new code goes here |
+| `irci-bridge` | Production deployment branch for Streamlit Cloud |
+| `feature/*` | Feature branches for larger changes |
 
-## Support
-
-- Streamlit Cloud Docs: https://docs.streamlit.io/streamlit-community-cloud
-- IRCI Repository: [Your GitHub URL]
-- Questions? Check the Streamlit Community Forum
-
----
-
-**Happy Deploying! 🚀**
