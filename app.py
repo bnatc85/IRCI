@@ -1,6 +1,7 @@
 """
 IRCI Web Application
 A user-friendly interface for running IRCI analysis on public companies.
+Version: 2024.11.29-v2 - Media tone & domain fixes
 """
 
 import streamlit as st
