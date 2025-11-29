@@ -1579,7 +1579,7 @@ if not show_results and not run_analysis:
             ✅ **CHECK**
             - In our Big Tech sample: +1 IRCI point ≈ -0.44% change in next-quarter peer valuation gap
             - R² ≈ 0.37 (moderate explanatory power—appropriate for a secondary factor after fundamentals)
-            - Translation: On Apple-sized companies, ~$15B per IRCI point
+            - Translation: On Apple-sized companies, ~\\$15B per IRCI point
     
             💡 **Interpretation:** Treat as a **planning range**, not a guarantee. Fundamentals dominate, but IR efficiency matters at the margin.
     
@@ -3447,15 +3447,15 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                     **The Problem with Regression-Only:**
                     - Old approach: Used cross-sectional regression slope directly
-                    - For large companies ($500B+), this could produce absurd results like "$50B per IRCI point"
-                    - A 10-point gap would imply $500B upside (100% of the company's value!)
+                    - For large companies (\\$500B+), this could produce absurd results like "\\$50B per IRCI point"
+                    - A 10-point gap would imply \\$500B upside (100% of the company's value!)
 
                     **Our Solution: Academic-Backed Percentage Caps**
 
-                    We cap $/IRCI point at **1% of enterprise value per point** (scaled by R²):
+                    We cap \\$/IRCI point at **1% of enterprise value per point** (scaled by R²):
 
                     ```
-                    $/IRCI Point = EV × 1% × R²
+                    \\$/IRCI Point = EV × 1% × R²
                     ```
 
                     **Why 1% per point?**
@@ -3464,9 +3464,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     - A 5-point quarterly improvement → 5% × 10% factor = 0.5% of EV (realistic)
 
                     **Example (R² = {r2_score:.2f}):**
-                    - $500B company: ${500 * 0.01 * r2_score:,.1f}B per IRCI point
-                    - 10-point gap to top performer: ${500 * 0.01 * r2_score * 10:,.1f}B potential upside ({500 * 0.01 * r2_score * 10 / 5:.1f}% of EV)
-                    - 5-point quarterly improvement: ${500 * 0.01 * r2_score * 5 * 0.1:,.1f}B IR contribution ({500 * 0.01 * r2_score * 5 * 0.1 / 5:.2f}% of EV)
+                    - \\$500B company: \\${500 * 0.01 * r2_score:,.1f}B per IRCI point
+                    - 10-point gap to top performer: \\${500 * 0.01 * r2_score * 10:,.1f}B potential upside ({500 * 0.01 * r2_score * 10 / 5:.1f}% of EV)
+                    - 5-point quarterly improvement: \\${500 * 0.01 * r2_score * 5 * 0.1:,.1f}B IR contribution ({500 * 0.01 * r2_score * 5 * 0.1 / 5:.2f}% of EV)
 
                     This ensures dollar values are always proportional to company size and capped at realistic levels based on peer-reviewed academic research.
 
@@ -3661,7 +3661,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                     **Calculation includes {quarterly_impact_factor:.0%} quarterly impact factor:**
                     - Quarterly IR changes have smaller immediate impact than structural peer differences
-                    - Example: +7 IRCI point improvement × $150M/point × {quarterly_impact_factor:.0%} = **+${7 * 150_000_000 * quarterly_impact_factor:,.0f}**
+                    - Example: +7 IRCI point improvement × \\$150M/point × {quarterly_impact_factor:.0%} = **+\\${7 * 150_000_000 * quarterly_impact_factor:,.0f}**
                     - The {quarterly_impact_factor:.0%} factor reflects that 3 months of IR work is marginal, not structural
 
                     **Academic support (Bushee & Miller 2012; Agarwal et al. 2016):**
@@ -3683,7 +3683,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                     ⚠️ **IMPORTANT:** These values show **structural positioning gaps** relative to peers, NOT quarterly contributions.
                     - Values are capped at **max 1% of EV per IRCI point** (scaled by R²) based on academic research
-                    - Example: $43B gap for $3.9T company MSFT = 1.1% of EV (realistic structural positioning difference)
+                    - Example: \\$43B gap for \\$3.9T company MSFT = 1.1% of EV (realistic structural positioning difference)
                     - This represents long-term IR quality differences built over years, not quarterly achievements
 
                     💡 **To see quarterly contributions:** Run analysis for {previous_quarter if previous_quarter else 'previous quarter'} first,
@@ -3981,7 +3981,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     **Potential Dollar Upside (R²-Scaled):**
                     ```
                     Upside = Gap × (Company $/IRCI Point)
-                    Upside = 25 points × $150M/point = $3.75B
+                    Upside = 25 points × \\$150M/point = \\$3.75B
                     ```
 
                     **Important:** This is a PLANNING RANGE, not a guarantee:
@@ -4675,7 +4675,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     📊 **Calendar Note**: Each row shows the SUM of all events on that day.
                     - If 20 news articles occur on one day, their impacts are added together
                     - Individual events have tiny impacts (~0.00001-0.0005 IRCI points each)
-                    - For large companies, even tiny IRCI impacts can translate to $100K-$1M due to high $/IRCI point
+                    - For large companies, even tiny IRCI impacts can translate to \\$100K-\\$1M due to high \\$/IRCI point
                     - This shows why quarterly aggregate analysis matters more than individual events
                     """)
                 else:
@@ -4815,10 +4815,10 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         - Example: +0.0003 Trust points × 0.15 weight = **+0.000045 IRCI points**
     
                         **Step 4: Dollar Impact (R²-Scaled)**
-                        - Use company-specific $/IRCI point (already R²-scaled from regression)
-                        - Example (mid-cap): +0.000045 IRCI pts × $150M/point = **$6,750**
-                        - Example (large-cap): +0.000045 IRCI pts × $4B/point = **$180,000**
-                        - R² scaling already applied (if R²=0.3, the $/point was reduced by 70%)
+                        - Use company-specific \\$/IRCI point (already R²-scaled from regression)
+                        - Example (mid-cap): +0.000045 IRCI pts × \\$150M/point = **\\$6,750**
+                        - Example (large-cap): +0.000045 IRCI pts × \\$4B/point = **\\$180,000**
+                        - R² scaling already applied (if R²=0.3, the \\$/point was reduced by 70%)
     
                         ---
     
@@ -4827,14 +4827,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         **8-K Filing:**
                         - Dial impact: 0.001 points on Coverage dial (0.1% of dial)
                         - IRCI impact: 0.001 × 0.15 (coverage weight) = **0.00015 IRCI points**
-                        - Dollar impact (mid-cap): 0.00015 × $150M/point = **$22,500**
-                        - Dollar impact (large-cap): 0.00015 × $4B/point = **$600,000**
+                        - Dollar impact (mid-cap): 0.00015 × \\$150M/point = **\\$22,500**
+                        - Dollar impact (large-cap): 0.00015 × \\$4B/point = **\\$600,000**
     
                         **10-Q or 10-K Filing:**
                         - Dial impact: 0.003 points on Coverage dial (0.3% of dial)
                         - IRCI impact: 0.003 × 0.15 = **0.00045 IRCI points**
-                        - Dollar impact (mid-cap): 0.00045 × $150M/point = **$67,500**
-                        - Dollar impact (large-cap): 0.00045 × $4B/point = **$1.8M**
+                        - Dollar impact (mid-cap): 0.00045 × \\$150M/point = **\\$67,500**
+                        - Dollar impact (large-cap): 0.00045 × \\$4B/point = **\\$1.8M**
     
                         **Why these values?** Coverage dial measures aggregate quarterly filing activity,
                         not individual filings. A typical company has 5-20 8-Ks per quarter.
@@ -4922,9 +4922,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         **Regression Analysis:** We regress Enterprise Value ~ IRCI Score across peer group
     
                         **Example Calculation:**
-                        - Raw regression slope: $500M per IRCI point
+                        - Raw regression slope: \\$500M per IRCI point
                         - R² value: 0.30 (IRCI explains 30% of EV variance)
-                        - **R²-scaled slope**: $500M × 0.30 = **$150M per IRCI point**
+                        - **R²-scaled slope**: \\$500M × 0.30 = **\\$150M per IRCI point**
     
                         **What This Means:**
                         - IR/IRCI is ONE of MANY factors affecting enterprise value
@@ -4934,15 +4934,15 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     
                         **Individual Event Example:**
                         - Event IRCI impact: +0.000045 points (single positive news article)
-                        - Company $/IRCI: $150M/point (R²-scaled)
-                        - Event dollar impact: +0.000045 × $150M = **$6,750**
-                        - Without R² scaling: +0.000045 × $500M = $22,500 (OVERSTATED by 3.3x)
+                        - Company \\$/IRCI: \\$150M/point (R²-scaled)
+                        - Event dollar impact: +0.000045 × \\$150M = **\\$6,750**
+                        - Without R² scaling: +0.000045 × \\$500M = \\$22,500 (OVERSTATED by 3.3x)
     
                         ---
     
                         ### ✅ Bottom Line
     
-                        1. **Individual events = Tiny impacts** (~0.00001-0.0005 IRCI points, $1K-$100K for mid-caps, $50K-$2M for large-caps)
+                        1. **Individual events = Tiny impacts** (~0.00001-0.0005 IRCI points, \\$1K-\\$100K for mid-caps, \\$50K-\\$2M for large-caps)
                         2. **Quarterly aggregates = Large impacts** (full dial scores determine total IRCI)
                         3. **R² scaling = Realistic estimates** (accounts for IR being one of many factors)
                         4. **Dollar impacts are planning ranges**, not guarantees
