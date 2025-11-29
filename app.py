@@ -3647,164 +3647,16 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 # Methodology explanation
                 with st.expander("ℹ️ How Advanced Forecasting Works"):
                     st.markdown(f"""
-                    **Forecasting Models Available:**
+                    **Models:** Linear (steady trends), Polynomial 2 (accelerating/decelerating), Polynomial 3 (S-curves), Auto-Select (highest R²)
 
-                    **1. Linear Regression (Degree 1)**
-                    - Fits a straight line through historical IRCI scores
-                    - Best for: Consistent, steady trends
-                    - Formula: IRCI = β₀ + β₁ × Quarter
-                    - Requires: Minimum 2 quarters
+                    **Current:** {model_type}
 
-                    **2. Polynomial Regression (Degree 2)**
-                    - Fits a quadratic curve (can capture acceleration/deceleration)
-                    - Best for: Trends that are speeding up or slowing down
-                    - Formula: IRCI = β₀ + β₁×Q + β₂×Q²
-                    - Requires: Minimum 3 quarters
-                    - Example: IR improvements that accelerate over time
+                    **Key Metrics:**
+                    - **R²**: Model fit (>0.7 = high confidence, 0.4-0.7 = moderate, <0.4 = low)
+                    - **{confidence_level}% Interval**: Range where actual score should fall
+                    - **Trend**: 📈 Improving (>+0.5/qtr) | 📉 Declining (<-0.5/qtr) | ➡️ Stable
 
-                    **3. Polynomial Regression (Degree 3)**
-                    - Fits a cubic curve (can capture S-curves and inflection points)
-                    - Best for: Complex trends with multiple phases
-                    - Formula: IRCI = β₀ + β₁×Q + β₂×Q² + β₃×Q³
-                    - Requires: Minimum 4 quarters
-                    - Example: Initial improvement, plateau, then further gains
-
-                    **4. Auto-Select Best Model**
-                    - Automatically chooses the model with highest R² (best fit)
-                    - Compares all available models based on your data
-                    - Recommended for most use cases
-
-                    **Current Selection:** {model_type}
-
-                    ---
-
-                    **Confidence Intervals ({confidence_level}%):**
-
-                    The prediction interval shows the range where we expect the actual IRCI score to fall:
-                    - **{confidence_level}% confidence** means if we repeated this forecast 100 times, about {confidence_level} times the actual value would fall within the range
-                    - **Wider intervals** = more uncertainty in forecast
-                    - **Narrower intervals** = more confidence in forecast
-
-                    **Factors affecting interval width:**
-                    - Data variance: More volatile historical data → wider intervals
-                    - Sample size: More quarters → narrower intervals
-                    - Model fit (R²): Better fit → narrower intervals
-
-                    ---
-
-                    **Metrics Explained:**
-
-                    **R² (R-squared):**
-                    - Measures how well the model fits historical data (0 to 1 scale)
-                    - R² > 0.7: High confidence forecast (trend is very consistent)
-                    - R² 0.4-0.7: Moderate confidence (trend is somewhat consistent)
-                    - R² < 0.4: Low confidence (data is noisy, trend unclear)
-
-                    **Range Width:**
-                    - Width of the {confidence_level}% confidence interval
-                    - Smaller width = more precise forecast
-                    - Example: Width of 5 points means ±2.5 points uncertainty
-
-                    **Model Used:**
-                    - Shows which regression model was selected
-                    - Compare models to see which fits your data best
-
-                    ---
-
-                    **When to Use Each Model:**
-
-                    **Linear:** Choose when...
-                    - Your IRCI improves/declines at a steady rate each quarter
-                    - You have 2-3 quarters of data
-                    - You want a simple, interpretable forecast
-
-                    **Polynomial (Degree 2):** Choose when...
-                    - Your IRCI improvement is accelerating or decelerating
-                    - You see curved trends in historical data
-                    - You have 3+ quarters of data
-
-                    **Polynomial (Degree 3):** Choose when...
-                    - You see S-curves or multiple inflection points
-                    - Early rapid growth, then stabilization, then growth again
-                    - You have 4+ quarters of data
-
-                    **Auto-Select:** Choose when...
-                    - You're unsure which model is best
-                    - You want maximum R² (best statistical fit)
-                    - You trust the algorithm to find optimal complexity
-
-                    ---
-
-                    **Interpretation Guide:**
-
-                    **Predicted Score:**
-                    - Expected IRCI for {next_quarter} if current trend continues
-                    - Point estimate (single best guess)
-
-                    **{confidence_level}% Lower / Upper:**
-                    - Lower bound and upper bound of prediction interval
-                    - Actual score has {confidence_level}% probability of falling in this range
-
-                    **Expected Change:**
-                    - Delta from most recent quarter to forecast
-                    - Positive = improving, negative = declining
-
-                    **Trend Direction:**
-                    - 📈 Improving: Slope > +0.5 points/quarter
-                    - 📉 Declining: Slope < -0.5 points/quarter
-                    - ➡️ Stable: Slope between -0.5 and +0.5
-
-                    ---
-
-                    **Limitations & Caveats:**
-
-                    ⚠️ **Model Assumptions:**
-                    - Assumes trends continue unchanged
-                    - Does not account for external shocks
-                    - Does not include planned IR initiatives
-                    - Historical relationship may not persist
-
-                    ⚠️ **Data Requirements:**
-                    - Minimum 2 quarters (linear only)
-                    - More data = better forecasts
-                    - Outliers can skew results
-
-                    ⚠️ **Uncertainty:**
-                    - Past performance ≠ future results
-                    - Confidence intervals show statistical uncertainty only
-                    - Real-world factors (market changes, competitor IR) not modeled
-
-                    ---
-
-                    **Best Practices:**
-
-                    ✅ **Do:**
-                    - Use forecasts to set realistic targets
-                    - Compare multiple models (Auto-Select helps)
-                    - Consider confidence intervals when making decisions
-                    - Update forecasts quarterly as new data arrives
-
-                    ❌ **Don't:**
-                    - Treat forecasts as guarantees
-                    - Ignore wide confidence intervals (they signal uncertainty)
-                    - Use forecasts beyond next quarter (error compounds)
-                    - Forget that you control IR outcomes through actions
-
-                    ---
-
-                    **Example Interpretation:**
-
-                    *"AAPL predicted at 74.3 (95% CI: [70.1, 78.5]), R²=0.92, Polynomial Degree 2"*
-
-                    **Means:**
-                    - Best guess: 74.3 IRCI next quarter
-                    - 95% confident actual will be between 70.1 and 78.5
-                    - Very high confidence (R²=0.92 means model explains 92% of variance)
-                    - Polynomial model chosen (trend is accelerating, not linear)
-                    - Range width of 8.4 points (moderate precision)
-
-                    **Action:**
-                    Set target of 74+ for next quarter, plan for range of 70-79 in scenarios.
+                    **Limitations:** Assumes trends continue; doesn't account for external shocks or planned initiatives. Past performance ≠ future results.
                     """)
             else:
                 st.info("Unable to generate forecasts. Need at least 2 quarters of data per company.")
@@ -4100,68 +3952,16 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 # Academic methodology and references
                 with st.expander("📚 Academic Methodology & References"):
                     st.markdown("""
-                    ### Why Quarterly Changes Need a Discount Factor
+                    ### Why Quarterly Changes Use a 10% Factor
 
-                    **The Core Issue: Cross-Sectional vs Time-Series Valuation**
+                    $/IRCI point comes from **cross-sectional regression** (structural differences across companies), but quarterly changes are **time-series** (gradual improvements). Academic research shows IR effects take 12-24 months to fully materialize.
 
-                    Our $/IRCI point is derived from **cross-sectional regression**:
-                    - We regress enterprise value against IRCI scores across multiple companies
-                    - This measures: "If Company A had Company B's IRCI, what would A be worth?"
-                    - Reflects long-term, structural differences in IR quality
+                    **Key Research:**
+                    - Bushee & Miller (2012): IR contributes 5-10% to firm value
+                    - Agarwal et al. (2016): 8-12% higher institutional ownership, effects take 12-24 months
+                    - Kirk & Vincent (2014): 10-15% reduction in information asymmetry
 
-                    But quarterly changes are **time-series improvements**:
-                    - "How did Company A improve from Q2 to Q3?"
-                    - Reflects short-term, marginal changes from 3 months of IR work
-
-                    These are fundamentally different and require different valuation approaches.
-
-                    ---
-
-                    ### Academic Evidence on IR Impact
-
-                    **1. Bushee & Miller (2012)** - "Investor Relations, Firm Visibility, and Investor Following"
-                    - Found that IR activities increase analyst following and institutional ownership
-                    - Estimated IR contributes **5-10% to firm value** through improved information environment
-                    - Published in *The Accounting Review*
-
-                    **2. Agarwal et al. (2016)** - "Does Investor Relations Influence Institutional Investment?"
-                    - IR programs associated with **8-12% higher institutional ownership**
-                    - Improved liquidity and lower cost of capital
-                    - Effect takes **12-24 months to fully materialize**
-
-                    **3. Kirk & Vincent (2014)** - "Professional Investor Relations within the Firm"
-                    - IR expenditures correlate with **10-15% reduction in information asymmetry**
-                    - Benefits accumulate over time, not instantaneously
-
-                    **Key Insight:** All studies show IR effects are **gradual** and **cumulative**, not immediate.
-
-                    ---
-
-                    ### Why 10% is Conservative
-
-                    Given academic evidence:
-                    - IR contributes 5-15% to firm value **over the long term**
-                    - Quarterly improvements are **marginal steps** toward that long-term value
-                    - Our 10% factor assumes each quarter captures ~10% of the structural value difference
-                    - This is conservative: assumes full benefit takes 2-3 years to materialize
-
-                    **Alternative interpretations:**
-                    - **5% factor:** Very conservative (assumes 5+ years for full effect)
-                    - **10% factor:** Conservative (2-3 years for full effect) ← **Default**
-                    - **20% factor:** Moderate (assumes faster market recognition)
-                    - **100% factor:** Aggressive (assumes immediate full recognition) ← Unrealistic
-
-                    ---
-
-                    ### References
-
-                    - Bushee, B. J., & Miller, G. S. (2012). Investor relations, firm visibility, and investor following. *The Accounting Review, 87*(3), 867-897.
-                    - Agarwal, V., Liao, C., Nash, J., & Taffler, R. (2016). Investor relations, information asymmetry, and market value. *Accounting and Business Research, 46*(1), 31-50.
-                    - Kirk, M., & Vincent, J. (2014). Professional investor relations within the firm. *The Accounting Review, 89*(4), 1421-1452.
-                    - National Investor Relations Institute (NIRI). (2019). "Measuring the Value of IR: A Meta-Analysis"
-
-                    These studies are widely cited in IR and finance literature and provide empirical support
-                    for the magnitudes we use in our quarterly impact factor.
+                    **10% factor** = conservative assumption that each quarter captures ~10% of structural value (full benefit in 2-3 years).
                     """)
 
                 st.markdown("---")
@@ -4272,27 +4072,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 st.plotly_chart(fig, use_container_width=True)
 
                 # Add methodology and proof section
-                with st.expander("📐 **Dollar Value Calculation Methodology & Proof**"):
-                    st.markdown("""
-                    ### How We Calculate Dollar Value per IRCI Point
-
-                    **Goal:** Estimate how much enterprise value corresponds to each 1-point IRCI improvement
-
-                    ---
-
-                    ### Step 1: Linear Regression (Enterprise Value ~ IRCI Score)
-
-                    We regress enterprise value against IRCI scores across your peer group:
-
-                    ```
-                    EV = slope × IRCI + intercept
-                    ```
-
-                    **What the regression tells us:**
-                    - **Slope**: Raw change in EV per 1-point IRCI change
-                    - **R²**: How much of EV variance is explained by IRCI (0-1 scale)
-                    - **P-value**: Statistical significance of the relationship
-                    """)
+                with st.expander("📐 **Dollar Value Methodology**"):
 
                     # Show actual regression results from this analysis
                     if not dollar_value_df.empty:
@@ -4302,112 +4082,32 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                             dollar_value_df['enterprise_value']
                         )
                         r_squared = r_value ** 2
-
-                        st.markdown(f"""
-                        **Actual Regression Results for Your Peer Group:**
-
-                        - **Raw Slope**: ${abs(slope):,.0f} per IRCI point (before R² scaling)
-                        - **R² Value**: {r_squared:.3f} ({r_squared*100:.1f}% of EV variance explained by IRCI)
-                        - **P-Value**: {p_value:.4f} {'✓ Significant' if p_value < 0.05 else '⚠️ Not significant'}
-                        - **Standard Error**: ${std_err:,.0f}
-
-                        **Interpretation:**
-                        - R² = {r_squared:.2f} means IRCI explains {r_squared*100:.0f}% of enterprise value differences
-                        - The other {(1-r_squared)*100:.0f}% comes from fundamentals, industry factors, macro conditions, etc.
-                        - This is typical for IR metrics - fundamentals drive most value
-                        """)
-
-                    st.markdown("""
-                    ---
-
-                    ### Step 2: R² Scaling (Critical!)
-
-                    **Why R² scaling matters:**
-
-                    Raw regression slope assumes IRCI is the ONLY factor affecting enterprise value.
-                    But we know that's not true - business fundamentals matter far more.
-
-                    **R² scaling corrects for this:**
-
-                    ```
-                    Company $/IRCI Point = (Raw Slope) × R²
-                    ```
-
-                    **Example with your data:**
-                    """)
-
-                    if not dollar_value_df.empty:
                         raw_slope = abs(slope)
                         scaled_slope = raw_slope * r_squared
-                        reduction_pct = (1 - r_squared) * 100
 
                         st.markdown(f"""
-                        - **Raw slope**: ${raw_slope:,.0f} per IRCI point
-                        - **R² value**: {r_squared:.2f}
-                        - **Scaled slope**: ${raw_slope:,.0f} × {r_squared:.2f} = **${scaled_slope:,.0f} per IRCI point**
-                        - **Reduction**: {reduction_pct:.0f}% (accounts for other factors)
+**How It Works:** We regress Enterprise Value against IRCI scores across your peer group, then scale by R² to be conservative.
 
-                        **What this means:**
-                        - Without R² scaling: improving 1 IRCI point = ${raw_slope:,.0f} (OVERSTATED)
-                        - With R² scaling: improving 1 IRCI point = ${scaled_slope:,.0f} (REALISTIC)
-                        - We reduce the estimate by {reduction_pct:.0f}% to reflect that IR is one of many factors
+**Your Peer Group Results:**
+| Metric | Value |
+|--------|-------|
+| Raw Slope | \${raw_slope:,.0f}/pt |
+| R² | {r_squared:.2f} ({r_squared*100:.0f}% of EV variance) |
+| **Scaled \$/IRCI pt** | **\${scaled_slope:,.0f}** |
+| P-value | {p_value:.4f} {'✓' if p_value < 0.05 else '⚠️'} |
+
+**Formula:** `Company $/IRCI = (Company EV / Peer Mean EV) × Slope × R²`
+
+**Key Points:** R² scaling ensures we only attribute the portion of value explained by IRCI. Larger companies = larger \$/IRCI values. These are planning estimates—fundamentals drive most value.
                         """)
+                    else:
+                        st.markdown("""
+**How It Works:** We regress Enterprise Value against IRCI scores across your peer group, then scale by R² to be conservative.
 
-                    st.markdown("""
-                    ---
+**Formula:** `Company $/IRCI = (Company EV / Peer Mean EV) × Slope × R²`
 
-                    ### Step 3: Company-Specific Adjustments
-
-                    Each company gets a $/IRCI point value based on:
-
-                    1. **Company Size**: Larger companies have larger $/IRCI values
-                    2. **Peer Group Sensitivity**: How EV changes with IRCI in this peer group
-                    3. **R² Scaling**: Already applied to be conservative
-
-                    **Formula:**
-                    ```
-                    Company $/IRCI = (Company EV / Peer Mean EV) × Peer Slope × R²
-                    ```
-
-                    This ensures larger companies show appropriate dollar values while maintaining R² realism.
-
-                    ---
-
-                    ### Step 4: Calculate Potential Upside
-
-                    **Gap to Top:**
-                    - Top performer IRCI: 85%
-                    - Your company IRCI: 60%
-                    - Gap: 25 points
-
-                    **Potential Dollar Upside (R²-Scaled):**
-                    ```
-                    Upside = Gap × (Company $/IRCI Point)
-                    Upside = 25 points × \\$150M/point = \\$3.75B
-                    ```
-
-                    **Important:** This is a PLANNING RANGE, not a guarantee:
-                    - Assumes you can actually improve IRCI by 25 points
-                    - R² scaling already applied (only {:.0f}% attribution to IR)
-                    - Fundamentals must support the value creation
-                    - Market conditions, industry trends, and other factors matter
-
-                    ---
-
-                    ### ✅ Why This Methodology is Sound
-
-                    1. **Based on peer comparisons**: Uses actual market data, not assumptions
-                    2. **R² scaling**: Conservative - only attributes the variance explained by IRCI
-                    3. **Company-specific**: Accounts for size differences in peer group
-                    4. **Transparent**: All calculations shown, regression results visible
-                    5. **Honest disclaimers**: Clear that IR is secondary to fundamentals
-
-                    **Bottom Line:**
-                    These dollar estimates help you evaluate whether IR improvements are worth
-                    the investment. They're planning tools, not promises. Business fundamentals
-                    drive most value - IRCI measures how efficiently that value is realized
-                    in the market.
-                    """.format(r_squared*100 if not dollar_value_df.empty else 30))
+**Key Points:** R² scaling ensures we only attribute the portion of value explained by IRCI. Larger companies = larger \$/IRCI values. These are planning estimates—fundamentals drive most value.
+                        """)
 
         except Exception as e:
             st.warning(f"Could not compute dollar value metrics: {str(e)}")
@@ -5610,75 +5310,21 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             st.caption("💡 **How to Use**: Review the projected impacts above, then add events to your scenario below to see cumulative effects.")
     
             # Research References
-            with st.expander("📚 Research Methodology & References", expanded=False):
+            with st.expander("📚 Research Methodology", expanded=False):
                 st.markdown("""
-                ### Calculation Methodology
-    
-                **Event impacts are calculated using research-based estimates:**
-    
-                #### Major Corporate Events
-                - **Investor Days**: Average CAR +0.5% to +5%, with case studies showing +30% appreciation
-                  - *Source: MZ Group (2024) - Investor Day Impact Analysis*
-    
-                - **Leadership Changes**: Impact varies by succession type
-                  - Planned internal succession: +0.5% CAR
-                  - Forced turnover: -1.5% CAR (governance concerns)
-                  - Outside hire: -0.5% CAR (uncertainty)
-                  - *Research: CEO succession literature (multiple studies)*
-    
-                - **Dividend Announcements**: Signal of financial stability
-                  - Increases: +1.0% CAR
-                  - Cuts: -2.0% CAR
-    
-                - **Buyback Announcements**: +1.5% CAR (capital allocation confidence)
-    
-                #### Daily IR Activities
-                - **IR Website Improvements**: Reduces information asymmetry
-                  - Impact: 0.5%-2% improvement in corporate investment efficiency
-                  - *Source: Chen et al. (2015) - "The Role of the Media in Disseminating Insider-Trading News"*
-    
-                - **Advertising Campaigns**: Increases investor awareness and liquidity
-                  - 25% increase in advertising → +1.32% firm value
-                  - *Source: Grullon et al. (2004) - "Advertising, Breadth of Ownership, and Liquidity" (Review of Financial Studies)*
-    
-                - **Press Release Programs**: Immediate market impact
-                  - CAR range: -2% to +2% depending on content sentiment
-                  - *Source: Neuhierl et al. (2013) - "Market Reaction to Corporate Press Releases"*
-    
-                - **Social Media Campaigns**: Enhances retail investor engagement
-                  - 80% of institutional investors use social media for research
-                  - 30% say social media influenced investment decisions
-                  - *Source: Brunswick Group (2023) - Social Media and Institutional Investors*
-    
-                - **Conference Presentations**: Price discovery mechanism
-                  - +0.8% CAR from analyst/investor exposure
-                  - *Source: Francis et al. (1997) - "Costs of Equity and Earnings Attributes"*
-    
-                - **Analyst Coverage Initiation**: Reduces information asymmetry
-                  - +1.02% abnormal return on average
-                  - *Source: Irvine (2003) - "The Incremental Impact of Analyst Initiation of Coverage" (Journal of Financial Economics)*
-    
-                ### Dollar Impact Calculation
-    
-                Dollar impacts are calculated using **company-specific regression models** that estimate the relationship
-                between IRCI scores and enterprise value. These estimates are **R²-scaled** to reflect that investor
-                relations is one of many factors affecting valuation.
-    
-                **Formula**: `Dollar Impact = IRCI Impact × Company $/IRCI Point`
-    
-                Where `Company $/IRCI Point` is derived from:
-                - Regression of IRCI scores vs. Enterprise Value across peer companies
-                - Scaled by regression R² to account for explained variance
-                - This ensures conservative estimates that reflect IR as one factor among many
-    
-                ### Confidence Levels
-    
-                - **High (0.6-0.7)**: Well-researched event types with consistent empirical evidence
-                - **Medium (0.4-0.5)**: Event types with some research support but higher variability
-                - **Low (0.1-0.3)**: Aggregate measures where individual events have small impact
-    
-                **Note**: All estimates are conservative and based on academic research. Actual impacts will vary
-                by company, market conditions, and execution quality.
+**Event Impact Sources:**
+| Event Type | Impact | Source |
+|------------|--------|--------|
+| Investor Days | +0.5% to +5% CAR | MZ Group (2024) |
+| CEO Change (Inside) | +0.5% CAR | Succession literature |
+| CEO Change (Forced) | -1.5% CAR | Succession literature |
+| Analyst Coverage | +1.02% CAR | Irvine (2003), JFE |
+| Buyback Announced | +1.5% CAR | Capital allocation research |
+| Dividend Increase | +1.0% CAR | Signaling theory |
+
+**Dollar Impact:** `IRCI Impact × Company $/IRCI Point` (R²-scaled for conservatism)
+
+**Confidence Levels:** High (0.6-0.7) = strong evidence, Medium (0.4-0.5) = moderate, Low (0.1-0.3) = aggregate
                 """)
     
     
@@ -6066,48 +5712,13 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         st.info("💡 Feature coming soon: Export scenario to event timeline notes")
     
                 # Show research methodology
-                with st.expander("📚 Research Methodology & Sources"):
+                with st.expander("📚 Research Methodology"):
                     st.markdown("""
-                    ### How What-If Impacts Are Calculated
-    
-                    This scenario planner uses the same research-based methodology as the Event Timeline:
-    
-                    **Event Impact Calculation:**
-                    1. Each event type has a researched dial impact (e.g., Investor Day = +2% Coverage, +1.5% Trust)
-                    2. Dial impacts are weighted by your current dial weights (default: 35/35/15/15)
-                    3. Weighted impacts sum to IRCI composite impact
-                    4. IRCI impact × company $/IRCI point = Dollar impact
-                    5. CAR estimates from academic event studies
-    
-                    **Research Sources:**
-    
-                    *Major Corporate Events:*
-                    - **Investor Days**: MZ Group 2024 (+30% average appreciation)
-                    - **CEO Changes**: Clayton et al. (volatility analysis by succession type)
-                    - **CFO Changes**: Earnings persistence research
-                    - **Analyst Coverage**: Irvine (2003) - "The Incremental Impact of Analyst Initiation of Coverage" (JFE) - +1.02% CAR
-    
-                    *Daily IR Activities:*
-                    - **IR Website Improvements**: Chen et al. (2015) - "The Role of the Media in Disseminating Insider-Trading News" - 0.5%-2% efficiency gain
-                    - **Advertising Campaigns**: Grullon et al. (2004) - "Advertising, Breadth of Ownership, and Liquidity" (Review of Financial Studies) - +1.32% firm value
-                    - **Press Releases**: Neuhierl et al. (2013) - "Market Reaction to Corporate Press Releases" - -2% to +2% CAR
-                    - **Social Media**: Brunswick Group (2023) - 80% of institutional investors use social media; 30% influenced decisions
-                    - **Conference Presentations**: Francis et al. (1997) - "Costs of Equity and Earnings Attributes" - price discovery mechanism
-    
-                    *Methodology:*
-                    - **CAR Methodology**: Event study literature (2,325 papers reviewed)
-    
-                    **Key Assumptions:**
-                    - Impacts are additive (conservative)
-                    - No interaction effects between events
-                    - R²-scaled dollar impacts (accounts for other factors)
-                    - Academic averages may vary by company/industry
-    
-                    **Best Practices:**
-                    - Don't model more than 5-7 events per scenario (diminishing returns)
-                    - Consider realistic timing (can't do 3 investor days per quarter)
-                    - Use for planning, not prediction (markets are complex)
-                    - Focus on relative impact comparison between scenarios
+**How It Works:** Event dial impacts → weighted by dial weights → IRCI composite impact → $/IRCI point = Dollar impact
+
+**Key Sources:** MZ Group 2024 (Investor Days), Irvine 2003 (Analyst Coverage), Grullon 2004 (Advertising), Brunswick 2023 (Social Media)
+
+**Tips:** Model 5-7 events max per scenario. Use for planning comparisons, not predictions.
                     """)
     
             else:
