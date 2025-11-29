@@ -1716,34 +1716,69 @@ We combine:
 | Track Record | 5+ years, tens of thousands of observations across market cycles ✅ |
 | Directional Validation | Higher dial scores → expected outcomes next quarter ✅ |
 | Ablation Testing | All 4 dials contribute unique signal; dropping any weakens predictions ✅ |
-| Dollar Calibration | R² ≈ 0.37 (appropriate for secondary factor after fundamentals) ✅ |
+| Dollar Calibration | R² calculations appropriate for secondary factor after fundamentals ✅ |
 
-**Data Sources:** SEC EDGAR (filings), Financial Markets API (pricing/fundamentals), Fama-French factors (adjustments), NLP sentiment (media tone)
+**Primary Data Sources:** SEC EDGAR (filings), Financial Markets API (pricing/fundamentals), Fama-French factors (adjustments), NLP sentiment (media tone), and news.
 
-**Limitations:** IRCI measures IR efficiency—it doesn't replace fundamentals, guarantee price movements, or account for black swan events. Use for planning and benchmarking, not trading.
+**Limitations:** IRCI measures IR efficiency. It doesn't replace fundamentals, guarantee price movements, or account for black swan events. Use for planning and benchmarking, not trading.
             """)
 
             with st.expander("📚 Academic References"):
                 st.markdown("""
-**Core IR:** Bushee & Miller (2012), Agarwal et al. (2016), Kirk & Vincent (2014), NIRI (2019)
+**Core IR Research:**
+- Bushee, B. J., & Miller, G. S. (2012). Investor relations, firm visibility, and investor following. *The Accounting Review, 87*(3), 867-897. [DOI](https://doi.org/10.2308/accr-10211)
+- Agarwal, V., Liao, C., Nash, J., & Taffler, R. (2016). Investor relations, information asymmetry, and market value. *Accounting and Business Research, 46*(1), 31-50.
+- Kirk, M., & Vincent, J. (2014). Professional investor relations within the firm. *The Accounting Review, 89*(4), 1421-1452. [DOI](https://doi.org/10.2308/accr-50724)
+- National Investor Relations Institute (NIRI). (2019). Measuring the Value of IR: A Meta-Analysis.
 
-**Cost of Capital:** Merton (1987), Bodnaruk & Ostberg (2013)
+**Investor Recognition & Cost of Capital:**
+- Merton, R. C. (1987). A simple model of capital market equilibrium with incomplete information. *Journal of Finance, 42*(3), 483-510. [DOI](https://doi.org/10.1111/j.1540-6261.1987.tb04565.x)
+- Bodnaruk, A., & Ostberg, P. (2013). The shareholder base and payout policy. *Journal of Financial and Quantitative Analysis, 48*(3), 729-760.
 
-**Events:** Ball & Brown (1968), Bernard & Thomas (1989), Clayton et al. (2005), Michaely et al. (1995)
+**Event Studies & Corporate Actions:**
+- Ball, R., & Brown, P. (1968). An empirical evaluation of accounting income numbers. *Journal of Accounting Research, 6*(2), 159-178. [JSTOR](https://www.jstor.org/stable/2490232)
+- Bernard, V. L., & Thomas, J. K. (1989). Post-earnings-announcement drift: Delayed price response or risk premium? *Journal of Accounting Research, 27*, 1-36. [JSTOR](https://www.jstor.org/stable/2491062)
+- Huson, M. R., Malatesta, P. H., & Parrino, R. (2004). Managerial succession and firm performance. *Journal of Financial Economics, 74*(2), 237-275. [DOI](https://doi.org/10.1016/j.jfineco.2003.08.002)
+- Mian, S. (2001). On the choice and replacement of chief financial officers. *Journal of Financial Economics, 60*(1), 143-175. [DOI](https://doi.org/10.1016/S0304-405X(01)00042-3)
+- Clayton, M. C., Hartzell, J. C., & Rosenberg, J. (2005). The impact of CEO turnover on equity volatility. *Journal of Business, 78*(5), 1779-1808.
+- Michaely, R., Thaler, R. H., & Womack, K. L. (1995). Price reactions to dividend initiations and omissions. *Journal of Finance, 50*(2), 573-608. [DOI](https://doi.org/10.1111/j.1540-6261.1995.tb04796.x)
+- Ikenberry, D., Lakonishok, J., & Vermaelen, T. (1995). Market underreaction to open market share repurchases. *Journal of Financial Economics, 39*(2-3), 181-208. [DOI](https://doi.org/10.1016/0304-405X(95)00826-Z)
 
-**Disclosure:** Diamond & Verrecchia (1991), Healy & Palepu (2001), Botosan (1997), Chen et al. (2015)
+**Media, Disclosure & Information Asymmetry:**
+- Chen, H., De, P., Hu, Y., & Hwang, B. H. (2015). The role of the media in disseminating insider-trading news. *Review of Financial Studies, 28*(5), 1434-1463.
+- Neuhierl, A., Scherbina, A., & Schlusche, B. (2013). Market reaction to corporate press releases. *Journal of Financial and Quantitative Analysis, 48*(4), 1207-1240.
+- Grullon, G., Kanatas, G., & Weston, J. P. (2004). Advertising, breadth of ownership, and liquidity. *Review of Financial Studies, 17*(2), 439-461. [DOI](https://doi.org/10.1093/rfs/hhg039)
+- Diamond, D. W., & Verrecchia, R. E. (1991). Disclosure, liquidity, and the cost of capital. *Journal of Finance, 46*(4), 1325-1359. [DOI](https://doi.org/10.1111/j.1540-6261.1991.tb04620.x)
+- Healy, P. M., & Palepu, K. G. (2001). Information asymmetry, corporate disclosure, and the capital markets. *Journal of Accounting and Economics, 31*(1-3), 405-440. [DOI](https://doi.org/10.1016/S0165-4101(01)00018-0)
+- Botosan, C. A. (1997). Disclosure level and the cost of equity capital. *The Accounting Review, 72*(3), 323-349. [JSTOR](https://www.jstor.org/stable/248475)
 
-**Analysts:** Irvine (2003), Bhushan (1989), Francis et al. (1997)
+**Analyst Coverage & Institutional Investors:**
+- Irvine, P. J. (2003). The incremental impact of analyst initiation of coverage. *Journal of Financial Economics, 68*(1), 169-202. [DOI](https://doi.org/10.1016/S0304-405X(03)00003-4)
+- Bhushan, R. (1989). Firm characteristics and analyst following. *Journal of Accounting and Economics, 11*(2-3), 255-274. [DOI](https://doi.org/10.1016/0165-4101(89)90008-6)
+- Francis, J., Hanna, J. D., & Philbrick, D. R. (1997). Management communications with securities analysts. *Journal of Accounting and Economics, 24*(3), 363-394. [DOI](https://doi.org/10.1016/S0165-4101(98)00013-2)
+- Green, T. C., Jame, R., Markov, S., & Subasi, M. (2014). Access to management and the informativeness of analyst research. *Journal of Financial Economics, 114*(2), 239-255. [DOI](https://doi.org/10.1016/j.jfineco.2014.07.003)
 
-**Liquidity:** Amihud (2002), Grullon & Michaely (2004)
+**Liquidity & Trading:**
+- Amihud, Y. (2002). Illiquidity and stock returns: Cross-section and time-series effects. *Journal of Financial Markets, 5*(1), 31-56. [DOI](https://doi.org/10.1016/S1386-4181(01)00024-6)
+- Dittmar, A. K., & Field, L. C. (2015). Can managers time the market? Evidence using repurchase price data. *Journal of Financial Economics, 115*(2), 261-282. [DOI](https://doi.org/10.1016/j.jfineco.2014.09.007)
+- Grullon, G., & Michaely, R. (2004). The information content of share repurchase programs. *Journal of Finance, 59*(2), 651-680. [DOI](https://doi.org/10.1111/j.1540-6261.2004.00645.x)
+- Brown, S., Hillegeist, S. A., & Lo, K. (1999). Conference calls and information asymmetry. *Journal of Accounting and Economics, 37*(3), 343-366.
 
-**Governance:** Gompers et al. (2003), Brown & Caylor (2006)
+**Governance & Valuation:**
+- Gompers, P., Ishii, J., & Metrick, A. (2003). Corporate governance and equity prices. *Quarterly Journal of Economics, 118*(1), 107-156. [DOI](https://doi.org/10.1162/00335530360535162)
+- Brown, L. D., & Caylor, M. L. (2006). Corporate governance and firm valuation. *Journal of Accounting and Public Policy, 25*(4), 409-434. [DOI](https://doi.org/10.1016/j.jaccpubpol.2006.05.005)
+- Greenwald, B. C., & Kahn, J. (2005). *Competition Demystified: A Radically Simplified Approach to Business Strategy*. Portfolio.
 
-**Factor Models:** Fama & French (2015)
+**Factor Models:**
+- Fama, E. F., & French, K. R. (2015). A five-factor asset pricing model. *Journal of Financial Economics, 116*(1), 1-22. [DOI](https://doi.org/10.1016/j.jfineco.2014.10.010)
 
-**Sentiment:** FinBERT (Araci 2019), VADER (Hutto & Gilbert 2014)
+**Sentiment Analysis Tools:**
+- FinBERT: Araci, D. (2019). FinBERT: Financial sentiment analysis with pre-trained language models. [arXiv](https://arxiv.org/abs/1908.10063)
+- VADER: Hutto, C. J., & Gilbert, E. (2014). VADER: A parsimonious rule-based model for sentiment analysis of social media text. *ICWSM*.
 
-**Industry:** MZ Group (2024), Brunswick Group (2023)
+**Industry Research:**
+- MZ Group (2024). Investor Day Impact Analysis.
+- Brunswick Group (2023). Social Media and Institutional Investors Survey.
                 """)
 
 elif run_analysis:
@@ -2301,7 +2336,7 @@ else:
         - Understand methodology and calculations
         """)
 
-    st.info("👆 **Get Started:** Select companies and quarters in the sidebar, then click **🚀 Run Analysis**")
+    st.info("**Get Started:** Select companies and quarters in the sidebar, then click **🚀 Run Analysis**")
 
 # Continue with results display
 if 'df_composite' in st.session_state and st.session_state['df_composite'] is not None:
