@@ -236,6 +236,127 @@ st.markdown("""
         background-color: #2e3440 !important;
     }
 
+    /* Sidebar expander styling - match button appearance */
+    [data-testid="stSidebar"] [data-testid="stExpander"] {
+        border: none !important;
+        border-radius: 0.5rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary {
+        background-color: #262730 !important;
+        color: white !important;
+        border-radius: 0.5rem !important;
+        padding: 0.75rem 1rem !important;
+        font-size: 1.4rem !important;
+        font-weight: 400 !important;
+        border: 1px solid rgba(250, 250, 250, 0.2) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {
+        background-color: #00d4ff !important;
+        color: #000000 !important;
+        border-color: #00d4ff !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary span {
+        color: inherit !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stExpander"][open] summary {
+        background-color: #00d4ff !important;
+        color: #000000 !important;
+        border-color: #00d4ff !important;
+    }
+
+    /* Mobile sidebar visibility - show indicator that sidebar exists */
+    @media screen and (max-width: 768px) {
+        /* Style ALL possible sidebar toggle buttons - Safari compatible */
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapsedControl"],
+        button[kind="header"],
+        .stApp header button,
+        [data-testid="baseButton-header"],
+        section[data-testid="stSidebar"] + div button:first-of-type {
+            background-color: #00d4ff !important;
+            background: #00d4ff !important;
+            border-radius: 8px !important;
+            -webkit-border-radius: 8px !important;
+            box-shadow: 0 2px 15px rgba(0, 212, 255, 0.6) !important;
+            -webkit-box-shadow: 0 2px 15px rgba(0, 212, 255, 0.6) !important;
+            border: 2px solid #00d4ff !important;
+            min-width: 48px !important;
+            min-height: 48px !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        [data-testid="collapsedControl"] svg,
+        [data-testid="stSidebarCollapsedControl"] svg,
+        button[kind="header"] svg,
+        [data-testid="baseButton-header"] svg {
+            color: #000000 !important;
+            fill: #000000 !important;
+            stroke: #000000 !important;
+        }
+
+        /* Pulsing animation - Safari compatible */
+        @-webkit-keyframes pulse-sidebar {
+            0%, 100% {
+                -webkit-box-shadow: 0 2px 10px rgba(0, 212, 255, 0.5);
+                box-shadow: 0 2px 10px rgba(0, 212, 255, 0.5);
+                -webkit-transform: scale(1);
+                transform: scale(1);
+            }
+            50% {
+                -webkit-box-shadow: 0 2px 25px rgba(0, 212, 255, 1);
+                box-shadow: 0 2px 25px rgba(0, 212, 255, 1);
+                -webkit-transform: scale(1.1);
+                transform: scale(1.1);
+            }
+        }
+        @keyframes pulse-sidebar {
+            0%, 100% {
+                box-shadow: 0 2px 10px rgba(0, 212, 255, 0.5);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 2px 25px rgba(0, 212, 255, 1);
+                transform: scale(1.1);
+            }
+        }
+
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapsedControl"],
+        button[kind="header"] {
+            -webkit-animation: pulse-sidebar 1s ease-in-out 6;
+            animation: pulse-sidebar 1s ease-in-out 6;
+        }
+
+        /* Ensure header is visible on mobile */
+        header[data-testid="stHeader"] {
+            background-color: #1e2130 !important;
+            background: #1e2130 !important;
+        }
+    }
+
+    /* Tablet and small desktop */
+    @media screen and (max-width: 992px) and (min-width: 769px) {
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapsedControl"] {
+            background-color: #00d4ff !important;
+            background: #00d4ff !important;
+            border-radius: 8px !important;
+            -webkit-border-radius: 8px !important;
+        }
+
+        [data-testid="collapsedControl"] svg,
+        [data-testid="stSidebarCollapsedControl"] svg {
+            color: #000000 !important;
+            fill: #000000 !important;
+        }
+    }
+
     /* Button styling - FIXED */
     .stButton button {
         background-color: #00d4ff;
@@ -369,9 +490,121 @@ components.html(
     height=0
 )
 
+# Mobile sidebar indicator - JavaScript injection for reliable mobile menu hint
+components.html(
+    """
+    <script>
+        (function() {
+            // Only run on mobile/tablet
+            if (window.innerWidth > 768) return;
+
+            // Check if indicator already exists
+            if (window.parent.document.getElementById('mobile-menu-hint')) return;
+
+            // Create floating menu indicator
+            const hint = document.createElement('div');
+            hint.id = 'mobile-menu-hint';
+            hint.innerHTML = '☰ Menu';
+            hint.style.cssText = `
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                background: linear-gradient(135deg, #00d4ff 0%, #00a8cc 100%);
+                color: #000;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 14px;
+                font-weight: bold;
+                z-index: 999999;
+                cursor: pointer;
+                box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+                animation: bounce-hint 0.6s ease-in-out 3, fade-out 0.5s ease-out 4s forwards;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+
+            // Add animations
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes bounce-hint {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-5px); }
+                }
+                @keyframes fade-out {
+                    to { opacity: 0; visibility: hidden; }
+                }
+            `;
+            window.parent.document.head.appendChild(style);
+
+            // Click to open sidebar
+            hint.onclick = function() {
+                // Try to find and click the sidebar toggle button
+                const toggleBtn = window.parent.document.querySelector('[data-testid="collapsedControl"]') ||
+                                  window.parent.document.querySelector('[data-testid="stSidebarCollapsedControl"]') ||
+                                  window.parent.document.querySelector('button[kind="header"]') ||
+                                  window.parent.document.querySelector('header button');
+                if (toggleBtn) toggleBtn.click();
+                hint.style.display = 'none';
+            };
+
+            window.parent.document.body.appendChild(hint);
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                if (hint) hint.style.display = 'none';
+            }, 5000);
+        })();
+    </script>
+    """,
+    height=0
+)
+
 # Header
 st.markdown('<div class="main-header">IRCI Analysis Platform</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">IRCI: Coverage, Trust, Liquidity & Valuation Analysis</div>', unsafe_allow_html=True)
+
+# Mobile menu hint - pure HTML/CSS (Safari compatible)
+st.markdown("""
+<style>
+    @media screen and (max-width: 768px) {
+        .mobile-menu-hint {
+            display: block !important;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: linear-gradient(135deg, #00d4ff, #00a8cc);
+            color: #000;
+            padding: 10px 18px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 9999;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.5);
+            -webkit-animation: mobilePulse 1s ease-in-out 5, mobileFadeOut 0.5s ease-out 6s forwards;
+            animation: mobilePulse 1s ease-in-out 5, mobileFadeOut 0.5s ease-out 6s forwards;
+            pointer-events: none;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        @-webkit-keyframes mobilePulse {
+            0%, 100% { -webkit-transform: scale(1); transform: scale(1); }
+            50% { -webkit-transform: scale(1.05); transform: scale(1.05); }
+        }
+        @keyframes mobilePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        @-webkit-keyframes mobileFadeOut {
+            to { opacity: 0; visibility: hidden; }
+        }
+        @keyframes mobileFadeOut {
+            to { opacity: 0; visibility: hidden; }
+        }
+    }
+    @media screen and (min-width: 769px) {
+        .mobile-menu-hint { display: none !important; }
+    }
+</style>
+<div class="mobile-menu-hint">☰ Tap arrow for menu</div>
+""", unsafe_allow_html=True)
 
 # Access Code Gate
 # Try to get access code from Streamlit secrets (for production)
@@ -2092,19 +2325,16 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         st.markdown("### 🏆 Composite Ranking")
         st.caption("Companies ranked by overall IRCI score (0-100%). Higher = better IR performance vs peers.")
 
-        # Column view selector
+        # Column view selector - use key parameter for proper state management
         view_options = ["Summary", "All Dials", "Detailed"]
-        if 'table_view' not in st.session_state:
-            st.session_state.table_view = "Summary"
 
         table_view = st.radio(
             "View:",
             view_options,
             horizontal=True,
-            index=view_options.index(st.session_state.table_view),
+            key="composite_table_view",
             help="Summary: Just rank & score | All Dials: Score breakdown | Detailed: All available columns"
         )
-        st.session_state.table_view = table_view
 
         # Display table based on selected view
         col1, col2 = st.columns([2, 1])
@@ -2238,12 +2468,79 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        # Show metrics
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Valuation", f"{values[0]:.1f}%")
-        col2.metric("Liquidity", f"{values[1]:.1f}%")
-        col3.metric("Coverage", f"{values[2]:.1f}%")
-        col4.metric("Trust", f"{values[3]:.1f}%")
+        # Helper function to get status color and label
+        def get_dial_status(value):
+            """Returns (color, status_label) based on dial value."""
+            if value >= 70:
+                return '#4CAF50', 'Strong'  # Green for strong
+            elif value >= 40:
+                return '#FFA500', 'Moderate'  # Orange/yellow for moderate
+            else:
+                return '#ff4444', 'Needs Attention'  # Red for needs attention
+
+        # Create compact gauge charts for each dial
+        st.markdown("#### Dial Performance Gauges")
+
+        def create_gauge_chart(value, title):
+            """Create a compact gauge chart for a dial metric."""
+            status_color, status_label = get_dial_status(value)
+
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=value,
+                number={'suffix': '%', 'font': {'size': 18, 'color': '#fafafa'}},
+                title={'text': f"<b>{title}</b><br><span style='font-size:10px;color:{status_color}'>{status_label}</span>",
+                       'font': {'size': 12, 'color': '#fafafa'}},  # White text for dial name
+                gauge={
+                    'axis': {'range': [0, 100], 'tickcolor': '#fafafa', 'tickfont': {'color': '#fafafa', 'size': 8}, 'dtick': 25},
+                    'bar': {'color': status_color, 'thickness': 0.7},  # Bar color matches status
+                    'bgcolor': 'rgba(30,33,48,0.8)',
+                    'borderwidth': 1,
+                    'bordercolor': status_color,  # Border also matches status
+                    'steps': [
+                        {'range': [0, 40], 'color': 'rgba(255, 68, 68, 0.15)'},
+                        {'range': [40, 70], 'color': 'rgba(255, 165, 0, 0.15)'},
+                        {'range': [70, 100], 'color': 'rgba(76, 175, 80, 0.15)'}
+                    ],
+                    'threshold': {
+                        'line': {'color': '#fafafa', 'width': 1},
+                        'thickness': 0.75,
+                        'value': value
+                    }
+                }
+            ))
+
+            fig.update_layout(
+                height=150,
+                margin=dict(l=10, r=10, t=60, b=10),
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#fafafa')
+            )
+            return fig
+
+        # Create 4 columns for the gauges with unique session-based key
+        gauge_cols = st.columns(4)
+        gauge_session_id = st.session_state.get('analysis_timestamp', 'default')
+
+        for i, (dial_name, dial_value) in enumerate(zip(categories, values)):
+            with gauge_cols[i]:
+                gauge_fig = create_gauge_chart(dial_value, dial_name)
+                # Use config to disable modebar and prevent fullscreen issues
+                st.plotly_chart(
+                    gauge_fig,
+                    use_container_width=True,
+                    key=f"gauge_{dial_name}_{selected_company}_{gauge_session_id}",
+                    config={'displayModeBar': False, 'staticPlot': False}
+                )
+
+        # Status legend - more compact with correct colors
+        st.markdown("""
+        <div style="display: flex; justify-content: center; gap: 20px; padding: 8px; background: rgba(30,33,48,0.5); border-radius: 6px; font-size: 12px;">
+            <span><span style="color: #4CAF50;">●</span> Strong (≥70%)</span>
+            <span><span style="color: #FFA500;">●</span> Moderate (40-69%)</span>
+            <span><span style="color: #ff4444;">●</span> Needs Attention (<40%)</span>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.markdown("---")
 
@@ -4740,7 +5037,12 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             current_liquidity_pct = company_data.get('liquidity_pct', 0)
             current_coverage_pct = company_data.get('coverage_pct', 0)
             current_sentiment_pct = company_data.get('sentiment_pct', 0)
-    
+
+            # Calculate rank from sorted composite scores
+            sorted_df = df_composite_filtered.sort_values('irci_composite_pct', ascending=False).reset_index(drop=True)
+            company_rank = sorted_df[sorted_df['ticker'] == selected_whatif_ticker].index[0] + 1
+            total_companies = len(sorted_df)
+
             # Get current EV
             ticker_val_data = df_val_filtered[df_val_filtered['ticker'] == selected_whatif_ticker]
             current_ev = ticker_val_data['enterprise_value'].iloc[0] if not ticker_val_data.empty else 0
@@ -4764,7 +5066,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             col_curr1.metric("IRCI Composite", f"{current_irci:.1f}%")
             col_curr2.metric("Enterprise Value", f"${current_ev/1e9:.2f}B" if current_ev > 0 else "N/A")
             col_curr3.metric("$/IRCI Point", f"${whatif_dollar_per_irci_pt:,.0f}" if whatif_dollar_per_irci_pt else "N/A")
-            col_curr4.metric("Rank", f"#{company_data.get('rank', 'N/A')}" if 'rank' in company_data else "N/A")
+            col_curr4.metric("Rank", f"#{company_rank} of {total_companies}")
     
             # Event Value Menu - Show what each event type is worth
             st.markdown("---")
@@ -4783,27 +5085,63 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             }
     
             # Define all event types with their configurations
+            # CAR estimates based on published academic research
             event_menu_items = [
-                # Major Corporate Events
+                # === Major Corporate Events ===
+                # Investor Day: MZ Group (2024) shows +0.5% to +5% CAR, avg +30% appreciation in case studies
                 ('Investor Day', 'investor_day', {}, "+2.0%", "+2% Cov, +1.5% Trust"),
+                # Analyst Day: Similar to investor day but smaller sample; Francis et al. (1997)
                 ('Analyst Day', 'analyst_day', {}, "+1.5%", "+1.5% Cov, +1% Trust"),
+
+                # === Leadership Changes ===
+                # CEO Change: Huson et al. (2004) "Managerial succession and firm performance" JFE
+                # Inside succession: +0.5% CAR; Outside: -0.5%; Forced: -1.5%
                 ('CEO Change (Inside)', 'ceo_change', {'succession_type': 'planned_inside', 'forced': False}, "+0.5%", "+0.5% Trust"),
                 ('CEO Change (Outside)', 'ceo_change', {'succession_type': 'outside', 'forced': False}, "-0.5%", "-0.5% Trust"),
                 ('CEO Change (Forced)', 'ceo_change', {'succession_type': 'unknown', 'forced': True}, "-1.5%", "-1% Trust"),
+                # CFO Change: Mian (2001) "On the choice and replacement of CFOs" JFE
                 ('CFO Change (Voluntary)', 'cfo_change', {'forced': False}, "-0.3%", "-0.3% Trust"),
                 ('CFO Change (Forced)', 'cfo_change', {'forced': True}, "-1.0%", "-0.8% Trust"),
-                ('Strategic Announcement (Positive)', 'strategic_announcement', {'sentiment': 0.8, 'announcement_type': 'positive'}, "+1.6%", "+0.8% Trust, +0.5% Cov"),
-                ('Strategic Announcement (Negative)', 'strategic_announcement', {'sentiment': -0.8, 'announcement_type': 'negative'}, "-1.6%", "-0.8% Trust, +0.5% Cov"),
-                ('Dividend Increase', 'dividend_announcement', {'dividend_change_pct': 10}, "+1.0%", "+0.5% Trust"),
-                ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -20}, "-2.0%", "-0.8% Trust"),
-                ('Buyback Announcement', 'buyback_announcement', {}, "+1.5%", "+0.8% Trust"),
-                # Daily IR Activities
-                ('IR Website Improvement', 'ir_website_improvement', {}, "+0.5%", "+0.4% Cov, +0.3% Trust"),
-                ('Advertising Campaign', 'advertising_campaign', {}, "+0.5%", "+0.3% Cov, +0.2% Trust"),
-                ('Press Release Program', 'press_release_program', {}, "+0.5%", "+0.3% Cov, +0.2% Trust"),
+                # Director Change: moderate governance signal
+                ('Director Change', 'director_change', {}, "-0.2%", "-0.2% Trust"),
+
+                # === Capital Allocation Events ===
+                # Dividend: Michaely et al. (1995) "Price reactions to dividend initiations" JF
+                # Initiation: +3.4%, Increase >10%: +1.0%, Cut: -3.7%
+                ('Dividend Initiation', 'dividend_announcement', {'dividend_change_pct': 100, 'is_initiation': True}, "+3.4%", "+1.5% Trust, +0.5% Val"),
+                ('Dividend Increase (>10%)', 'dividend_announcement', {'dividend_change_pct': 15}, "+1.0%", "+0.5% Trust"),
+                ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -30}, "-3.7%", "-1.5% Trust"),
+                # Buyback: Ikenberry et al. (1995) "Market underreaction to open market share repurchases" JFE
+                # Avg CAR: +3.5% at announcement, +12% over 4 years
+                ('Buyback Announcement', 'buyback_announcement', {}, "+3.5%", "+1.5% Trust, +0.8% Val"),
+
+                # === Earnings & Guidance ===
+                # Earnings: Ball & Brown (1968), Bernard & Thomas (1989) post-earnings drift
+                ('Earnings Beat (>5%)', 'earnings_call', {'beat_pct': 0.05}, "+2.0%", "+1% Trust, +0.5% Val"),
+                ('Earnings Miss (>5%)', 'earnings_call', {'beat_pct': -0.05}, "-2.5%", "-1% Trust, -0.5% Val"),
+                ('Guidance Raise', 'strategic_announcement', {'sentiment': 0.8, 'announcement_type': 'guidance_raise'}, "+1.8%", "+0.8% Trust, +0.5% Cov"),
+                ('Guidance Lower', 'strategic_announcement', {'sentiment': -0.8, 'announcement_type': 'guidance_lower'}, "-2.2%", "-1% Trust, -0.5% Cov"),
+
+                # === Strategic Announcements ===
+                ('M&A Announcement (Acquirer)', 'strategic_announcement', {'sentiment': 0.3, 'announcement_type': 'ma_acquirer'}, "-1.0%", "-0.5% Trust, +0.3% Cov"),
+                ('M&A Announcement (Target)', 'strategic_announcement', {'sentiment': 0.9, 'announcement_type': 'ma_target'}, "+15-30%", "+5% Trust, +2% Cov"),
+                ('Strategic Partnership', 'strategic_announcement', {'sentiment': 0.6, 'announcement_type': 'partnership'}, "+1.2%", "+0.6% Trust, +0.4% Cov"),
+                ('Restructuring Announcement', 'strategic_announcement', {'sentiment': -0.4, 'announcement_type': 'restructuring'}, "-0.8%", "-0.4% Trust, +0.3% Cov"),
+
+                # === Daily IR Activities ===
+                # Grullon et al. (2004): 25% increase in advertising → +1.32% firm value
+                ('Advertising Campaign', 'advertising_campaign', {}, "+1.3%", "+0.5% Cov, +0.3% Trust"),
+                # Brunswick Group (2023): 80% of institutional investors use social media
                 ('Social Media Campaign', 'social_media_campaign', {}, "+0.5%", "+0.6% Cov, +0.4% Liq"),
+                # Francis et al. (1997): Conference presentations serve as price discovery
                 ('Conference Presentation', 'conference_presentation', {}, "+0.8%", "+0.8% Cov, +0.4% Trust"),
+                # Irvine (2003): Analyst initiation creates +1.02% abnormal return
                 ('Analyst Coverage Initiation', 'analyst_coverage_initiation', {}, "+1.0%", "+1.5% Cov, +0.8% Liq, +0.5% Trust"),
+                # Website/IR improvements: industry estimates
+                ('IR Website Improvement', 'ir_website_improvement', {}, "+0.5%", "+0.4% Cov, +0.3% Trust"),
+                ('Press Release Program', 'press_release_program', {}, "+0.5%", "+0.3% Cov, +0.2% Trust"),
+                # Non-deal roadshow: Green et al. (2014) "Access to management and the informativeness"
+                ('Non-Deal Roadshow', 'conference_presentation', {'is_roadshow': True}, "+0.6%", "+0.5% Cov, +0.3% Trust"),
             ]
     
             # Calculate impacts for each event type
@@ -4955,26 +5293,39 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     
                 with col_evt1:
                     scenario_event_type_options = {
-                        # Major Corporate Events
+                        # === Major Corporate Events ===
                         'Investor Day': 'investor_day',
                         'Analyst Day': 'analyst_day',
+                        # === Leadership Changes ===
                         'CEO Change (Inside)': 'ceo_change_inside',
                         'CEO Change (Outside)': 'ceo_change_outside',
                         'CEO Change (Forced)': 'ceo_change_forced',
                         'CFO Change (Voluntary)': 'cfo_change_voluntary',
                         'CFO Change (Forced)': 'cfo_change_forced',
-                        'Strategic Announcement (Positive)': 'strategic_positive',
-                        'Strategic Announcement (Negative)': 'strategic_negative',
-                        'Dividend Increase': 'dividend_increase',
+                        'Director Change': 'director_change',
+                        # === Capital Allocation Events ===
+                        'Dividend Initiation': 'dividend_initiation',
+                        'Dividend Increase (>10%)': 'dividend_increase',
                         'Dividend Cut': 'dividend_cut',
                         'Buyback Announcement': 'buyback_announcement',
-                        # Daily IR Activities
-                        '🌐 IR Website Improvement': 'ir_website_improvement',
-                        '📺 Advertising Campaign': 'advertising_campaign',
-                        '📰 Press Release Program': 'press_release_program',
-                        '📱 Social Media Campaign': 'social_media_campaign',
-                        '🎤 Conference Presentation': 'conference_presentation',
-                        '📰 Analyst Coverage Initiation': 'analyst_coverage_initiation',
+                        # === Earnings & Guidance ===
+                        'Earnings Beat (>5%)': 'earnings_beat',
+                        'Earnings Miss (>5%)': 'earnings_miss',
+                        'Guidance Raise': 'guidance_raise',
+                        'Guidance Lower': 'guidance_lower',
+                        # === Strategic Announcements ===
+                        'M&A Announcement (Acquirer)': 'ma_acquirer',
+                        'M&A Announcement (Target)': 'ma_target',
+                        'Strategic Partnership': 'strategic_partnership',
+                        'Restructuring Announcement': 'restructuring',
+                        # === Daily IR Activities ===
+                        'Advertising Campaign': 'advertising_campaign',
+                        'Social Media Campaign': 'social_media_campaign',
+                        'Conference Presentation': 'conference_presentation',
+                        'Analyst Coverage Initiation': 'analyst_coverage_initiation',
+                        'IR Website Improvement': 'ir_website_improvement',
+                        'Press Release Program': 'press_release_program',
+                        'Non-Deal Roadshow': 'non_deal_roadshow',
                     }
     
                     scenario_event_label = st.selectbox(
@@ -5030,46 +5381,80 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         metadata = {'forced': True}
                         expected_car = "-1.0%"
                         expected_dial = "-0.8% Trust"
-                    elif event_type_code == 'strategic_positive':
-                        base_type = 'strategic_announcement'
-                        metadata = {'sentiment': 0.8, 'announcement_type': 'positive'}
-                        expected_car = "+1.6%"
-                        expected_dial = "+0.8% Trust, +0.5% Cov"
-                    elif event_type_code == 'strategic_negative':
-                        base_type = 'strategic_announcement'
-                        metadata = {'sentiment': -0.8, 'announcement_type': 'negative'}
-                        expected_car = "-1.6%"
-                        expected_dial = "-0.8% Trust, +0.5% Cov"
+                    elif event_type_code == 'director_change':
+                        base_type = 'director_change'
+                        metadata = {}
+                        expected_car = "-0.2%"
+                        expected_dial = "-0.2% Trust"
+                    # === Capital Allocation Events ===
+                    elif event_type_code == 'dividend_initiation':
+                        base_type = 'dividend_announcement'
+                        metadata = {'dividend_change_pct': 100, 'is_initiation': True}
+                        expected_car = "+3.4%"
+                        expected_dial = "+1.5% Trust, +0.5% Val"
                     elif event_type_code == 'dividend_increase':
                         base_type = 'dividend_announcement'
-                        metadata = {'dividend_change_pct': 10}
+                        metadata = {'dividend_change_pct': 15}
                         expected_car = "+1.0%"
                         expected_dial = "+0.5% Trust"
                     elif event_type_code == 'dividend_cut':
                         base_type = 'dividend_announcement'
-                        metadata = {'dividend_change_pct': -20}
-                        expected_car = "-2.0%"
-                        expected_dial = "-0.8% Trust"
+                        metadata = {'dividend_change_pct': -30}
+                        expected_car = "-3.7%"
+                        expected_dial = "-1.5% Trust"
                     elif event_type_code == 'buyback_announcement':
                         base_type = 'buyback_announcement'
                         metadata = {}
-                        expected_car = "+1.5%"
-                        expected_dial = "+0.8% Trust"
-                    elif event_type_code == 'ir_website_improvement':
-                        base_type = 'ir_website_improvement'
-                        metadata = {}
-                        expected_car = "+0.5%"
-                        expected_dial = "+0.4% Cov, +0.3% Trust"
+                        expected_car = "+3.5%"
+                        expected_dial = "+1.5% Trust, +0.8% Val"
+                    # === Earnings & Guidance ===
+                    elif event_type_code == 'earnings_beat':
+                        base_type = 'earnings_call'
+                        metadata = {'beat_pct': 0.05}
+                        expected_car = "+2.0%"
+                        expected_dial = "+1% Trust, +0.5% Val"
+                    elif event_type_code == 'earnings_miss':
+                        base_type = 'earnings_call'
+                        metadata = {'beat_pct': -0.05}
+                        expected_car = "-2.5%"
+                        expected_dial = "-1% Trust, -0.5% Val"
+                    elif event_type_code == 'guidance_raise':
+                        base_type = 'strategic_announcement'
+                        metadata = {'sentiment': 0.8, 'announcement_type': 'guidance_raise'}
+                        expected_car = "+1.8%"
+                        expected_dial = "+0.8% Trust, +0.5% Cov"
+                    elif event_type_code == 'guidance_lower':
+                        base_type = 'strategic_announcement'
+                        metadata = {'sentiment': -0.8, 'announcement_type': 'guidance_lower'}
+                        expected_car = "-2.2%"
+                        expected_dial = "-1% Trust, -0.5% Cov"
+                    # === Strategic Announcements ===
+                    elif event_type_code == 'ma_acquirer':
+                        base_type = 'strategic_announcement'
+                        metadata = {'sentiment': 0.3, 'announcement_type': 'ma_acquirer'}
+                        expected_car = "-1.0%"
+                        expected_dial = "-0.5% Trust, +0.3% Cov"
+                    elif event_type_code == 'ma_target':
+                        base_type = 'strategic_announcement'
+                        metadata = {'sentiment': 0.9, 'announcement_type': 'ma_target'}
+                        expected_car = "+15-30%"
+                        expected_dial = "+5% Trust, +2% Cov"
+                    elif event_type_code == 'strategic_partnership':
+                        base_type = 'strategic_announcement'
+                        metadata = {'sentiment': 0.6, 'announcement_type': 'partnership'}
+                        expected_car = "+1.2%"
+                        expected_dial = "+0.6% Trust, +0.4% Cov"
+                    elif event_type_code == 'restructuring':
+                        base_type = 'strategic_announcement'
+                        metadata = {'sentiment': -0.4, 'announcement_type': 'restructuring'}
+                        expected_car = "-0.8%"
+                        expected_dial = "-0.4% Trust, +0.3% Cov"
+                    # === Daily IR Activities ===
                     elif event_type_code == 'advertising_campaign':
                         base_type = 'advertising_campaign'
                         metadata = {}
-                        expected_car = "+0.5%"
-                        expected_dial = "+0.3% Cov, +0.2% Trust"
-                    elif event_type_code == 'press_release_program':
-                        base_type = 'press_release_program'
-                        metadata = {}
-                        expected_car = "+0.5%"
-                        expected_dial = "+0.3% Cov, +0.2% Trust"
+                        expected_car = "+1.3%"
+                        expected_dial = "+0.5% Cov, +0.3% Trust"
                     elif event_type_code == 'social_media_campaign':
                         base_type = 'social_media_campaign'
                         metadata = {}
@@ -5085,6 +5470,21 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         metadata = {}
                         expected_car = "+1.0%"
                         expected_dial = "+1.5% Cov, +0.8% Liq, +0.5% Trust"
+                    elif event_type_code == 'ir_website_improvement':
+                        base_type = 'ir_website_improvement'
+                        metadata = {}
+                        expected_car = "+0.5%"
+                        expected_dial = "+0.4% Cov, +0.3% Trust"
+                    elif event_type_code == 'press_release_program':
+                        base_type = 'press_release_program'
+                        metadata = {}
+                        expected_car = "+0.5%"
+                        expected_dial = "+0.3% Cov, +0.2% Trust"
+                    elif event_type_code == 'non_deal_roadshow':
+                        base_type = 'conference_presentation'
+                        metadata = {'is_roadshow': True}
+                        expected_car = "+0.6%"
+                        expected_dial = "+0.5% Cov, +0.3% Trust"
                     else:
                         base_type = 'other'
                         metadata = {}
