@@ -34,6 +34,28 @@ from irci.peers import find_peers_simple
 from irci.playbook import generate_playbook
 from irci.chatbot import chat_with_context, get_suggested_questions
 from irci.report_generator import generate_pdf_report
+from irci.corporate_events_fetcher import fetch_corporate_events_for_peer_group
+import numpy as np
+
+def recalculate_composite_scores(df_composite, weights):
+    """
+    Recalculate irci_composite_pct in-place using new weights.
+    weights: dict with keys 'valuation', 'liquidity', 'coverage', 'sentiment' (as decimals, e.g., 0.35)
+    """
+    dial_cols = ["valuation_pct", "liquidity_pct", "coverage_pct", "sentiment_pct"]
+    W = np.array([
+        weights.get("valuation", 0.0),
+        weights.get("liquidity", 0.0),
+        weights.get("coverage", 0.0),
+        weights.get("sentiment", 0.0)
+    ], dtype=float)
+
+    X = df_composite[dial_cols].astype(float)
+    mask = X.notna().astype(float).values
+    num = (X.fillna(0.0).values * W).sum(axis=1)
+    den = (mask * W).sum(axis=1)
+    df_composite["irci_composite_pct"] = np.where(den > 0, num / den, np.nan)
+    return df_composite
 
 # Page config
 st.set_page_config(
@@ -301,6 +323,20 @@ st.markdown("""
     h1, h2, h3, h4, h5, h6 {
         color: #00d4ff !important;
     }
+
+    /* Multiselect chip/pill styling - black text for readability */
+    [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+        color: #000000 !important;
+    }
+
+    [data-testid="stMultiSelect"] span[data-baseweb="tag"] span {
+        color: #000000 !important;
+    }
+
+    /* Also target the close button in the tag */
+    [data-testid="stMultiSelect"] span[data-baseweb="tag"] svg {
+        fill: #000000 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -561,18 +597,19 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📊 Select Companies")
 
-    # Quick templates for common peer groups
+    # Quick templates for common peer groups - compact buttons
+    st.caption("Quick templates:")
     template_col1, template_col2, template_col3 = st.columns(3)
     with template_col1:
-        if st.button("📱 Big Tech", use_container_width=True, help="AAPL, MSFT, GOOGL, META, AMZN"):
+        if st.button("Tech", use_container_width=True, help="AAPL, MSFT, GOOGL, META, AMZN", key="tmpl_tech"):
             st.session_state['found_peers'] = "AAPL, MSFT, GOOGL, META, AMZN"
             st.rerun()
     with template_col2:
-        if st.button("🏦 Financials", use_container_width=True, help="JPM, BAC, WFC, C, GS"):
+        if st.button("Finance", use_container_width=True, help="JPM, BAC, WFC, C, GS", key="tmpl_fin"):
             st.session_state['found_peers'] = "JPM, BAC, WFC, C, GS"
             st.rerun()
     with template_col3:
-        if st.button("💉 Healthcare", use_container_width=True, help="JNJ, PFE, UNH, ABBV, LLY"):
+        if st.button("Health", use_container_width=True, help="JNJ, PFE, UNH, ABBV, LLY", key="tmpl_health"):
             st.session_state['found_peers'] = "JNJ, PFE, UNH, ABBV, LLY"
             st.rerun()
 
@@ -715,7 +752,7 @@ with st.sidebar:
                 help="How fairly priced is the stock vs peers? Based on EV/EBITDA ratios. Higher weight = valuation matters more to your score."
             )
             weight_coverage = st.number_input(
-                "📊 Coverage (%)",
+                "📰 Coverage (%)",
                 min_value=0.0,
                 max_value=100.0,
                 value=st.session_state.weight_coverage,
@@ -893,6 +930,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
+
 # Auto-optimize weights if requested
 if st.session_state.get('optimize_weights', False):
     # Only optimize if we have previous results to analyze
@@ -968,6 +1006,19 @@ if st.session_state.get('optimize_weights', False):
             if 'optimized_r2' in weight_analysis:
                 st.session_state.optimized_r2 = weight_analysis['optimized_r2']
 
+            # Recalculate composite scores in-place with new weights (no re-fetch needed!)
+            if 'df_composite' in st.session_state and st.session_state['df_composite'] is not None:
+                new_weights = {
+                    'valuation': val_pct / 100,
+                    'liquidity': liq_pct / 100,
+                    'coverage': cov_pct / 100,
+                    'sentiment': tru_pct / 100
+                }
+                st.session_state['df_composite'] = recalculate_composite_scores(
+                    st.session_state['df_composite'].copy(), new_weights
+                )
+                print("DEBUG: Recalculated composite scores with new weights")
+
             st.rerun()  # Rerun to update sliders with new values
         except Exception as e:
             st.error(f"Could not optimize weights: {e}")
@@ -983,7 +1034,7 @@ if st.session_state.get('weights_just_optimized', False):
     # Verify weights sum to 100
     total = st.session_state.weight_valuation + st.session_state.weight_liquidity + st.session_state.weight_coverage + st.session_state.weight_trust
 
-    msg = "✓ **Weights Auto-Optimized!** The input fields above have been updated to maximize EV ~ IRCI correlation.\n\n"
+    msg = "✓ **Weights Auto-Optimized & Results Updated!** IRCI scores have been recalculated with optimized weights.\n\n"
     msg += f"**New Weights (sum = {total:.1f}%):**\n"
     msg += f"- Valuation: {st.session_state.weight_valuation:.1f}%\n"
     msg += f"- Liquidity: {st.session_state.weight_liquidity:.1f}%\n"
@@ -991,7 +1042,7 @@ if st.session_state.get('weights_just_optimized', False):
     msg += f"- Trust: {st.session_state.weight_trust:.1f}%"
     if 'optimized_r2' in st.session_state:
         msg += f"\n\n**Achieved R²:** {st.session_state.optimized_r2:.3f}"
-    msg += "\n\n📊 Click **'Run Analysis'** below to see results with these optimized weights."
+    msg += "\n\n📊 Results below now reflect these optimized weights. No need to re-run analysis!"
 
     if abs(total - 100.0) > 0.5:
         st.warning(f"⚠️ {msg}\n\n**Note:** Weights sum to {total:.1f}% (not 100%). They will be normalized when running analysis.")
@@ -1015,7 +1066,7 @@ if not show_results and not run_analysis:
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.markdown("### 📊 Coverage")
+        st.markdown("### 📰 Coverage")
         st.markdown("SEC filings + media visibility (auto-fetched)")
 
     with col2:
@@ -1056,7 +1107,7 @@ if not show_results and not run_analysis:
     
             **IRCI** evaluates companies across four fundamental dimensions:
     
-            #### 📊 Coverage Dial
+            #### 📰 Coverage Dial
             **"How visible and understandable is your company in the public record?"**
     
             - **Credible media attention** - Tracks mentions in Wall Street Journal, Bloomberg, Reuters vs. lower-signal press wires
@@ -1391,6 +1442,9 @@ if not show_results and not run_analysis:
         """)
 
 elif run_analysis:
+    # Clear the previous completion flag when starting new analysis
+    st.session_state['analysis_just_completed'] = False
+
     # Run the analysis (only when button is clicked)
     st.markdown("---")
     if len(selected_quarters) == 1:
@@ -1662,7 +1716,7 @@ elif run_analysis:
             progress_bar.progress(50, text="✓ Valuation complete")
 
             # 3. Coverage
-            progress_bar.progress(55, text="📊 Step 3/5: Coverage dial (SEC filings & media)")
+            progress_bar.progress(55, text="📰 Step 3/5: Coverage dial (SEC filings & media)")
             status_text.text(f"Analyzing coverage metrics for {len(tickers)} companies...")
             df_cov = coverage_snapshot(
                 tickers,
@@ -1730,6 +1784,26 @@ elif run_analysis:
                     'sentiment': weight_trust / 100
                 }
             )
+            progress_bar.progress(95, text="📅 Fetching corporate events (earnings, dividends, etc.)...")
+            status_text.text(f"Fetching corporate events for {len(tickers)} companies...")
+
+            # Fetch corporate events (earnings calls, dividends, buybacks, CEO/CFO changes, etc.)
+            corporate_events_df = None
+            try:
+                corporate_events_df = fetch_corporate_events_for_peer_group(
+                    tickers, start_date, end_date, s
+                )
+                if corporate_events_df is not None and not corporate_events_df.empty:
+                    corporate_events_df['quarter'] = selected_quarter
+                    event_counts = corporate_events_df['event_type'].value_counts().to_dict()
+                    event_summary = ", ".join([f"{v} {k.replace('_', ' ')}" for k, v in event_counts.items()])
+                    st.success(f"✓ Found {len(corporate_events_df)} corporate events: {event_summary}")
+                else:
+                    st.info("No corporate events found for this period")
+            except Exception as e:
+                print(f"Warning: Could not fetch corporate events: {e}")
+                st.warning(f"Could not fetch corporate events: {e}")
+
             progress_bar.progress(100, text="🎉 Analysis complete!")
             status_text.text(f"✅ Successfully analyzed {len(tickers)} companies for {selected_quarter}")
 
@@ -1741,6 +1815,7 @@ elif run_analysis:
                 'df_cov': df_cov,
                 'df_liq': df_liq,
                 'news_df': news_df,
+                'corporate_events_df': corporate_events_df,
                 'start_date': start_date,
                 'end_date': end_date
             }
@@ -1766,6 +1841,7 @@ elif run_analysis:
             st.session_state['df_cov'] = all_quarters_results[quarter]['df_cov']
             st.session_state['df_liq'] = all_quarters_results[quarter]['df_liq']
             st.session_state['news_df'] = all_quarters_results[quarter]['news_df']
+            st.session_state['corporate_events_df'] = all_quarters_results[quarter].get('corporate_events_df')
             st.session_state['run_time'] = datetime.now()
         else:
             # For multiple quarters, combine all data with quarter labels
@@ -1775,6 +1851,7 @@ elif run_analysis:
             combined_cov = []
             combined_liq = []
             combined_news = []
+            combined_corporate_events = []
 
             for quarter, results in all_quarters_results.items():
                 # Add quarter column to each dataframe
@@ -1799,6 +1876,13 @@ elif run_analysis:
                     news_df['quarter'] = quarter
                     combined_news.append(news_df)
 
+                # Corporate events data
+                if results.get('corporate_events_df') is not None:
+                    corp_events = results['corporate_events_df'].copy()
+                    if 'quarter' not in corp_events.columns:
+                        corp_events['quarter'] = quarter
+                    combined_corporate_events.append(corp_events)
+
             # Concatenate all quarters
             st.session_state['df_composite'] = pd.concat(combined_composite, ignore_index=True) if combined_composite else None
             st.session_state['df_trust'] = pd.concat(combined_trust, ignore_index=True) if combined_trust else None
@@ -1806,22 +1890,19 @@ elif run_analysis:
             st.session_state['df_cov'] = pd.concat(combined_cov, ignore_index=True) if combined_cov else None
             st.session_state['df_liq'] = pd.concat(combined_liq, ignore_index=True) if combined_liq else None
             st.session_state['news_df'] = pd.concat(combined_news, ignore_index=True) if combined_news else None
+            st.session_state['corporate_events_df'] = pd.concat(combined_corporate_events, ignore_index=True) if combined_corporate_events else None
             st.session_state['run_time'] = datetime.now()
             st.session_state['selected_quarters'] = selected_quarters  # Store list of quarters analyzed
 
-        # Success animation and summary
-        st.snow()  # Celebratory animation - more professional/minimal than balloons
-        st.success(f"""
-        🎉 **Analysis Complete!**
+        # Success notification - professional toast instead of animation
+        st.toast("Analysis Complete!", icon="✅")
 
-        ✅ Successfully analyzed **{len(tickers)} companies** across **{len(all_quarters_results)} quarter(s)**
+        # Store analysis completion info for navigation display
+        st.session_state['analysis_just_completed'] = True
+        st.session_state['analysis_summary'] = f"🎉 **Analysis Complete!** Successfully analyzed **{len(tickers)} companies** across **{len(all_quarters_results)} quarter(s)**"
 
-        📊 Scroll down to see [Rankings & Peer Comparison](#composite-ranking), then explore the tabs below for:
-        - **📊 Company Analysis** - Detailed dial breakdowns and metrics
-        - **📈 Trends** - Multi-quarter progression (if analyzing multiple quarters)
-        - **💵 Value Analysis** - Dollar impact insights
-        - **🎯 Playbook & Events** - Action recommendations and timeline
-        """)
+        # Force page refresh to ensure navigation and results are displayed properly
+        st.rerun()
     else:
         st.error("❌ No quarters were successfully analyzed.")
         st.stop()
@@ -1829,6 +1910,25 @@ elif run_analysis:
 # Display results (if available) or show preview
 if 'df_composite' in st.session_state and st.session_state['df_composite'] is not None:
     st.markdown("---")
+
+    # Show success message and navigation if analysis just completed
+    if st.session_state.get('analysis_just_completed', False):
+        st.success(st.session_state.get('analysis_summary', '🎉 **Analysis Complete!**'))
+
+        # Navigation buttons - appear immediately after analysis
+        st.markdown("### 🧭 Jump to Results:")
+        nav_col1, nav_col2, nav_col3, nav_col4 = st.columns(4)
+        with nav_col1:
+            st.markdown("[📊 Company Analysis](#composite-ranking)", unsafe_allow_html=True)
+        with nav_col2:
+            st.markdown("[📈 Trends](#trends)", unsafe_allow_html=True)
+        with nav_col3:
+            st.markdown("[💵 Value Analysis](#value-analysis)", unsafe_allow_html=True)
+        with nav_col4:
+            st.markdown("[🎯 Playbook](#playbook)", unsafe_allow_html=True)
+
+        st.markdown("---")
+
     st.markdown("## 📊 Analysis Results")
 else:
     # Show results structure preview before analysis
@@ -2210,7 +2310,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 hide_index=True
             )
 
-        with st.expander("📊 Coverage Details", expanded=False):
+        with st.expander("📰 Coverage Details", expanded=False):
             # Calculate high-quality article counts
             df_cov_display = df_cov.copy()
             news_df = st.session_state.get('news_df', None)
@@ -2314,6 +2414,21 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         # Prepare data for trend visualization
         trend_df = df_composite.copy()
 
+        # Sort quarters chronologically (e.g., 2024Q1 < 2024Q2 < 2024Q3)
+        # Create a sortable quarter key: extract year and quarter number
+        def quarter_sort_key(q):
+            """Convert quarter string like '2024Q1' to sortable tuple (2024, 1)"""
+            try:
+                year = int(q[:4])
+                qtr = int(q[-1])
+                return (year, qtr)
+            except:
+                return (0, 0)
+
+        unique_quarters = sorted(trend_df['quarter'].unique(), key=quarter_sort_key)
+        trend_df['quarter'] = pd.Categorical(trend_df['quarter'], categories=unique_quarters, ordered=True)
+        trend_df = trend_df.sort_values(['quarter', 'ticker'])
+
         # Line chart showing IRCI progression for each company
         fig_trend = px.line(
             trend_df,
@@ -2322,7 +2437,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             color='ticker',
             markers=True,
             title='IRCI Composite Score Trends',
-            labels={'irci_composite_pct': 'IRCI Score (%)', 'quarter': 'Quarter', 'ticker': 'Company'}
+            labels={'irci_composite_pct': 'IRCI Score (%)', 'quarter': 'Quarter', 'ticker': 'Company'},
+            category_orders={'quarter': unique_quarters}
         )
         fig_trend.update_layout(
             height=500,
@@ -2361,6 +2477,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             import pandas as pd
             qoq_df = pd.DataFrame(qoq_data)
 
+            # Sort quarters in QoQ data chronologically
+            qoq_quarters = sorted(qoq_df['quarter'].unique(), key=quarter_sort_key)
+
             # Bar chart of QoQ changes
             fig_qoq = px.bar(
                 qoq_df,
@@ -2372,7 +2491,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 color_continuous_scale='RdYlGn',
                 color_continuous_midpoint=0,
                 facet_col='quarter',
-                facet_col_wrap=3
+                facet_col_wrap=3,
+                category_orders={'quarter': qoq_quarters}
             )
             fig_qoq.update_layout(
                 height=400,
@@ -2420,7 +2540,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         color='ticker',
                         markers=True,
                         title=f'{dial_name} Dial Trends',
-                        labels={dial_col: f'{dial_name} Score (%)', 'quarter': 'Quarter', 'ticker': 'Company'}
+                        labels={dial_col: f'{dial_name} Score (%)', 'quarter': 'Quarter', 'ticker': 'Company'},
+                        category_orders={'quarter': unique_quarters}
                     )
                     fig_dial.update_layout(
                         height=350,
@@ -3893,7 +4014,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         '📰 Press Release Program': 'press_release_program',
                         '📱 Social Media Campaign': 'social_media_campaign',
                         '🎤 Conference Presentation': 'conference_presentation',
-                        '📊 Analyst Coverage Initiation': 'analyst_coverage_initiation',
+                        '📰 Analyst Coverage Initiation': 'analyst_coverage_initiation',
                         # Other
                         'Other': 'other'
                     }
@@ -4117,7 +4238,70 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         timeline_df = pd.concat([timeline_df, custom_df], ignore_index=True)
                         # Sort by date
                         timeline_df = timeline_df.sort_values('date')
-    
+
+                # Merge auto-fetched corporate events from session state
+                corporate_events_df = st.session_state.get('corporate_events_df')
+                if corporate_events_df is not None and not corporate_events_df.empty:
+                    from irci.event_timeline import calculate_event_irci_impact
+
+                    # Filter for selected ticker
+                    ticker_corp_events = corporate_events_df[
+                        corporate_events_df['ticker'] == selected_timeline_ticker
+                    ].copy()
+
+                    if not ticker_corp_events.empty:
+                        corp_events_list = []
+                        for _, evt in ticker_corp_events.iterrows():
+                            # Calculate impact for this corporate event
+                            sentiment = evt.get('dividend_change_pct', 0) / 100 if evt.get('event_type') == 'dividend_announcement' else 0.0
+                            if evt.get('event_type') == 'earnings_call':
+                                # Try to derive sentiment from beat/miss
+                                if 'Beat' in str(evt.get('description', '')):
+                                    sentiment = 0.3
+                                elif 'Missed' in str(evt.get('description', '')):
+                                    sentiment = -0.3
+
+                            impact = calculate_event_irci_impact(
+                                event_date=pd.to_datetime(evt['date']).strftime('%Y-%m-%d'),
+                                event_type=evt['event_type'],
+                                df_composite=df_composite_filtered,
+                                df_val=df_val_filtered,
+                                ticker=selected_timeline_ticker,
+                                sentiment_score=sentiment,
+                                weights=current_weights,
+                                company_dollar_per_irci_pt=company_dollar_per_irci_pt,
+                                event_metadata=evt.get('event_metadata', {}) if isinstance(evt.get('event_metadata'), dict) else {}
+                            )
+
+                            corp_events_list.append({
+                                'date': pd.to_datetime(evt['date']),
+                                'event_type': evt['event_type'],
+                                'description': evt.get('description', evt['event_type'].replace('_', ' ').title()),
+                                'headline': evt.get('description', evt['event_type'].replace('_', ' ').title()),
+                                'sentiment_score': sentiment,
+                                'irci_impact': impact['irci_impact'],
+                                'dollar_impact': impact['dollar_impact'],
+                                'impact_confidence': impact['confidence'],
+                                'affected_dials': ', '.join(impact['affected_dials']),
+                                'ticker': selected_timeline_ticker,
+                                'source': evt.get('source', 'FMP API').replace('_', ' ').title()
+                            })
+
+                        if corp_events_list:
+                            corp_df = pd.DataFrame(corp_events_list)
+                            # Check for duplicates (same date + event_type already in timeline)
+                            if not timeline_df.empty:
+                                existing_keys = set(zip(
+                                    timeline_df['date'].dt.date,
+                                    timeline_df['event_type']
+                                ))
+                                corp_df = corp_df[~corp_df.apply(
+                                    lambda r: (r['date'].date(), r['event_type']) in existing_keys, axis=1
+                                )]
+                            if not corp_df.empty:
+                                timeline_df = pd.concat([timeline_df, corp_df], ignore_index=True)
+                                timeline_df = timeline_df.sort_values('date')
+
                 # Display impact summary
                 st.markdown("**📊 Event Impact Summary**")
                 impact_summary = create_impact_summary(timeline_df, selected_timeline_ticker)
@@ -4303,7 +4487,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     🟢 Positive news | 🔴 Negative news | 🔵 SEC filings | 📰 Neutral news |
                     🎯 Investor Day | 📈 Analyst Day | 👔 CEO Change | 💼 CFO Change | 👥 Director Change |
                     📞 Earnings Call | 🎪 Strategic Announcement | 💵 Dividend | 🔄 Buyback |
-                    💰 Valuation | 💧 Liquidity | 📊 Coverage | 💭 Trust
+                    💰 Valuation | 💧 Liquidity | 📰 Coverage | 💭 Trust
                     """)
     
                     # Calculation methodology and proof section
@@ -4790,7 +4974,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         '📰 Press Release Program': 'press_release_program',
                         '📱 Social Media Campaign': 'social_media_campaign',
                         '🎤 Conference Presentation': 'conference_presentation',
-                        '📊 Analyst Coverage Initiation': 'analyst_coverage_initiation',
+                        '📰 Analyst Coverage Initiation': 'analyst_coverage_initiation',
                     }
     
                     scenario_event_label = st.selectbox(
@@ -5759,6 +5943,7 @@ st.markdown("""
 <div style='text-align: center; color: #666; font-size: 0.9rem;'>
     IRCI Analysis Platform v0.1.0 | Powered by Streamlit |
     <a href='https://github.com/anthropics/claude-code' target='_blank'>Documentation</a><br>
-    <span style='font-size: 0.85rem; color: #888;'>Patent Pending</span>
+    <span style='font-size: 0.85rem; color: #888;'>Patent Pending</span> |
+    <a href='https://github.com/sponsors/bnatc85' target='_blank' style='color: #ea4aaa;'>❤️ Donate</a>
 </div>
 """, unsafe_allow_html=True)
