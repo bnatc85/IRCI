@@ -1016,6 +1016,16 @@ with st.sidebar:
             st.session_state['scroll_to_top'] = True
             st.rerun()
 
+        # Start Over link - clears analysis and returns to initial state
+        if st.button("start over", key="start_over_link", type="tertiary"):
+            # Clear all analysis data
+            for key in ['df_composite', 'df_trust', 'df_val', 'df_cov', 'df_liq', 'news_df',
+                        'corporate_events_df', 'selected_section', 'selected_subsection',
+                        'is_multi_quarter', 'run_time']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
+
     st.markdown("---")
     st.markdown("### 📊 Select Companies")
 
