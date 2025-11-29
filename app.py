@@ -1066,7 +1066,7 @@ with st.sidebar:
             st.rerun()
 
         # Start Over link - clears analysis and returns to initial state
-        if st.button("start over", key="start_over_link", type="tertiary"):
+        if st.button(" start over ", key="start_over_link", type="tertiary"):
             # Clear all analysis data
             for key in ['df_composite', 'df_trust', 'df_val', 'df_cov', 'df_liq', 'news_df',
                         'corporate_events_df', 'selected_section', 'selected_subsection',
@@ -2648,125 +2648,135 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
         st.markdown("---")
 
-        # Dial Breakdown Radar Chart
+        # Dial Breakdown Radar Chart - using fragment to prevent scroll-to-top
         st.markdown("### 📉 Dial Breakdown")
-        selected_company = st.selectbox("Select company for dial breakdown:", display_df['ticker'].tolist())
 
-        company_data = display_df[display_df['ticker'] == selected_company].iloc[0]
+        @st.fragment
+        def dial_breakdown_section():
+            """Fragment for company selector and dial breakdown to prevent scroll"""
+            selected_company = st.selectbox(
+                "Select company for dial breakdown:",
+                display_df['ticker'].tolist(),
+                key="dial_breakdown_company_select"
+            )
 
-        categories = ['Valuation', 'Liquidity', 'Coverage', 'Trust']
-        values = [
-            company_data.get('valuation_pct', 0),
-            company_data.get('liquidity_pct', 0),
-            company_data.get('coverage_pct', 0),
-            company_data.get('sentiment_pct', 0)
-        ]
+            company_data = display_df[display_df['ticker'] == selected_company].iloc[0]
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatterpolar(
-            r=values,
-            theta=categories,
-            fill='toself',
-            name=selected_company,
-            line=dict(color='#00d4ff', width=2),
-            fillcolor='rgba(0, 212, 255, 0.3)'
-        ))
-        fig.update_layout(
-            polar=dict(
-                radialaxis=dict(
-                    visible=True,
-                    range=[0, 100],
-                    gridcolor='#2e3440',
-                    color='#fafafa'
-                ),
-                angularaxis=dict(
-                    gridcolor='#2e3440',
-                    color='#fafafa'
-                ),
-                bgcolor='rgba(30,33,48,0.5)'
-            ),
-            showlegend=True,
-            title=f'{selected_company} - Dial Breakdown',
-            title_font=dict(color='#00d4ff'),
-            height=500,
-            paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#fafafa')
-        )
-        st.plotly_chart(fig, use_container_width=True)
+            categories = ['Valuation', 'Liquidity', 'Coverage', 'Trust']
+            values = [
+                company_data.get('valuation_pct', 0),
+                company_data.get('liquidity_pct', 0),
+                company_data.get('coverage_pct', 0),
+                company_data.get('sentiment_pct', 0)
+            ]
 
-        # Helper function to get status color and label
-        def get_dial_status(value):
-            """Returns (color, status_label) based on dial value."""
-            if value >= 70:
-                return '#4CAF50', 'Strong'  # Green for strong
-            elif value >= 40:
-                return '#FFA500', 'Moderate'  # Orange/yellow for moderate
-            else:
-                return '#ff4444', 'Needs Attention'  # Red for needs attention
-
-        # Create compact gauge charts for each dial
-        st.markdown("#### Dial Performance Gauges")
-
-        def create_gauge_chart(value, title):
-            """Create a compact gauge chart for a dial metric."""
-            status_color, status_label = get_dial_status(value)
-
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=value,
-                number={'suffix': '%', 'font': {'size': 18, 'color': '#fafafa'}},
-                title={'text': f"<b>{title}</b><br><span style='font-size:10px;color:{status_color}'>{status_label}</span>",
-                       'font': {'size': 12, 'color': '#fafafa'}},  # White text for dial name
-                gauge={
-                    'axis': {'range': [0, 100], 'tickcolor': '#fafafa', 'tickfont': {'color': '#fafafa', 'size': 8}, 'dtick': 25},
-                    'bar': {'color': status_color, 'thickness': 0.7},  # Bar color matches status
-                    'bgcolor': 'rgba(30,33,48,0.8)',
-                    'borderwidth': 1,
-                    'bordercolor': status_color,  # Border also matches status
-                    'steps': [
-                        {'range': [0, 40], 'color': 'rgba(255, 68, 68, 0.15)'},
-                        {'range': [40, 70], 'color': 'rgba(255, 165, 0, 0.15)'},
-                        {'range': [70, 100], 'color': 'rgba(76, 175, 80, 0.15)'}
-                    ],
-                    'threshold': {
-                        'line': {'color': '#fafafa', 'width': 1},
-                        'thickness': 0.75,
-                        'value': value
-                    }
-                }
+            fig = go.Figure()
+            fig.add_trace(go.Scatterpolar(
+                r=values,
+                theta=categories,
+                fill='toself',
+                name=selected_company,
+                line=dict(color='#00d4ff', width=2),
+                fillcolor='rgba(0, 212, 255, 0.3)'
             ))
-
             fig.update_layout(
-                height=150,
-                margin=dict(l=10, r=10, t=60, b=10),
+                polar=dict(
+                    radialaxis=dict(
+                        visible=True,
+                        range=[0, 100],
+                        gridcolor='#2e3440',
+                        color='#fafafa'
+                    ),
+                    angularaxis=dict(
+                        gridcolor='#2e3440',
+                        color='#fafafa'
+                    ),
+                    bgcolor='rgba(30,33,48,0.5)'
+                ),
+                showlegend=True,
+                title=f'{selected_company} - Dial Breakdown',
+                title_font=dict(color='#00d4ff'),
+                height=500,
                 paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#fafafa')
             )
-            return fig
+            st.plotly_chart(fig, use_container_width=True)
 
-        # Create 4 columns for the gauges with unique session-based key
-        gauge_cols = st.columns(4)
-        gauge_session_id = st.session_state.get('analysis_timestamp', 'default')
+            # Helper function to get status color and label
+            def get_dial_status(value):
+                """Returns (color, status_label) based on dial value."""
+                if value >= 70:
+                    return '#4CAF50', 'Strong'  # Green for strong
+                elif value >= 40:
+                    return '#FFA500', 'Moderate'  # Orange/yellow for moderate
+                else:
+                    return '#ff4444', 'Needs Attention'  # Red for needs attention
 
-        for i, (dial_name, dial_value) in enumerate(zip(categories, values)):
-            with gauge_cols[i]:
-                gauge_fig = create_gauge_chart(dial_value, dial_name)
-                # Use config to disable modebar and prevent fullscreen issues
-                st.plotly_chart(
-                    gauge_fig,
-                    use_container_width=True,
-                    key=f"gauge_{dial_name}_{selected_company}_{gauge_session_id}",
-                    config={'displayModeBar': False, 'staticPlot': False}
+            # Create compact gauge charts for each dial
+            st.markdown("#### Dial Performance Gauges")
+
+            def create_gauge_chart(value, title):
+                """Create a compact gauge chart for a dial metric."""
+                status_color, status_label = get_dial_status(value)
+
+                fig = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=value,
+                    number={'suffix': '%', 'font': {'size': 18, 'color': '#fafafa'}},
+                    title={'text': f"<b>{title}</b><br><span style='font-size:10px;color:{status_color}'>{status_label}</span>",
+                           'font': {'size': 12, 'color': '#fafafa'}},
+                    gauge={
+                        'axis': {'range': [0, 100], 'tickcolor': '#fafafa', 'tickfont': {'color': '#fafafa', 'size': 8}, 'dtick': 25},
+                        'bar': {'color': status_color, 'thickness': 0.7},
+                        'bgcolor': 'rgba(30,33,48,0.8)',
+                        'borderwidth': 1,
+                        'bordercolor': status_color,
+                        'steps': [
+                            {'range': [0, 40], 'color': 'rgba(255, 68, 68, 0.15)'},
+                            {'range': [40, 70], 'color': 'rgba(255, 165, 0, 0.15)'},
+                            {'range': [70, 100], 'color': 'rgba(76, 175, 80, 0.15)'}
+                        ],
+                        'threshold': {
+                            'line': {'color': '#fafafa', 'width': 1},
+                            'thickness': 0.75,
+                            'value': value
+                        }
+                    }
+                ))
+
+                fig.update_layout(
+                    height=150,
+                    margin=dict(l=10, r=10, t=60, b=10),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#fafafa')
                 )
+                return fig
 
-        # Status legend - more compact with correct colors
-        st.markdown("""
-        <div style="display: flex; justify-content: center; gap: 20px; padding: 8px; background: rgba(30,33,48,0.5); border-radius: 6px; font-size: 12px;">
-            <span><span style="color: #4CAF50;">●</span> Strong (≥70%)</span>
-            <span><span style="color: #FFA500;">●</span> Moderate (40-69%)</span>
-            <span><span style="color: #ff4444;">●</span> Needs Attention (<40%)</span>
-        </div>
-        """, unsafe_allow_html=True)
+            # Create 4 columns for the gauges with unique session-based key
+            gauge_cols = st.columns(4)
+            gauge_session_id = st.session_state.get('analysis_timestamp', 'default')
+
+            for i, (dial_name, dial_value) in enumerate(zip(categories, values)):
+                with gauge_cols[i]:
+                    gauge_fig = create_gauge_chart(dial_value, dial_name)
+                    st.plotly_chart(
+                        gauge_fig,
+                        use_container_width=True,
+                        key=f"gauge_{dial_name}_{selected_company}_{gauge_session_id}_frag",
+                        config={'displayModeBar': False, 'staticPlot': False}
+                    )
+
+            # Status legend
+            st.markdown("""
+            <div style="display: flex; justify-content: center; gap: 20px; padding: 8px; background: rgba(30,33,48,0.5); border-radius: 6px; font-size: 12px;">
+                <span><span style="color: #4CAF50;">●</span> Strong (≥70%)</span>
+                <span><span style="color: #FFA500;">●</span> Moderate (40-69%)</span>
+                <span><span style="color: #ff4444;">●</span> Needs Attention (<40%)</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Call the dial breakdown fragment
+        dial_breakdown_section()
 
         st.markdown("---")
 
@@ -6103,113 +6113,120 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         )
 
     # PDF Report Download (company-specific)
+    # Using st.fragment to prevent scroll-to-top on interaction
     st.markdown("---")
     st.markdown("#### 📄 Comprehensive PDF Report")
     st.markdown("*Generate a complete analysis report for a specific company*")
 
-    col_pdf1, col_pdf2, col_pdf3 = st.columns([2, 2, 4])
+    @st.fragment
+    def pdf_report_section():
+        """Fragment to handle PDF generation without full page rerun"""
+        col_pdf1, col_pdf2, col_pdf3 = st.columns([2, 2, 4])
 
-    with col_pdf1:
-        pdf_ticker = st.selectbox(
-            "Select company for PDF report:",
-            df_composite['ticker'].unique(),
-            key="pdf_ticker_select"
-        )
-
-    with col_pdf2:
-        if st.button("📄 Generate PDF Report", type="primary", use_container_width=True):
-            with st.spinner(f"Generating comprehensive PDF report for {pdf_ticker}..."):
-                try:
-                    # Get playbook for the selected ticker
-                    company_row = df_composite[df_composite['ticker'] == pdf_ticker].iloc[0]
-                    dial_scores = {
-                        'valuation': company_row.get('valuation_pct', 50),
-                        'liquidity': company_row.get('liquidity_pct', 50),
-                        'coverage': company_row.get('coverage_pct', 50),
-                        'trust': company_row.get('sentiment_pct', 50)
-                    }
-                    pdf_playbook = generate_playbook(dial_scores, df_composite, pdf_ticker)
-
-                    # Get timeline data if available
-                    try:
-                        from irci.event_timeline import aggregate_timeline_events
-                        from irci.coverage import _company_submissions, _cik_for_ticker
-
-                        cik = _cik_for_ticker(pdf_ticker)
-                        if cik:
-                            filings_df = _company_submissions(cik, q_start, q_end)
-                        else:
-                            filings_df = pd.DataFrame()
-
-                        # Get news data (simplified - just use what's available)
-                        timeline_data = aggregate_timeline_events(
-                            ticker=pdf_ticker,
-                            df_trust=df_trust,
-                            filings_df=filings_df,
-                            q_start=q_start,
-                            q_end=q_end,
-                            df_composite=df_composite
-                        )
-                    except:
-                        timeline_data = None
-
-                    # Get news data for sentiment analysis
-                    pdf_news_df = st.session_state.get('news_df', None)
-
-                    # Get dollar value data if available
-                    pdf_dollar_value_df = None
-                    pdf_weights = None
-                    try:
-                        from irci.dial_insights import compute_dollar_value_per_irci_point
-                        pdf_dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
-                        # Get current weights from session state
-                        pdf_weights = {
-                            'valuation': st.session_state.weight_valuation / 100,
-                            'liquidity': st.session_state.weight_liquidity / 100,
-                            'coverage': st.session_state.weight_coverage / 100,
-                            'sentiment': st.session_state.weight_trust / 100
-                        }
-                    except:
-                        pass
-
-                    # Generate PDF
-                    pdf_bytes = generate_pdf_report(
-                        ticker=pdf_ticker,
-                        quarter=selected_quarter,
-                        df_composite=df_composite,
-                        df_valuation=df_val,
-                        df_liquidity=df_liq,
-                        df_coverage=df_cov,
-                        df_trust=df_trust,
-                        playbook=pdf_playbook,
-                        timeline_df=timeline_data,
-                        news_df=pdf_news_df,
-                        dollar_value_df=pdf_dollar_value_df,
-                        weights=pdf_weights
-                    )
-
-                    # Store in session state for download
-                    st.session_state['pdf_report'] = pdf_bytes
-                    st.session_state['pdf_ticker'] = pdf_ticker
-                    st.session_state['pdf_quarter'] = selected_quarter
-                    st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
-
-                except Exception as e:
-                    st.error(f"Error generating PDF report: {str(e)}")
-                    import traceback
-                    with st.expander("Error details"):
-                        st.code(traceback.format_exc())
-
-    # Show download button if PDF was generated
-    if 'pdf_report' in st.session_state and st.session_state.get('pdf_ticker') == pdf_ticker:
-        with col_pdf3:
-            st.download_button(
-                label=f"⬇️ Download {pdf_ticker} Report",
-                data=st.session_state['pdf_report'],
-                file_name=f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf",
-                mime="application/pdf",
-                use_container_width=True
+        with col_pdf1:
+            pdf_ticker = st.selectbox(
+                "Select company for PDF report:",
+                df_composite['ticker'].unique(),
+                key="pdf_ticker_select_fragment"
             )
+
+        with col_pdf2:
+            if st.button("📄 Generate PDF Report", type="primary", use_container_width=True):
+                with st.spinner(f"Generating comprehensive PDF report for {pdf_ticker}..."):
+                    try:
+                        # Get playbook for the selected ticker
+                        company_row = df_composite[df_composite['ticker'] == pdf_ticker].iloc[0]
+                        dial_scores = {
+                            'valuation': company_row.get('valuation_pct', 50),
+                            'liquidity': company_row.get('liquidity_pct', 50),
+                            'coverage': company_row.get('coverage_pct', 50),
+                            'trust': company_row.get('sentiment_pct', 50)
+                        }
+                        pdf_playbook = generate_playbook(dial_scores, df_composite, pdf_ticker)
+
+                        # Get timeline data if available
+                        try:
+                            from irci.event_timeline import aggregate_timeline_events
+                            from irci.coverage import _company_submissions, _cik_for_ticker
+
+                            cik = _cik_for_ticker(pdf_ticker)
+                            if cik:
+                                filings_df = _company_submissions(cik, q_start, q_end)
+                            else:
+                                filings_df = pd.DataFrame()
+
+                            # Get news data (simplified - just use what's available)
+                            timeline_data = aggregate_timeline_events(
+                                ticker=pdf_ticker,
+                                df_trust=df_trust,
+                                filings_df=filings_df,
+                                q_start=q_start,
+                                q_end=q_end,
+                                df_composite=df_composite
+                            )
+                        except:
+                            timeline_data = None
+
+                        # Get news data for sentiment analysis
+                        pdf_news_df = st.session_state.get('news_df', None)
+
+                        # Get dollar value data if available
+                        pdf_dollar_value_df = None
+                        pdf_weights = None
+                        try:
+                            from irci.dial_insights import compute_dollar_value_per_irci_point
+                            pdf_dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
+                            # Get current weights from session state
+                            pdf_weights = {
+                                'valuation': st.session_state.weight_valuation / 100,
+                                'liquidity': st.session_state.weight_liquidity / 100,
+                                'coverage': st.session_state.weight_coverage / 100,
+                                'sentiment': st.session_state.weight_trust / 100
+                            }
+                        except:
+                            pass
+
+                        # Generate PDF
+                        pdf_bytes = generate_pdf_report(
+                            ticker=pdf_ticker,
+                            quarter=selected_quarter,
+                            df_composite=df_composite,
+                            df_valuation=df_val,
+                            df_liquidity=df_liq,
+                            df_coverage=df_cov,
+                            df_trust=df_trust,
+                            playbook=pdf_playbook,
+                            timeline_df=timeline_data,
+                            news_df=pdf_news_df,
+                            dollar_value_df=pdf_dollar_value_df,
+                            weights=pdf_weights
+                        )
+
+                        # Store in session state for download
+                        st.session_state['pdf_report'] = pdf_bytes
+                        st.session_state['pdf_ticker'] = pdf_ticker
+                        st.session_state['pdf_quarter'] = selected_quarter
+                        st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
+
+                    except Exception as e:
+                        st.error(f"Error generating PDF report: {str(e)}")
+                        import traceback
+                        with st.expander("Error details"):
+                            st.code(traceback.format_exc())
+
+        # Show download button if PDF was generated
+        if 'pdf_report' in st.session_state and st.session_state.get('pdf_ticker') == pdf_ticker:
+            with col_pdf3:
+                st.download_button(
+                    label=f"⬇️ Download {pdf_ticker} Report",
+                    data=st.session_state['pdf_report'],
+                    file_name=f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+
+    # Call the fragment
+    pdf_report_section()
 
 # Footer
 st.markdown("---")
