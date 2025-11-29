@@ -1596,9 +1596,12 @@ if not show_results and not run_analysis:
         tabs = st.tabs(["📖 How It Works", "🎯 About IRCI", "👥 Team", "🔬 Validation"])
     
         with tabs[0]:
+            st.markdown("### How IRCI Works")
+
+            # Embedded YouTube video - small size
+            st.video("https://www.youtube.com/watch?v=ESoWqgkANKU")
+
             st.markdown("""
-            ### How IRCI Works
-    
             **IRCI** evaluates companies across four fundamental dimensions:
     
             #### 📰 Coverage Dial
