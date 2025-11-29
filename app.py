@@ -937,8 +937,8 @@ if st.session_state.get('show_intro', False):
     # Reset show_intro after displaying - handles case where user closes via X or clicking outside
     st.session_state['show_intro'] = False
 
-# Show disclaimer modal if requested (only if not already accepted)
-if st.session_state.get('show_disclaimer', False) and not st.session_state.get('disclaimer_accepted', False):
+# Show disclaimer modal if requested (can be viewed anytime via "View terms" link)
+if st.session_state.get('show_disclaimer', False):
     show_disclaimer_modal()
     # Reset show_disclaimer after displaying - handles case where user closes via X or clicking outside
     st.session_state['show_disclaimer'] = False
