@@ -2831,6 +2831,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 • **Quartile** = Ranking within peer group (1 = cheapest, 4 = most expensive).
 
 📚 **Why discounts score higher:** Based on Merton's (1987) Investor Recognition Hypothesis - stocks with lower visibility often trade at discounts. IRCI assumes discounts represent potential IR opportunity to improve market perception and close the gap. However, discounts may also reflect fundamental issues unrelated to IR. Premiums may indicate IR success (market fully recognizes value) rather than a problem. Interpret in context of fundamentals.
+
+⚠️ **Overvaluation risk:** Per Jensen (2005), stocks trading at substantial premiums may be considered **overpriced** by investors. When valuations exceed what fundamentals can support, companies face pressure to meet unrealistic expectations—potentially leading to value destruction. Extremely high valuations (top quartile premiums) warrant caution and may signal the stock has limited upside or elevated downside risk.
 """)
             if 'peg_ratio' in df_val.columns:
                 st.caption("• **PEG Ratio** = Price/Earnings ÷ Growth Rate. Lower is better (<1.0 often indicates undervalued relative to growth).")
