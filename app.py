@@ -1596,14 +1596,16 @@ if not show_results and not run_analysis:
         with tabs[0]:
             st.markdown("### How IRCI Works")
 
-            # YouTube video link with thumbnail
+            # YouTube video embed using privacy-enhanced mode
             st.markdown("""
-            <a href="https://www.youtube.com/watch?v=ESoWqgkANKU" target="_blank" style="display: block; text-align: center;">
-                <img src="https://img.youtube.com/vi/ESoWqgkANKU/maxresdefault.jpg"
-                     alt="Watch: How IRCI Works"
-                     style="max-width: 100%; border-radius: 8px; cursor: pointer;">
-                <p style="color: #00CED1; margin-top: 8px;">▶ Watch Video: How IRCI Works</p>
-            </a>
+            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px;">
+                <iframe
+                    src="https://www.youtube-nocookie.com/embed/ESoWqgkANKU?rel=0"
+                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 8px;"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen>
+                </iframe>
+            </div>
             """, unsafe_allow_html=True)
 
             st.markdown("""
