@@ -184,36 +184,38 @@ class IRCIReport(FPDF):
         self.is_cover_page = False
 
     def _draw_score_card(self, score: float, rank: int, total: int, x: float, y: float):
-        """Draw the main IRCI score card - compact version"""
-        # Score circle background
-        self.set_fill_color(*self._get_score_color(score))
-        self.set_xy(x + 25, y)
+        """Draw the main IRCI score card - compact version, centered on page"""
+        # Page width is 210mm, margins are 15mm each side = 180mm usable
+        # Center the score card (60mm wide) in the middle of the page
+        center_x = (210 - 60) / 2  # = 75mm from left edge
 
-        # Large score - smaller
+        # Large score
         self.set_font('Arial', 'B', 36)
         self.set_text_color(0, 0, 0)
+        self.set_xy(center_x, y)
         self.cell(60, 22, f'{score:.0f}%', 0, 1, 'C')
 
         # Label
         self.set_font('Arial', 'B', 10)
-        self.set_xy(x + 25, y + 24)
+        self.set_xy(center_x, y + 24)
         self.cell(60, 6, 'IRCI COMPOSITE SCORE', 0, 1, 'C')
 
-        # Rank and Classification on same line
-        classification = self._classify_score_label(score)
-        color = self._get_score_color(score)
+        # Rank
         self.set_font('Arial', '', 9)
-        self.set_xy(x + 25, y + 32)
+        self.set_xy(center_x, y + 32)
         self.cell(60, 5, f'#{rank} of {total} peers', 0, 1, 'C')
 
+        # Classification with color
+        classification = self._classify_score_label(score)
+        color = self._get_score_color(score)
         self.set_font('Arial', 'B', 11)
         self.set_text_color(*color)
-        self.set_xy(x + 25, y + 38)
+        self.set_xy(center_x, y + 38)
         self.cell(60, 6, classification.upper(), 0, 1, 'C')
         self.set_text_color(0, 0, 0)
 
     def _draw_dial_summary(self, dial_scores: Dict):
-        """Draw the four dial scores in a row - compact version"""
+        """Draw the four dial scores in a row - compact version, centered on page"""
         dials = [
             ('VALUATION', dial_scores.get('valuation', 0), '$'),
             ('LIQUIDITY', dial_scores.get('liquidity', 0), '~'),
@@ -221,15 +223,17 @@ class IRCIReport(FPDF):
             ('TRUST', dial_scores.get('trust', 0), '*')
         ]
 
-        start_x = 20
         width = 42
+        gap = 2  # gap between boxes
+        total_width = (width * 4) + (gap * 3)  # 4 boxes + 3 gaps = 174mm
+        start_x = (210 - total_width) / 2  # Center on 210mm page
         box_height = 28
 
         # Store the starting Y position
         start_y = self.get_y()
 
         for i, (name, score, icon) in enumerate(dials):
-            x = start_x + (i * width)
+            x = start_x + (i * (width + gap))
 
             # Box background - smaller height
             color = self._get_score_color(score)
@@ -507,9 +511,6 @@ class IRCIReport(FPDF):
             self.set_font('Arial', 'B', 9)
             self.cell(8, 5, f'{i}.', 0, 0, 'L')
             self.safe_multi_cell(0, 5, rec['action'])
-            self.set_font('Arial', '', 8)
-            self.set_x(23)
-            self.safe_multi_cell(0, 4, f"Owner: IR Team | Target: Week {i}")
             self.ln(1)
 
         if not quick_wins:
@@ -648,17 +649,18 @@ class IRCIReport(FPDF):
         weakest_dial = dial_order[0][0]
         weakest_score = dial_order[0][1]
 
-        # Calculate break-even
-        typical_ir_budget = 500000  # $500K typical IR program cost
-        breakeven_points = typical_ir_budget / dollar_per_point if dollar_per_point > 0 else 0
+        # Format value per point for display
+        if dollar_per_point >= 1e9:
+            per_point_str = f'${dollar_per_point/1e9:.2f}B'
+        else:
+            per_point_str = f'${dollar_per_point/1e6:.1f}M'
 
         self.body_text(
             f"Primary Investment Focus: {weakest_dial.upper()} Dial (currently {weakest_score:.1f}%)\n\n"
             f"Investment Logic:\n"
-            f"* Every 1-point IRCI improvement = ~{value_str} in enterprise value\n"
-            f"* Typical IR program investment of $500K would break even at +{breakeven_points:.2f} IRCI points\n"
+            f"* Every 1-point IRCI improvement = ~{per_point_str} in enterprise value\n"
             f"* With focused effort on {weakest_dial}, a +3-5 point improvement is achievable\n"
-            f"* Expected ROI: {(3 * dollar_per_point / typical_ir_budget - 1) * 100:.0f}% to {(5 * dollar_per_point / typical_ir_budget - 1) * 100:.0f}%"
+            f"* Potential value creation: {per_point_str} to {f'${(5 * dollar_per_point)/1e9:.2f}B' if 5*dollar_per_point >= 1e9 else f'${(5 * dollar_per_point)/1e6:.0f}M'}"
         )
 
         self.ln(3)
