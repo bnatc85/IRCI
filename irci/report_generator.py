@@ -152,13 +152,14 @@ class IRCIReport(FPDF):
         # Main score card - smaller
         self._draw_score_card(irci_score, peer_rank, total_peers, 60, 75)
 
-        # Dial scores in a row - moved up
+        # Dial scores in a row
         self.set_y(125)
         self._draw_dial_summary(dial_scores)
+        # After _draw_dial_summary, Y is now at 125 + 28 = 153
 
-        # Dollar value if available - position AFTER dial boxes (which are 28px tall)
+        # Dollar value if available - add some spacing after dials
         if dollar_per_point and dollar_per_point > 0:
-            self.set_y(160)  # 125 + 28 + 7 spacing
+            self.ln(8)  # Add spacing after dial boxes
             self.set_font('Arial', 'B', 10)
             self.cell(0, 6, 'VALUE PER IRCI POINT', 0, 1, 'C')
             self.set_font('Arial', 'B', 14)
@@ -222,6 +223,10 @@ class IRCIReport(FPDF):
 
         start_x = 20
         width = 42
+        box_height = 28
+
+        # Store the starting Y position
+        start_y = self.get_y()
 
         for i, (name, score, icon) in enumerate(dials):
             x = start_x + (i * width)
@@ -229,25 +234,27 @@ class IRCIReport(FPDF):
             # Box background - smaller height
             color = self._get_score_color(score)
             self.set_fill_color(*color)
-            self.rect(x, self.get_y(), width - 2, 28, 'F')
+            self.rect(x, start_y, width - 2, box_height, 'F')
 
-            # Dial name
+            # Dial name - use absolute Y positioning
             self.set_font('Arial', 'B', 7)
             self.set_text_color(255, 255, 255)
-            self.set_xy(x, self.get_y() + 2)
+            self.set_xy(x, start_y + 2)
             self.cell(width - 2, 4, f'[{icon}] {name}', 0, 0, 'C')
 
             # Score - smaller
             self.set_font('Arial', 'B', 16)
-            self.set_xy(x, self.get_y() + 7)
+            self.set_xy(x, start_y + 7)
             self.cell(width - 2, 10, f'{score:.0f}%', 0, 0, 'C')
 
             # Classification
             self.set_font('Arial', '', 7)
-            self.set_xy(x, self.get_y() + 18)
+            self.set_xy(x, start_y + 18)
             self.cell(width - 2, 4, self._classify_score_label(score), 0, 0, 'C')
 
         self.set_text_color(0, 0, 0)
+        # Set Y position to after the dial boxes
+        self.set_y(start_y + box_height)
 
     def _get_score_color(self, score: float) -> tuple:
         """Get color based on score (RGB)"""
