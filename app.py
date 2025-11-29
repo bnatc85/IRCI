@@ -1130,21 +1130,19 @@ with st.sidebar:
     st.markdown("---")
 
     # Disclaimer checkbox with link to view full terms
-    disclaimer_col1, disclaimer_col2 = st.columns([3, 1])
-    with disclaimer_col1:
-        disclaimer_accepted = st.checkbox(
-            "I have read and agree to the terms",
-            value=st.session_state.get('disclaimer_accepted', False),
-            key="disclaimer_checkbox_inline",
-            help="You must agree to the disclaimer before running analysis"
-        )
-        # Update session state
-        st.session_state['disclaimer_accepted'] = disclaimer_accepted
+    disclaimer_accepted = st.checkbox(
+        "I have read and agree to the terms",
+        value=st.session_state.get('disclaimer_accepted', False),
+        key="disclaimer_checkbox_inline",
+        help="You must agree to the disclaimer before running analysis"
+    )
+    # Update session state
+    st.session_state['disclaimer_accepted'] = disclaimer_accepted
 
-    with disclaimer_col2:
-        if st.button("View terms", use_container_width=True, type="secondary"):
-            st.session_state['show_disclaimer'] = True
-            st.rerun()
+    # Small "view terms" link
+    if st.button("view terms", key="view_terms_link", type="tertiary"):
+        st.session_state['show_disclaimer'] = True
+        st.rerun()
 
     # Run Analysis button
     run_analysis_clicked = st.button(
