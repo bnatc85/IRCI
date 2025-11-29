@@ -1869,25 +1869,18 @@ elif run_analysis:
         st.markdown("""
 <div style="font-size: 0.95em;">
 
-**The AI Hype vs. IR Reality**
+**AI Chatbots vs. IRCI**
 
-| What AI Chatbots Do | What IRCI Does |
-|---------------------|----------------|
-| Generate plausible-sounding text | Measure actual market outcomes |
-| Summarize what's already written | Quantify what competitors are achieving |
-| Offer generic "best practices" | Show your specific gaps vs peers |
-| Can't verify their own claims | Every metric is auditable and sourced |
-
-**What AI *Can't* Do**
-
-| Capability | Generic AI | IRCI |
-|------------|-----------|------|
+| Capability | AI Chatbots | IRCI |
+|------------|-------------|------|
+| Generate plausible text | ✅ | — |
 | Know your specific peer group | ❌ | ✅ Custom peer benchmarking |
 | Calculate your \$/IRCI point | ❌ | ✅ Regression on actual market data |
-| Factor-adjust your event volatility | ❌ | ✅ Fama-French model integration |
-| Track your progress over time | ❌ | ✅ Quarter-over-quarter comparison |
+| Factor-adjust event volatility | ❌ | ✅ Fama-French model integration |
+| Track progress over time | ❌ | ✅ Quarter-over-quarter comparison |
 | Access real-time SEC EDGAR filings | ❌ | ✅ Live data pipeline |
 | Benchmark against competitors | ❌ | ✅ Peer-relative percentiles |
+| Verify claims with sources | ❌ | ✅ Every metric auditable |
 
 **The Bottom Line**
 
