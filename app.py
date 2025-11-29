@@ -1142,7 +1142,7 @@ with st.sidebar:
         st.session_state['disclaimer_accepted'] = disclaimer_accepted
 
     with disclaimer_col2:
-        if st.button("📜 View terms", use_container_width=True, type="secondary"):
+        if st.button("View terms", use_container_width=True, type="secondary"):
             st.session_state['show_disclaimer'] = True
             st.rerun()
 
