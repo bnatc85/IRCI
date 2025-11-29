@@ -1607,148 +1607,43 @@ if not show_results and not run_analysis:
             """, unsafe_allow_html=True)
 
             st.markdown("""
-            **IRCI** evaluates companies across four fundamental dimensions:
-    
-            #### 📰 Coverage Dial
-            **"How visible and understandable is your company in the public record?"**
-    
-            - **Credible media attention** - Tracks mentions in Wall Street Journal, Bloomberg, Reuters vs. lower-signal press wires
-            - **Filing cadence & timeliness** - SEC 8-K frequency, 10-Q/10-K filing speed relative to deadlines
-            - **Coverage momentum** - Whether disclosure quality is improving or declining
-    
-            💡 High Coverage = investors don't have to hunt for your story. Low Coverage = greater uncertainty.
-    
-            #### 💭 Trust Dial
-            **"When you speak, does the market stay calm or freak out?"**
-    
-            - **Event Calm** - Stock movement within normal bands around earnings/8-Ks (factor-adjusted)
-            - **Baseline Calm** - Control group of ordinary days to see if announcements settle or stir markets
-            - **Media tone** - AI/NLP sentiment analysis across credible news outlets
-    
-            💡 If Event Calm > Baseline Calm, your communication settles markets. If lower, you're creating questions.
-    
-            #### 💧 Liquidity Dial
-            **"How easy and cheap is it for investors to get in and out?"**
-    
-            - **Turnover** - Trading volume relative to market cap
-            - **Amihud illiquidity** - Price impact per dollar traded (lower is better)
-            - **Implied spread (Roll estimate)** - The hidden toll booth every trade pays
-    
-            💡 Strong Liquidity = smooth, cheap trading. Weak Liquidity = every big move is costly and disruptive.
-    
-            #### 💰 Valuation Dial
-            **"How many dollars is the market willing to pay for each dollar of operating earnings?"**
-    
-            - **EV/EBITDA multiple** - Enterprise value divided by EBITDA
-            - **Peer-relative position** - Where you stand vs. industry comparables
-            - **Trend stability** - Whether your multiple is steady or volatile
-    
-            💡 When uncertainty and trading friction decrease, investors typically pay more per dollar of earnings.
-    
-            ---
-    
-            ### The Master Framework
-    
-            Think of IRCI like tuning a stereo:
-            - The first three dials (Coverage, Trust, Liquidity) are like bass, treble, and balance—they shape clarity and stability
-            - The Valuation dial is the master volume—how loud and strong the music comes through
-    
-            **Fundamentals set the ceiling (the orange line on the chart).** IR and reputation determine how efficiently the market reaches that fair value (the path the blue/green lines take).
-    
-            ---
-    
-            **Output:** A composite score (0-100%) ranking companies within your peer group, with dollar-per-point estimates for planning.
+**IRCI evaluates companies across four dials:**
+
+| Dial | Question | Key Metrics |
+|------|----------|-------------|
+| 📰 **Coverage** | How visible is your company? | Media mentions (tier-weighted), SEC filing timeliness, disclosure momentum |
+| 💭 **Trust** | Does the market stay calm when you speak? | Event-day volatility vs baseline, media sentiment (NLP) |
+| 💧 **Liquidity** | How easy is it to trade? | Turnover, Amihud illiquidity, implied spread |
+| 💰 **Valuation** | What multiple does the market pay? | EV/EBITDA, peer-relative position, trend stability |
+
+**Framework:** Coverage, Trust, and Liquidity shape clarity and stability. Valuation reflects how efficiently the market prices your fundamentals.
+
+**Output:** Composite score (0-100%) ranking companies within your peer group, with $/IRCI point estimates for planning.
             """)
     
         with tabs[1]:
             st.markdown("""
-            ### About IRCI
-    
-            #### The Challenge
-    
-            Have you ever wondered whether investor relations and reputation really move a company's market value—or if it's all just "nice to have"?
-    
-            **Decades of research** reveal 4 major value contributions by IR:
-            1. Fairer pricing
-            2. Better liquidity
-            3. Analyst coverage
-            4. Reputation management
-    
-            But experts have always cautioned against claiming that IR contributions **directly** affect value. In fact, one study participant stated that IR's impact on share valuation is **"very, very minimal"** compared to other factors like fundamentals and macro conditions.
-    
-            ---
-    
-            #### The Solution
-    
-            **The industry says IR's impact can't be measured. We disagree.**
-    
-            IRCI builds upon **40+ years of academic and practitioner research**, compressing:
-            - Coverage momentum
-            - Trust and credibility
-            - Liquidity and market microstructure
-            - Valuation positioning
-    
-            ...into **one peer-relative score + actionable playbooks**.
-    
-            ---
-    
-            #### How It's Different
-    
-            IRCI isn't a PR or brand index—it's **market-plumbing aware**, built on:
-            - Observed trading data
-            - SEC filings and events
-            - Factor-adjusted price reactions
-            - Credible media analysis
-    
-            **Not surveys. Not opinions. Objective, repeatable metrics.**
-    
-            | Feature | IRCI | Traditional IR Tools | Reputation Scores |
-            |---------|------|---------------------|-------------------|
-            | **Objective data** | ✅ Market data, SEC filings | ⚠️ Mixed | ❌ Surveys |
-            | **Dollar quantification** | ✅ $/IRCI point | ❌ | ⚠️ Annual estimates |
-            | **Actionable playbooks** | ✅ Dial-specific | ⚠️ General advice | ❌ |
-            | **Peer benchmarking** | ✅ Relative ranking | ⚠️ Limited | ✅ |
-            | **Board-grade outputs** | ✅ | ❌ | ⚠️ |
-    
-            ---
-    
-            #### The Three Channels of IR Impact
-    
-            1. **Liquidity and Access**
-               - Deeper trading, tighter spreads
-               - Cheaper for investors to enter/exit
-               - Improves discoverability, reduces friction
-    
-            2. **Coverage and Disclosure Momentum**
-               - More (and better) coverage
-               - Clear filings and events
-               - Information travels faster, eases investor concerns
-    
-            3. **Trust Around Events**
-               - Credible, consistent communication
-               - Calmer earnings days and headlines
-               - Stock tracks closer to fair value instead of whipping around on rumors
-    
-            **We don't pretend IR replaces fundamentals.** We measure how IR and reputation change the path to fair value, how persistent that proximity is, and then we price it in dollars per score point.
-    
-            ---
-    
-            #### Use Cases
-    
-            **For IR Teams:**
-            - "Which dial is weak, and what should we do?"
-            - "What are peer leaders doing well that we can borrow?"
-            - Measure → pick weakest dial → run playbook → re-measure
-    
-            **For Boards and CFOs:**
-            - "If 1 IRCI point is worth ~\\$X, is it worth spending \\$Y to move the weakest dial by 2-3 points?"
-            - Quantifiable ROI for IR and communications investments
-            - Compare IR efficiency across business units or portfolio companies
-    
-            **For Investors:**
-            - Identify companies with IR/reputation inefficiencies
-            - Spot potential mispricings due to poor disclosure or liquidity
-            - Track improvements in company accessibility over time
+### About IRCI
+
+**The Challenge:** IR's impact on value has always been considered unmeasurable—"nice to have" but not quantifiable.
+
+**The Solution:** IRCI compresses 40+ years of academic research into one peer-relative score with dollar-per-point estimates and actionable playbooks.
+
+| Feature | IRCI | Traditional Tools |
+|---------|------|-------------------|
+| Data source | Market data, SEC filings | Surveys, opinions |
+| Dollar quantification | ✅ $/IRCI point | ❌ |
+| Actionable playbooks | ✅ Dial-specific | General advice |
+
+**Three Channels of IR Impact:**
+1. **Liquidity** — Deeper trading, tighter spreads, cheaper access
+2. **Coverage** — Better disclosure, faster information flow
+3. **Trust** — Calmer event days, stock tracks closer to fair value
+
+**Use Cases:**
+- **IR Teams:** Identify weak dials → run playbook → re-measure
+- **Boards/CFOs:** ROI calculation: "Is \\$Y worth spending to gain 2-3 IRCI points?"
+- **Investors:** Spot IR/disclosure inefficiencies and potential mispricings
             """)
     
         with tabs[2]:
@@ -1812,170 +1707,44 @@ We combine:
     
         with tabs[3]:
             st.markdown("""
-            ### Validation & Methodology
-    
-            #### Three Reasons to Trust This Score
-    
-            **1. Track Record**
-            - Tested on **5+ years of data** and tens of thousands of observations
-            - Covers multiple market cycles and industry sectors
-    
-            **2. Predictive Checks**
-            - When Liquidity rises → spreads tighten ✅
-            - When Trust is higher → event days are calmer ✅
-            - Coverage momentum → Valuation behaves as expected ✅
-            - All relationships are **directionally correct and statistically significant**
-    
-            **3. Ablation Testing**
-            - Drop each dial one by one → measure signal loss
-            - Result: **All 4 dials contribute unique information**
-            - Not one magic number—comprehensive framework
-    
-            ---
-    
-            #### Sanity Checks Performed
-    
-            **Test 1: Directional Validation**
-    
-            *If a company scores higher on a dial today, do we see the right move next quarter in what that dial should influence?*
-    
-            ✅ **CHECK**
-            - Strong Coverage → continued disclosure momentum
-            - High Trust → calmer event days (factor-adjusted)
-            - High Liquidity → tighter spreads
-            - Strong Valuation → better peer-relative EV trend
-    
-            **Test 2: Ablation Analysis**
-    
-            *If we drop one dial, does prediction worsen?*
-    
-            ✅ **CHECK**
-            - Reran composite 4 times, removing one dial each time
-            - Signal weakens every time
-            - **Trust delivers the largest unique lift** in our Big Tech sample, but all dials are necessary
-    
-            **Test 3: Dollar Value Calibration**
-    
-            *Can we convert IRCI points to enterprise value changes?*
-    
-            ✅ **CHECK**
-            - In our Big Tech sample: +1 IRCI point ≈ -0.44% change in next-quarter peer valuation gap
-            - R² ≈ 0.37 (moderate explanatory power—appropriate for a secondary factor after fundamentals)
-            - Translation: On Apple-sized companies, ~\\$15B per IRCI point
-    
-            💡 **Interpretation:** Treat as a **planning range**, not a guarantee. Fundamentals dominate, but IR efficiency matters at the margin.
-    
-            ---
-    
-            #### Peer Group Selection
-    
-            **IRCI only works if the peer set is realistic:**
-            - Same industry and approximate size
-            - Typically 10-15 comparable companies
-            - Pre-built peer groups for 60+ popular tickers
-    
-            **Right peers → right insights**
-    
-            ---
-    
-            #### Data Sources & Processing
-    
-            1. **SEC EDGAR** - Filings, events, submission dates
-            2. **Financial Markets API** - Pricing, fundamentals, news
-            3. **Fama-French Factors** - Market and sector adjustments for event calm
-            4. **NLP/AI Sentiment** - Media tone analysis from credible outlets
-    
-            **Processing steps:**
-            - Clean and normalize data
-            - Convert to percentiles within peer group
-            - Score each dial 0-100
-            - Weight and combine to composite with peer ranking
-    
-            ---
-    
-            #### Limitations & Appropriate Use
-    
-            **What IRCI Does:**
-            - Measures IR efficiency and market accessibility
-            - Provides dollar-denominated planning ranges
-            - Identifies which dial is weakest for targeted action
-    
-            **What IRCI Does NOT Do:**
-            - Replace fundamental analysis
-            - Guarantee stock price movements
-            - Account for M&A, executive changes, or black swan events
-            - Substitute for compliance, legal, or financial advice
-    
-            **Appropriate Use Cases:**
-            - IR planning and resource allocation
-            - Quarterly board reporting on IR effectiveness
-            - Benchmarking against peers
-            - Identifying improvement opportunities
-    
-            **Inappropriate Use Cases:**
-            - Day trading or market timing
-            - Guaranteeing specific ROI
-            - Ignoring fundamentals or macro trends
+### Validation & Methodology
 
-            ---
+**Why Trust This Score:**
 
-            #### Academic References
+| Test | Result |
+|------|--------|
+| Track Record | 5+ years, tens of thousands of observations across market cycles ✅ |
+| Directional Validation | Higher dial scores → expected outcomes next quarter ✅ |
+| Ablation Testing | All 4 dials contribute unique signal; dropping any weakens predictions ✅ |
+| Dollar Calibration | R² ≈ 0.37 (appropriate for secondary factor after fundamentals) ✅ |
 
-            **Core IR Research:**
-            - Bushee, B. J., & Miller, G. S. (2012). Investor relations, firm visibility, and investor following. *The Accounting Review, 87*(3), 867-897.
-            - Agarwal, V., Liao, C., Nash, J., & Taffler, R. (2016). Investor relations, information asymmetry, and market value. *Accounting and Business Research, 46*(1), 31-50.
-            - Kirk, M., & Vincent, J. (2014). Professional investor relations within the firm. *The Accounting Review, 89*(4), 1421-1452.
-            - National Investor Relations Institute (NIRI). (2019). Measuring the Value of IR: A Meta-Analysis.
+**Data Sources:** SEC EDGAR (filings), Financial Markets API (pricing/fundamentals), Fama-French factors (adjustments), NLP sentiment (media tone)
 
-            **Investor Recognition & Cost of Capital:**
-            - Merton, R. C. (1987). A simple model of capital market equilibrium with incomplete information. *Journal of Finance, 42*(3), 483-510.
-            - Bodnaruk, A., & Ostberg, P. (2013). The shareholder base and payout policy. *Journal of Financial and Quantitative Analysis, 48*(3), 729-760.
+**Limitations:** IRCI measures IR efficiency—it doesn't replace fundamentals, guarantee price movements, or account for black swan events. Use for planning and benchmarking, not trading.
+            """)
 
-            **Event Studies & Corporate Actions:**
-            - Ball, R., & Brown, P. (1968). An empirical evaluation of accounting income numbers. *Journal of Accounting Research, 6*(2), 159-178.
-            - Bernard, V. L., & Thomas, J. K. (1989). Post-earnings-announcement drift: Delayed price response or risk premium? *Journal of Accounting Research, 27*, 1-36.
-            - Huson, M. R., Malatesta, P. H., & Parrino, R. (2004). Managerial succession and firm performance. *Journal of Financial Economics, 74*(2), 237-275.
-            - Mian, S. (2001). On the choice and replacement of chief financial officers. *Journal of Financial Economics, 60*(1), 143-175.
-            - Clayton, M. C., Hartzell, J. C., & Rosenberg, J. (2005). The impact of CEO turnover on equity volatility. *Journal of Business, 78*(5), 1779-1808.
-            - Michaely, R., Thaler, R. H., & Womack, K. L. (1995). Price reactions to dividend initiations and omissions. *Journal of Finance, 50*(2), 573-608.
-            - Ikenberry, D., Lakonishok, J., & Vermaelen, T. (1995). Market underreaction to open market share repurchases. *Journal of Financial Economics, 39*(2-3), 181-208.
+            with st.expander("📚 Academic References"):
+                st.markdown("""
+**Core IR:** Bushee & Miller (2012), Agarwal et al. (2016), Kirk & Vincent (2014), NIRI (2019)
 
-            **Media, Disclosure & Information Asymmetry:**
-            - Chen, H., De, P., Hu, Y., & Hwang, B. H. (2015). The role of the media in disseminating insider-trading news. *Review of Financial Studies, 28*(5), 1434-1463.
-            - Neuhierl, A., Scherbina, A., & Schlusche, B. (2013). Market reaction to corporate press releases. *Journal of Financial and Quantitative Analysis, 48*(4), 1207-1240.
-            - Grullon, G., Kanatas, G., & Weston, J. P. (2004). Advertising, breadth of ownership, and liquidity. *Review of Financial Studies, 17*(2), 439-461.
-            - Diamond, D. W., & Verrecchia, R. E. (1991). Disclosure, liquidity, and the cost of capital. *Journal of Finance, 46*(4), 1325-1359.
-            - Healy, P. M., & Palepu, K. G. (2001). Information asymmetry, corporate disclosure, and the capital markets. *Journal of Accounting and Economics, 31*(1-3), 405-440.
-            - Botosan, C. A. (1997). Disclosure level and the cost of equity capital. *The Accounting Review, 72*(3), 323-349.
+**Cost of Capital:** Merton (1987), Bodnaruk & Ostberg (2013)
 
-            **Analyst Coverage & Institutional Investors:**
-            - Irvine, P. J. (2003). The incremental impact of analyst initiation of coverage. *Journal of Financial Economics, 68*(1), 169-202.
-            - Bhushan, R. (1989). Firm characteristics and analyst following. *Journal of Accounting and Economics, 11*(2-3), 255-274.
-            - Francis, J., Hanna, J. D., & Philbrick, D. R. (1997). Management communications with securities analysts. *Journal of Accounting and Economics, 24*(3), 363-394.
-            - Green, T. C., Jame, R., Markov, S., & Subasi, M. (2014). Access to management and the informativeness of analyst research. *Journal of Financial Economics, 114*(2), 239-255.
+**Events:** Ball & Brown (1968), Bernard & Thomas (1989), Clayton et al. (2005), Michaely et al. (1995)
 
-            **Liquidity & Trading:**
-            - Amihud, Y. (2002). Illiquidity and stock returns: Cross-section and time-series effects. *Journal of Financial Markets, 5*(1), 31-56.
-            - Dittmar, A. K., & Field, L. C. (2015). Can managers time the market? Evidence using repurchase price data. *Journal of Financial Economics, 115*(2), 261-282.
-            - Grullon, G., & Michaely, R. (2004). The information content of share repurchase programs. *Journal of Finance, 59*(2), 651-680.
-            - Brown, S., Hillegeist, S. A., & Lo, K. (1999). Conference calls and information asymmetry. *Journal of Accounting and Economics, 37*(3), 343-366.
+**Disclosure:** Diamond & Verrecchia (1991), Healy & Palepu (2001), Botosan (1997), Chen et al. (2015)
 
-            **Governance & Valuation:**
-            - Gompers, P., Ishii, J., & Metrick, A. (2003). Corporate governance and equity prices. *Quarterly Journal of Economics, 118*(1), 107-156.
-            - Brown, L. D., & Caylor, M. L. (2006). Corporate governance and firm valuation. *Journal of Accounting and Public Policy, 25*(4), 409-434.
-            - Greenwald, B. C., & Kahn, J. (2005). *Competition Demystified: A Radically Simplified Approach to Business Strategy*. Portfolio.
+**Analysts:** Irvine (2003), Bhushan (1989), Francis et al. (1997)
 
-            **Factor Models:**
-            - Fama, E. F., & French, K. R. (2015). A five-factor asset pricing model. *Journal of Financial Economics, 116*(1), 1-22.
+**Liquidity:** Amihud (2002), Grullon & Michaely (2004)
 
-            **Sentiment Analysis Tools:**
-            - FinBERT: Araci, D. (2019). FinBERT: Financial sentiment analysis with pre-trained language models. *arXiv preprint arXiv:1908.10063*.
-            - VADER: Hutto, C. J., & Gilbert, E. (2014). VADER: A parsimonious rule-based model for sentiment analysis of social media text. *ICWSM*.
+**Governance:** Gompers et al. (2003), Brown & Caylor (2006)
 
-            **Industry Research:**
-            - MZ Group (2024). Investor Day Impact Analysis.
-            - Brunswick Group (2023). Social Media and Institutional Investors Survey.
-        """)
+**Factor Models:** Fama & French (2015)
+
+**Sentiment:** FinBERT (Araci 2019), VADER (Hutto & Gilbert 2014)
+
+**Industry:** MZ Group (2024), Brunswick Group (2023)
+                """)
 
     # Show example
     with st.expander("📖 Quick Start Guide"):
