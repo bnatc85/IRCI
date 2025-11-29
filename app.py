@@ -1472,7 +1472,7 @@ if not show_results and not run_analysis:
             - Measure → pick weakest dial → run playbook → re-measure
     
             **For Boards and CFOs:**
-            - "If 1 IRCI point is worth ~$X, is it worth spending $Y to move the weakest dial by 2-3 points?"
+            - "If 1 IRCI point is worth ~\\$X, is it worth spending \\$Y to move the weakest dial by 2-3 points?"
             - Quantifiable ROI for IR and communications investments
             - Compare IR efficiency across business units or portfolio companies
     
