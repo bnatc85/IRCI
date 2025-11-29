@@ -943,6 +943,58 @@ if st.session_state.get('show_disclaimer', False):
     # Reset show_disclaimer after displaying - handles case where user closes via X or clicking outside
     st.session_state['show_disclaimer'] = False
 
+# Running ticker with IRCI questions and insights
+ticker_items = [
+    "💰 What's each IRCI point worth in dollars for my company?",
+    "📊 How does our IR efficiency compare to peers?",
+    "📰 Are we getting coverage from credible sources or just press wires?",
+    "💭 Does the market stay calm or freak out when we announce news?",
+    "💧 How easy is it for investors to trade our stock?",
+    "📈 Research shows IR contributes 5-15% to firm value (Bushee & Miller 2012)",
+    "🎯 Which dial should we prioritize to maximize IR impact?",
+    "⚡ +1 IRCI point ≈ measurable enterprise value improvement",
+    "🔍 Are we trading at a discount or premium vs. peers?",
+    "📉 What's causing our valuation gap?",
+    "🏆 Merton (1987): Broader investor base reduces cost of capital by 60-120 bps",
+    "💡 High Coverage = investors don't have to hunt for your story",
+    "🎪 Investor Days can generate +2% CAR on average (MZ Group 2024)",
+    "📱 80% of institutional investors use social media for research (Brunswick 2023)",
+]
+
+# Create the scrolling ticker HTML/CSS
+ticker_text = " &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; ".join(ticker_items)
+st.markdown(f"""
+<style>
+.ticker-wrap {{
+    width: 100%;
+    overflow: hidden;
+    background: linear-gradient(90deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
+    padding: 8px 0;
+    border-bottom: 1px solid #00CED1;
+    margin-bottom: 1rem;
+}}
+.ticker {{
+    display: inline-block;
+    white-space: nowrap;
+    animation: ticker 60s linear infinite;
+    color: #00CED1;
+    font-size: 0.9rem;
+}}
+.ticker:hover {{
+    animation-play-state: paused;
+}}
+@keyframes ticker {{
+    0% {{ transform: translateX(0); }}
+    100% {{ transform: translateX(-50%); }}
+}}
+</style>
+<div class="ticker-wrap">
+    <div class="ticker">
+        {ticker_text} &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; {ticker_text}
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 # Sidebar
 with st.sidebar:
     # Center the icon
