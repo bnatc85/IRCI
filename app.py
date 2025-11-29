@@ -729,52 +729,19 @@ def show_intro_modal():
         st.rerun()
 
 # Legal Disclaimer Modal
-@st.dialog("⚠️ Legal Disclaimer", width="large")
+@st.dialog("⚠️ Legal Disclaimer")
 def show_disclaimer_modal():
     st.markdown("""
-    ### Important Notice
+**📊 Not Financial Advice** — IRCI is for informational and educational purposes only. It does not constitute financial, investment, or trading advice.
 
-    By clicking **"I Accept"** below, you acknowledge and agree to the following:
+**⚠️ No Guarantees** — Past performance is not indicative of future results. IRCI scores may contain errors. No representation is made that any investment will achieve similar results.
 
-    ---
+**🔍 Do Your Own Research** — Conduct your own due diligence, consult a qualified financial advisor, and review official company filings before making investment decisions.
 
-    **📊 Not Financial Advice**
+**📜 Limitation of Liability** — IRCI and its creators shall not be held liable for any losses or damages arising from use of this platform. Use is entirely at your own risk.
 
-    The information provided by IRCI (Investor Relations Competitive Intelligence) is for **informational and educational purposes only**. It does not constitute financial advice, investment advice, trading advice, or any other sort of advice. You should not treat any of the platform's content as such.
-
-    ---
-
-    **⚠️ No Guarantees**
-
-    - Past performance is not indicative of future results
-    - The IRCI scores and analysis are based on publicly available data and proprietary algorithms that may contain errors or inaccuracies
-    - Market conditions can change rapidly and unpredictably
-    - No representation is made that any investment will achieve results similar to those shown
-
-    ---
-
-    **🔍 Do Your Own Research**
-
-    Before making any investment decisions, you should:
-    - Conduct your own due diligence
-    - Consult with a qualified financial advisor
-    - Consider your personal financial situation and risk tolerance
-    - Review official company filings and disclosures
-
-    ---
-
-    **📜 Limitation of Liability**
-
-    IRCI and its creators shall not be held liable for any losses, damages, or costs arising from the use of this platform or reliance on its outputs. Use of this tool is entirely at your own risk.
-
-    ---
-
-    **🔒 Data Sources**
-
-    Analysis is based on publicly available information from sources including SEC filings, financial news outlets, and market data providers. While we strive for accuracy, we cannot guarantee the completeness or timeliness of all data.
+**🔒 Data Sources** — Analysis is based on publicly available information. We cannot guarantee completeness or timeliness of all data.
     """)
-
-    st.markdown("---")
 
     # Checkbox for acknowledgment
     accept_checkbox = st.checkbox(
@@ -787,7 +754,7 @@ def show_disclaimer_modal():
         if st.button("✅ I Accept", use_container_width=True, type="primary", disabled=not accept_checkbox):
             st.session_state['disclaimer_accepted'] = True
             st.session_state['show_disclaimer'] = False
-            st.session_state['run_analysis_confirmed'] = True
+            st.session_state['pending_analysis'] = True  # Flag to show "click again" message
             st.rerun()
 
     with col2:
@@ -824,9 +791,11 @@ if st.session_state.get('show_intro', False):
     # Reset show_intro after displaying - handles case where user closes via X or clicking outside
     st.session_state['show_intro'] = False
 
-# Show disclaimer modal if requested
-if st.session_state.get('show_disclaimer', False):
+# Show disclaimer modal if requested (only if not already accepted)
+if st.session_state.get('show_disclaimer', False) and not st.session_state.get('disclaimer_accepted', False):
     show_disclaimer_modal()
+    # Reset show_disclaimer after displaying - handles case where user closes via X or clicking outside
+    st.session_state['show_disclaimer'] = False
 
 # Sidebar
 with st.sidebar:
@@ -1036,6 +1005,11 @@ with st.sidebar:
             st.rerun()
         else:
             st.session_state['run_analysis_confirmed'] = True
+
+    # Check if user just accepted disclaimer (pending_analysis flag)
+    if st.session_state.get('pending_analysis', False):
+        st.session_state['pending_analysis'] = False
+        st.success("✅ Disclaimer accepted! Click **Run Analysis** to start.")
 
     # Determine if we should actually run the analysis
     run_analysis = st.session_state.get('run_analysis_confirmed', False)
@@ -1580,49 +1554,62 @@ if not show_results and not run_analysis:
             """)
     
         with tabs[2]:
+            st.markdown("### The Team")
+
+            # Bonnie Rushing section with photo
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                st.image("Bonnie pic.jpg", width=150)
+            with col2:
+                st.markdown("""
+**Bonnie Rushing**
+*PhD Student, University of Colorado Colorado Springs*
+
+- Master's Degree in Strategic Intelligence
+- Military service in special operations and signals intelligence
+- Former instructor of strategic studies at US Air Force Academy
+- **Core expertise:** Signal detection, data analytics, translating operational tradecraft into market analysis
+
+*"From the aircraft to the boardroom, my job is the same: make sense of noise and enable decisions."*
+
+📧 [brushing@uccs.edu](mailto:brushing@uccs.edu) | 🌐 [www.thebonnierushing.com](https://www.thebonnierushing.com)
+                """)
+
+            st.markdown("---")
+
+            # Jim Wilkinson section with photo
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                st.image("JimWilkinson.jpg", width=150)
+            with col2:
+                st.markdown("""
+**Jim Wilkinson**
+*Senior Advisor & Executive Chairman, TrailRunner International*
+
+- Led global communications and corporate affairs at Alibaba and PepsiCo
+- Senior government roles: Treasury, State Department, White House, USCENTCOM
+- **Core expertise:** Boardroom and global corporate communications strategy
+                """)
+
             st.markdown("""
-            ### The Team
-    
-            #### Bonnie Rushing
-            **PhD Student, University of Colorado Colorado Springs**
-    
-            - Master's Degree in Strategic Intelligence
-            - Military service in special operations and signals intelligence
-            - Former instructor of strategic studies at US Air Force Academy
-            - **Core expertise:** Signal detection, data analytics, translating operational tradecraft into market analysis
-    
-            *"From the aircraft to the boardroom, my job is the same: make sense of noise and enable decisions."*
-    
-            📧 [brushing@uccs.edu](mailto:brushing@uccs.edu)
-            🌐 [www.thebonnierushing.com](https://www.thebonnierushing.com)
-    
-            ---
-    
-            #### Jim Wilkinson
-            **Senior Advisor & Executive Chairman, TrailRunner International**
-    
-            - Led global communications and corporate affairs at Alibaba and PepsiCo
-            - Senior government roles: Treasury, State Department, White House, USCENTCOM
-            - **Core expertise:** Boardroom and global corporate communications strategy
-    
-            ---
-    
-            #### Our Approach
-    
-            We combine:
-            - **Bonnie:** Signal detection and quantitative analysis from intelligence tradecraft
-            - **Jim:** Boardroom experience and strategic communications from Fortune 500 and government
-    
-            **Result:** Measurable, repeatable, defensible IR through objective data and rigorous methodology.
-    
-            ---
-    
-            #### Compliance & Disclaimers
-    
-            - Views expressed are those of the creators, **not official positions of any affiliated organization** (including the US Department of Defense)
-            - Work is conducted on personal time and resources
-            - IRCI prioritizes compliance, transparency, and ethical use
-            - This tool is for authorized decision-making and planning—not market manipulation or insider advantage
+---
+
+#### Our Approach
+
+We combine:
+- **Bonnie:** Signal detection and quantitative analysis from intelligence tradecraft
+- **Jim:** Boardroom experience and strategic communications from Fortune 500 and government
+
+**Result:** Measurable, repeatable, defensible IR through objective data and rigorous methodology.
+
+---
+
+#### Compliance & Disclaimers
+
+- Views expressed are those of the creators, **not official positions of any affiliated organization** (including the US Department of Defense)
+- Work is conducted on personal time and resources
+- IRCI prioritizes compliance, transparency, and ethical use
+- This tool is for authorized decision-making and planning—not market manipulation or insider advantage
             """)
     
         with tabs[3]:
