@@ -950,11 +950,6 @@ with st.sidebar:
     with col2:
         st.image("IRCI_icon_primary.png", width=200)
 
-    # Welcome Tour button
-    if st.button("👋 Show Welcome Tour", use_container_width=True):
-        st.session_state['show_intro'] = True
-        st.rerun()
-
     # Navigation at the top (only show after analysis is run)
     if st.session_state.get('df_composite') is not None:
         st.markdown("### 🧭 Navigation")
@@ -1090,13 +1085,11 @@ with st.sidebar:
     else:
         tickers = [t.strip().upper() for t in ticker_input.split("\n") if t.strip()]
 
-    # Show selected count with color feedback
+    # Compact ticker count display (only show warning if < 2)
     if len(tickers) < 2:
-        st.warning(f"⚠️ {len(tickers)} company selected - add more for peer comparison")
-    elif len(tickers) <= 5:
-        st.success(f"✓ {len(tickers)} companies selected - ideal for comparison")
+        st.caption(f"⚠️ Add more companies for peer comparison ({len(tickers)} selected)")
     else:
-        st.info(f"📊 {len(tickers)} companies selected")
+        st.caption(f"✓ {len(tickers)} companies selected")
 
     # Quarter selection - support multiple quarters for trend analysis
     quarters = ["2025Q4", "2025Q3", "2025Q2", "2025Q1", "2024Q4", "2024Q3", "2024Q2", "2024Q1"]
@@ -1378,6 +1371,12 @@ with st.sidebar:
                     st.write("❌ df_composite is None")
             else:
                 st.write("❌ df_composite not in session_state")
+
+    # Welcome Tour button - at bottom of sidebar for discoverability
+    st.markdown("---")
+    if st.button("👋 Show Welcome Tour", use_container_width=True, help="New to IRCI? Watch a video intro and explore quick templates"):
+        st.session_state['show_intro'] = True
+        st.rerun()
 
     # Contact information
     st.markdown("""
