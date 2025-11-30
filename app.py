@@ -3045,13 +3045,13 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
             st.caption("""
 💡 **Metric Definitions:**
-• **Event Calm %** = How stable the stock was on earnings/event days vs normal days. Higher = less volatility around events.
-• **Baseline Calm %** = Stock's normal volatility relative to peers. Higher = more stable day-to-day.
+• **Event Calm %** = Measures price stability around earnings and 8-K filings. Higher % = stock price moved LESS than peers during event windows (good for investor confidence).
+• **Baseline Calm %** = Measures day-to-day price volatility vs peers. Higher % = LOWER volatility than peers (more predictable stock).
 • **Media Tone %** = Sentiment score from news coverage. Higher = more positive coverage.
-• **Social Sentiment %** = Retail investor sentiment from Reddit (r/wallstreetbets) and StockTwits. Higher = more bullish.
-• **Events** = Number of corporate events (earnings, announcements) analyzed.
+• **Social Sentiment %** = Retail investor sentiment from Reddit (r/wallstreetbets). Higher = more bullish momentum.
+• **Events** = Number of corporate events (earnings, 8-K filings) analyzed.
 • **Articles** = Number of news articles analyzed for sentiment.
-• **Retail Activity** = Level of social media discussion (high/moderate/low/minimal).
+• **Retail Activity** = Level of Reddit/social media discussion (high/moderate/low/minimal).
 """)
 
     # SECTION 2: Trend Analysis (only for multi-quarter data)
