@@ -1876,15 +1876,24 @@ elif run_analysis:
 | Generate plausible text | ✅ | — |
 | Know your specific peer group | ❌ | ✅ Custom peer benchmarking |
 | Calculate your \$/IRCI point | ❌ | ✅ Regression on actual market data |
+| **Quantify IR event ROI** | ❌ | ✅ **Academic-backed event impact values** |
 | Factor-adjust event volatility | ❌ | ✅ Fama-French model integration |
 | Track progress over time | ❌ | ✅ Quarter-over-quarter comparison |
 | Access real-time SEC EDGAR filings | ❌ | ✅ Live data pipeline |
 | Benchmark against competitors | ❌ | ✅ Peer-relative percentiles |
 | Verify claims with sources | ❌ | ✅ Every metric auditable |
 
+**🎯 Plan Your IR Activities with Confidence**
+
+IRCI's **Playbook & Events** section transforms guesswork into strategy:
+- **Event Simulator**: Model the impact of investor days, earnings calls, analyst coverage before you commit budget
+- **Academic-Backed Values**: Every event impact draws from peer-reviewed research (Bushee & Miller 2012, Agarwal et al. 2016)
+- **Dollar Translation**: See exactly how much value each IR initiative could add in your company's terms
+- **Prioritized Recommendations**: Data-driven playbook tells you where to focus for maximum ROI
+
 **The Bottom Line**
 
-AI can write your press release. It can't tell you if anyone read it, whether it moved your stock, or how you compare to competitors. IRCI answers those questions with data, not guesses.
+AI can write your press release. It can't tell you if anyone read it, whether it moved your stock, or how you compare to competitors. IRCI answers those questions with data, not guesses—and helps you **plan what to do next**.
 
 *Your expertise + IRCI's measurement = Defensible, repeatable IR strategy*
 
