@@ -1752,9 +1752,38 @@ elif run_analysis:
     # Run the analysis (only when button is clicked)
     st.markdown("---")
     if len(selected_quarters) == 1:
-        st.markdown("## 🔄 Running Analysis...")
+        spinner_text = "Running Analysis..."
     else:
-        st.markdown(f"## 🔄 Running Analysis for {len(selected_quarters)} Quarters...")
+        spinner_text = f"Running Analysis for {len(selected_quarters)} Quarters..."
+
+    # Add animated spinner CSS and header
+    st.markdown("""
+    <style>
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .spinner {
+        display: inline-block;
+        width: 28px;
+        height: 28px;
+        border: 4px solid rgba(0, 212, 255, 0.3);
+        border-top: 4px solid #00d4ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        vertical-align: middle;
+        margin-right: 12px;
+    }
+    .analysis-header {
+        display: flex;
+        align-items: center;
+        font-size: 1.75em;
+        font-weight: 600;
+        margin: 0.5em 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown(f'<div class="analysis-header"><div class="spinner"></div>{spinner_text}</div>', unsafe_allow_html=True)
 
     # Add analysis time estimate (very conservative)
     estimated_time = len(selected_quarters) * len(tickers) * 45  # ~45 seconds per ticker per quarter (very conservative)
