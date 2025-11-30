@@ -19,6 +19,14 @@ repo_root = Path(__file__).parent
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
+# Helper to load images as bytes for reliable cross-environment display
+def load_image_bytes(filename: str) -> bytes:
+    """Load image file as bytes from assets folder."""
+    image_path = repo_root / "assets" / filename
+    if image_path.exists():
+        return image_path.read_bytes()
+    return None
+
 from irci.config import Settings
 from irci.trust import trust_snapshot
 from irci.valuation import valuation_snapshot
@@ -864,24 +872,32 @@ def show_intro_modal():
     st.markdown("### Quick Start Templates")
     st.caption("Click a template to pre-fill peer companies")
 
+    # Load template images
+    modal_tech_img = load_image_bytes("tech-icon.jpg")
+    modal_fin_img = load_image_bytes("finance-icon.jpg")
+    modal_health_img = load_image_bytes("health-icon.jpg")
+
     template_col1, template_col2, template_col3 = st.columns(3)
 
     with template_col1:
-        st.image(str(repo_root / "assets" / "tech-icon.jpg"), use_container_width=True)
+        if modal_tech_img:
+            st.image(modal_tech_img, use_container_width=True)
         if st.button("Select", key="modal_big_tech", use_container_width=True):
             st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
             st.session_state['show_intro'] = False
             st.rerun()
 
     with template_col2:
-        st.image(str(repo_root / "assets" / "finance-icon.jpg"), use_container_width=True)
+        if modal_fin_img:
+            st.image(modal_fin_img, use_container_width=True)
         if st.button("Select", key="modal_financials", use_container_width=True):
             st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
             st.session_state['show_intro'] = False
             st.rerun()
 
     with template_col3:
-        st.image(str(repo_root / "assets" / "health-icon.jpg"), use_container_width=True)
+        if modal_health_img:
+            st.image(modal_health_img, use_container_width=True)
         if st.button("Select", key="modal_healthcare", use_container_width=True):
             st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
             st.session_state['show_intro'] = False
@@ -1089,19 +1105,26 @@ with st.sidebar:
 
     # Quick templates for common peer groups - icon buttons
     st.caption("Quick templates:")
+    tech_img = load_image_bytes("tech-icon.jpg")
+    fin_img = load_image_bytes("finance-icon.jpg")
+    health_img = load_image_bytes("health-icon.jpg")
+
     template_col1, template_col2, template_col3 = st.columns(3)
     with template_col1:
-        st.image(str(repo_root / "assets" / "tech-icon.jpg"), use_container_width=True)
+        if tech_img:
+            st.image(tech_img, use_container_width=True)
         if st.button("Select", key="tmpl_tech", use_container_width=True):
             st.session_state['found_peers'] = "AAPL, MSFT, GOOGL, META, AMZN"
             st.rerun()
     with template_col2:
-        st.image(str(repo_root / "assets" / "finance-icon.jpg"), use_container_width=True)
+        if fin_img:
+            st.image(fin_img, use_container_width=True)
         if st.button("Select", key="tmpl_fin", use_container_width=True):
             st.session_state['found_peers'] = "JPM, BAC, WFC, GS, MS"
             st.rerun()
     with template_col3:
-        st.image(str(repo_root / "assets" / "health-icon.jpg"), use_container_width=True)
+        if health_img:
+            st.image(health_img, use_container_width=True)
         if st.button("Select", key="tmpl_health", use_container_width=True):
             st.session_state['found_peers'] = "JNJ, PFE, UNH, ABBV, LLY"
             st.rerun()
