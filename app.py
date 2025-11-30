@@ -35,6 +35,9 @@ from irci.peers import find_peers_simple
 from irci.playbook import generate_playbook
 from irci.chatbot import chat_with_context, get_suggested_questions
 from irci.yahoo_metrics import get_yahoo_metrics_batch
+from irci.cache import cache_analysis_results, get_cached_analysis, clear_cache
+from irci.email_sender import send_irci_report_email, get_email_config_status, validate_email
+from irci.scheduler import save_schedule, load_schedules, delete_schedule
 from irci.report_generator import generate_pdf_report
 from irci.corporate_events_fetcher import fetch_corporate_events_for_peer_group
 import numpy as np
@@ -1202,6 +1205,13 @@ with st.sidebar:
         st.session_state['show_disclaimer'] = True
         st.rerun()
 
+    # Caching option
+    use_cache = st.checkbox(
+        "Use cached results (faster)",
+        value=True,
+        help="Load results from cache if available (up to 24 hours old). Uncheck to force fresh analysis."
+    )
+
     # Run Analysis button
     run_analysis_clicked = st.button(
         "🚀 Run Analysis",
@@ -1428,6 +1438,46 @@ with st.sidebar:
                     st.write("❌ df_composite is None")
             else:
                 st.write("❌ df_composite not in session_state")
+
+    # Scheduled Reports
+    with st.expander("📅 Scheduled Reports", expanded=False):
+        st.markdown("**Set up recurring analysis reports**")
+
+        # Show existing schedules
+        schedules = load_schedules()
+        if schedules:
+            st.markdown("**Your Schedules:**")
+            for name, sched in schedules.items():
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    status = "🟢" if sched.get("enabled") else "⚫"
+                    st.caption(f"{status} **{name}**: {', '.join(sched.get('tickers', [])[:3])}... → {sched.get('email', 'N/A')} ({sched.get('frequency', 'weekly')})")
+                with col2:
+                    if st.button("🗑️", key=f"del_{name}", help="Delete schedule"):
+                        delete_schedule(name)
+                        st.rerun()
+            st.markdown("---")
+
+        # Create new schedule
+        st.markdown("**Create New Schedule:**")
+        sched_name = st.text_input("Schedule name:", placeholder="My Weekly Report", key="sched_name")
+        sched_email = st.text_input("Send to email:", placeholder="you@company.com", key="sched_email")
+        sched_freq = st.selectbox("Frequency:", ["weekly", "daily", "monthly"], key="sched_freq")
+
+        if st.button("📅 Save Schedule", use_container_width=True):
+            if sched_name and sched_email and validate_email(sched_email):
+                save_schedule(
+                    name=sched_name,
+                    tickers=tickers,
+                    quarters=selected_quarters,
+                    email=sched_email,
+                    frequency=sched_freq
+                )
+                st.success(f"✅ Schedule '{sched_name}' saved!")
+                st.caption("Note: Scheduled execution requires external automation (GitHub Actions, cron, etc.)")
+                st.rerun()
+            else:
+                st.warning("Please enter a valid schedule name and email")
 
     # Welcome Tour button - at bottom of sidebar for discoverability
     if st.button("👋 Show Welcome Tour", use_container_width=True, help="New to IRCI? Watch a video intro and explore quick templates"):
@@ -1853,6 +1903,24 @@ AI can write your press release. It can't tell you how readers reacted, whether 
             ticker_progress = st.empty()  # Shows per-ticker progress
 
         try:
+            # Check cache first if enabled
+            if use_cache:
+                cached_results = get_cached_analysis(tickers, selected_quarter, max_age_hours=24)
+                if cached_results:
+                    st.success(f"⚡ Loaded {selected_quarter} from cache (instant!)")
+                    all_quarters_results[selected_quarter] = {
+                        'df_composite': cached_results.get('df_composite', pd.DataFrame()),
+                        'df_trust': cached_results.get('df_trust', pd.DataFrame()),
+                        'df_val': cached_results.get('df_val', pd.DataFrame()),
+                        'df_cov': cached_results.get('df_cov', pd.DataFrame()),
+                        'df_liq': cached_results.get('df_liq', pd.DataFrame()),
+                        'news_df': cached_results.get('news_df'),
+                        'corporate_events_df': cached_results.get('corporate_events_df'),
+                        'start_date': start_date,
+                        'end_date': end_date
+                    }
+                    continue  # Skip to next quarter
+
             # Load settings
             s = Settings.load()
 
@@ -2244,6 +2312,22 @@ AI can write your press release. It can't tell you how readers reacted, whether 
                 'start_date': start_date,
                 'end_date': end_date
             }
+
+            # Save to cache for future use
+            try:
+                cache_analysis_results(
+                    tickers,
+                    selected_quarter,
+                    {
+                        'df_composite': df_composite,
+                        'df_trust': df_trust,
+                        'df_val': df_val,
+                        'df_cov': df_cov,
+                        'df_liq': df_liq
+                    }
+                )
+            except Exception as cache_err:
+                print(f"Warning: Could not cache results: {cache_err}")
 
             # Also store as previous quarter data for future QoQ comparisons
             prev_quarter_key = f'df_composite_prev_{selected_quarter}'
@@ -6225,6 +6309,53 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
     # Call the fragment
     pdf_report_section()
+
+    # Email Report Section
+    st.markdown("---")
+    st.markdown("#### 📧 Email Report")
+
+    email_config = get_email_config_status()
+
+    if not email_config.get("configured"):
+        st.info("""
+        **Email delivery not configured.** To enable:
+        1. Set `SMTP_USER` and `SMTP_PASSWORD` in your environment
+        2. For Gmail, use an App Password (not your regular password)
+        """)
+    else:
+        if 'pdf_report' in st.session_state:
+            col_email1, col_email2 = st.columns([3, 1])
+            with col_email1:
+                email_address = st.text_input(
+                    "Send report to email:",
+                    placeholder="recipient@example.com",
+                    key="email_recipient"
+                )
+            with col_email2:
+                if st.button("📧 Send Email", use_container_width=True):
+                    if email_address and validate_email(email_address):
+                        with st.spinner("Sending email..."):
+                            # Get IRCI score for email body
+                            pdf_ticker = st.session_state.get('pdf_ticker', 'Unknown')
+                            company_data = df_composite[df_composite['ticker'] == pdf_ticker]
+                            irci_score = company_data['irci_composite_pct'].iloc[0] if not company_data.empty else None
+
+                            result = send_irci_report_email(
+                                to_email=email_address,
+                                ticker=pdf_ticker,
+                                quarter=st.session_state.get('pdf_quarter', selected_quarter),
+                                pdf_data=st.session_state['pdf_report'],
+                                irci_score=irci_score
+                            )
+
+                            if result.get("success"):
+                                st.success(f"✅ Report sent to {email_address}")
+                            else:
+                                st.error(f"Failed to send email: {result.get('error', 'Unknown error')}")
+                    else:
+                        st.warning("Please enter a valid email address")
+        else:
+            st.caption("Generate a PDF report first to enable email delivery")
 
 # Footer
 st.markdown("---")
