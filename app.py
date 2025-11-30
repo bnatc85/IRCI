@@ -2834,8 +2834,16 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 'q_turnover': 'Turnover'
             })
 
+            # Add institutional ownership columns if available
+            if 'institutional_pct' in df_liq.columns:
+                liq_cols.extend(['institutional_pct', 'holder_count'])
+                liq_rename.update({
+                    'institutional_pct': 'Inst. Ownership %',
+                    'holder_count': '13F Holders'
+                })
+
             st.dataframe(
-                df_liq[liq_cols].rename(columns=liq_rename),
+                df_liq[[c for c in liq_cols if c in df_liq.columns]].rename(columns=liq_rename),
                 use_container_width=True,
                 hide_index=True
             )
@@ -2845,6 +2853,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 • **Amihud (×10⁶)** = Price impact measure. Lower = more liquid. Shows how much price moves per dollar of volume.
 • **Spread (bps)** = Bid-ask spread in basis points. Lower = tighter spreads = better liquidity.
 • **Turnover** = Trading volume ÷ shares outstanding. Higher = more actively traded.
+• **Inst. Ownership %** = Percentage of shares held by institutional investors (from 13F filings). Higher = more institutional interest.
+• **13F Holders** = Number of institutional holders reporting in 13F filings.
 """)
 
         with st.expander("📰 Coverage Details", expanded=False):
@@ -2912,8 +2922,16 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 coverage_cols.append('high_quality_articles')
                 coverage_rename['high_quality_articles'] = 'High-Quality Articles'
 
+            # Add transcript quality columns if available
+            if 'transcript_quality_score' in df_cov_display.columns:
+                coverage_cols.extend(['transcript_quality_score', 'has_transcript'])
+                coverage_rename.update({
+                    'transcript_quality_score': 'Transcript Score',
+                    'has_transcript': 'Has Transcript'
+                })
+
             st.dataframe(
-                df_cov_display[coverage_cols].rename(columns=coverage_rename),
+                df_cov_display[[c for c in coverage_cols if c in df_cov_display.columns]].rename(columns=coverage_rename),
                 use_container_width=True,
                 hide_index=True
             )
@@ -2922,6 +2940,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 💡 **Metric Definitions:**
 • **8-K Count** = Number of 8-K filings (material events) in the quarter. More filings = more disclosure activity.
 • **Days to 10-Q/K** = Days after quarter-end until 10-Q (or 10-K) was filed. Fewer days = faster reporting.
+• **Transcript Score** = Quality score (0-100) for earnings call transcripts based on forward-looking statements and guidance coverage.
 """)
             if 'high_quality_articles' in df_cov_display.columns:
                 st.caption("• **High-Quality Articles** = Articles from top-tier sources (weight ≥ 0.7): WSJ, Bloomberg, Reuters, CNBC, Forbes, Barron's, MarketWatch, Motley Fool, Benzinga, etc.")
@@ -2958,19 +2977,56 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 'media_tone_n': 'Articles'
             })
 
+            # Add social sentiment columns if available
+            if 'p_social_sentiment' in df_trust.columns:
+                trust_cols.extend(['p_social_sentiment', 'social_activity'])
+                trust_rename.update({
+                    'p_social_sentiment': 'Social Sentiment %',
+                    'social_activity': 'Retail Activity'
+                })
+
             st.dataframe(
-                df_trust[trust_cols].rename(columns=trust_rename),
+                df_trust[[c for c in trust_cols if c in df_trust.columns]].rename(columns=trust_rename),
                 use_container_width=True,
                 hide_index=True
             )
+
+            # Show social sentiment details if available
+            if 'p_social_sentiment' in df_trust.columns:
+                has_social_data = df_trust['p_social_sentiment'].notna().any()
+                if has_social_data:
+                    st.markdown("##### 📱 Social Sentiment Details (Reddit/StockTwits)")
+                    social_cols = ['ticker']
+                    if 'quarter' in df_trust.columns:
+                        social_cols.append('quarter')
+                    social_cols.extend(['social_sentiment_raw', 'social_sources', 'social_activity'])
+                    social_rename = {
+                        'ticker': 'Ticker',
+                        'quarter': 'Quarter',
+                        'social_sentiment_raw': 'Raw Score (-1 to 1)',
+                        'social_sources': 'Sources',
+                        'social_activity': 'Activity Level'
+                    }
+                    social_display = df_trust[[c for c in social_cols if c in df_trust.columns]].copy()
+                    if 'social_sentiment_raw' in social_display.columns:
+                        social_display['social_sentiment_raw'] = social_display['social_sentiment_raw'].apply(
+                            lambda x: f"{x:.3f}" if pd.notna(x) else "N/A"
+                        )
+                    st.dataframe(
+                        social_display.rename(columns=social_rename),
+                        use_container_width=True,
+                        hide_index=True
+                    )
 
             st.caption("""
 💡 **Metric Definitions:**
 • **Event Calm %** = How stable the stock was on earnings/event days vs normal days. Higher = less volatility around events.
 • **Baseline Calm %** = Stock's normal volatility relative to peers. Higher = more stable day-to-day.
 • **Media Tone %** = Sentiment score from news coverage. Higher = more positive coverage.
+• **Social Sentiment %** = Retail investor sentiment from Reddit (r/wallstreetbets) and StockTwits. Higher = more bullish.
 • **Events** = Number of corporate events (earnings, announcements) analyzed.
 • **Articles** = Number of news articles analyzed for sentiment.
+• **Retail Activity** = Level of social media discussion (high/moderate/low/minimal).
 """)
 
     # SECTION 2: Trend Analysis (only for multi-quarter data)
