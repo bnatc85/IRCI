@@ -339,6 +339,9 @@ def get_ev_ebitda_from_yahoo(symbol: str) -> dict:
     Yahoo often has pre-calculated values that can fill gaps.
 
     Returns dict with 'enterprise_value', 'ebitda', 'ev_to_ebitda', 'method'
+
+    For financial companies (banks, etc.) that don't report EBITDA, falls back to P/E ratio
+    as a comparable valuation metric (lower = cheaper, same as EV/EBITDA).
     """
     try:
         ticker = yf.Ticker(symbol)
@@ -347,6 +350,7 @@ def get_ev_ebitda_from_yahoo(symbol: str) -> dict:
         # Get EV and EBITDA from Yahoo's summary data
         ev = info.get('enterpriseValue')
         ebitda = info.get('ebitda')
+        market_cap = info.get('marketCap')
 
         # Yahoo sometimes has the ratio pre-calculated
         ev_ebitda_ratio = info.get('enterpriseToEbitda')
@@ -363,6 +367,22 @@ def get_ev_ebitda_from_yahoo(symbol: str) -> dict:
             if ev and not ebitda:
                 ebitda = ev / ev_ebitda_ratio
         else:
+            # FALLBACK: For financials (banks, etc.) use P/E ratio instead of EV/EBITDA
+            # Banks don't report EBITDA because interest is core to their business
+            trailing_pe = info.get('trailingPE')
+            forward_pe = info.get('forwardPE')
+            pe_ratio = trailing_pe or forward_pe
+
+            if pe_ratio and pe_ratio > 0:
+                # Use P/E as valuation metric (lower = cheaper, same logic as EV/EBITDA)
+                log.info(f"Using P/E ratio fallback for {symbol} (financial company): {pe_ratio:.2f}x")
+                return {
+                    "enterprise_value": float(ev or market_cap) if (ev or market_cap) else np.nan,
+                    "ebitda": np.nan,  # Not applicable for financials
+                    "ev_to_ebitda": float(pe_ratio),  # Use P/E as the valuation ratio
+                    "method": "Yahoo Finance (P/E ratio - financial)"
+                }
+
             return {
                 "enterprise_value": ev if ev else np.nan,
                 "ebitda": ebitda if ebitda else np.nan,
