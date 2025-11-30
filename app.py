@@ -711,7 +711,7 @@ st.markdown("""
                 </svg>
             </div>
             <h3 class="dial-title">Valuation</h3>
-            <p class="dial-description">EV/EBITDA peer comparison</p>
+            <p class="dial-description">EV/EBITDA + PEG blended</p>
         </div>
     </div>
     <div class="tagline">
@@ -1302,18 +1302,18 @@ with st.sidebar:
         else:
             st.success(f"✓ Weights sum to {total_weight:.1f}%")
 
-        # Buttons row
-        btn_col1, btn_col2 = st.columns(2)
-        with btn_col1:
-            if st.button("🔄 Reset to Defaults", use_container_width=True, help="Reset weights to: Valuation 35%, Liquidity 35%, Coverage 15%, Trust 15%"):
-                st.session_state.weight_valuation = DEFAULT_WEIGHTS['valuation']
-                st.session_state.weight_liquidity = DEFAULT_WEIGHTS['liquidity']
-                st.session_state.weight_coverage = DEFAULT_WEIGHTS['coverage']
-                st.session_state.weight_trust = DEFAULT_WEIGHTS['trust']
-                st.rerun()
-        with btn_col2:
-            if st.button("🎯 Auto-Optimize", use_container_width=True, help="Find weights that best explain stock value differences using statistical regression"):
-                st.session_state.optimize_weights = True
+        # Reset button
+        if st.button("🔄 Reset to Defaults", use_container_width=True, help="Reset weights to: Valuation 35%, Liquidity 35%, Coverage 15%, Trust 15%"):
+            st.session_state.weight_valuation = DEFAULT_WEIGHTS['valuation']
+            st.session_state.weight_liquidity = DEFAULT_WEIGHTS['liquidity']
+            st.session_state.weight_coverage = DEFAULT_WEIGHTS['coverage']
+            st.session_state.weight_trust = DEFAULT_WEIGHTS['trust']
+            st.session_state.weights_auto_optimized = False  # Clear auto-optimization flag
+            st.rerun()
+
+        # Show auto-optimization status
+        if st.session_state.get('weights_auto_optimized', False):
+            st.caption("✓ Weights auto-optimized on last analysis")
 
     # News file upload
     with st.expander("📰 Advanced: News Data", expanded=False):
@@ -1442,126 +1442,6 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-
-# Auto-optimize weights if requested
-if st.session_state.get('optimize_weights', False):
-    # Only optimize if we have previous results to analyze
-    if 'df_composite' in st.session_state and 'df_val' in st.session_state:
-        try:
-            from irci.dial_insights import recommend_optimal_weights
-
-            # Merge enterprise_value into df_composite for R² optimization
-            df_comp = st.session_state['df_composite'].copy()
-            df_val = st.session_state['df_val']
-            if 'enterprise_value' in df_val.columns:
-                df_comp = df_comp.merge(
-                    df_val[['ticker', 'enterprise_value']],
-                    on='ticker',
-                    how='left'
-                )
-
-            current_weights = {
-                'valuation': weight_valuation / 100,
-                'liquidity': weight_liquidity / 100,
-                'coverage': weight_coverage / 100,
-                'sentiment': weight_trust / 100
-            }
-
-            # Use variance-based optimization (same as Insights tab)
-            # R² optimization tends to overfit and produce unrealistic weights
-            weight_analysis = recommend_optimal_weights(
-                st.session_state['df_composite'],  # Use original df_composite (same as Insights)
-                current_weights=current_weights
-                # No optimize_for parameter = default variance-based method
-            )
-            rec_weights = weight_analysis['recommended_weights']
-
-            # Debug: show what recommend_optimal_weights returned
-            print(f"DEBUG: Recommended weights from optimizer:")
-            print(f"  valuation: {rec_weights['valuation']:.4f} ({rec_weights['valuation']*100:.1f}%)")
-            print(f"  liquidity: {rec_weights['liquidity']:.4f} ({rec_weights['liquidity']*100:.1f}%)")
-            print(f"  coverage: {rec_weights['coverage']:.4f} ({rec_weights['coverage']*100:.1f}%)")
-            print(f"  sentiment: {rec_weights['sentiment']:.4f} ({rec_weights['sentiment']*100:.1f}%)")
-            print(f"  sum: {sum(rec_weights.values()):.4f}")
-
-            # Convert to percentages and ensure they sum to exactly 100
-            val_pct = rec_weights['valuation'] * 100
-            liq_pct = rec_weights['liquidity'] * 100
-            cov_pct = rec_weights['coverage'] * 100
-            tru_pct = rec_weights['sentiment'] * 100
-
-            # Check if they sum to 100, if not normalize
-            total = val_pct + liq_pct + cov_pct + tru_pct
-            if abs(total - 100.0) > 0.1:
-                print(f"DEBUG: Weights don't sum to 100 ({total:.2f}), normalizing...")
-                val_pct = (val_pct / total) * 100
-                liq_pct = (liq_pct / total) * 100
-                cov_pct = (cov_pct / total) * 100
-                tru_pct = (tru_pct / total) * 100
-
-            # Update session state with optimized weights (round to 1 decimal place)
-            st.session_state.weight_valuation = round(val_pct, 1)
-            st.session_state.weight_liquidity = round(liq_pct, 1)
-            st.session_state.weight_coverage = round(cov_pct, 1)
-            st.session_state.weight_trust = round(tru_pct, 1)
-
-            print(f"DEBUG: Set session state weights:")
-            print(f"  weight_valuation: {st.session_state.weight_valuation}")
-            print(f"  weight_liquidity: {st.session_state.weight_liquidity}")
-            print(f"  weight_coverage: {st.session_state.weight_coverage}")
-            print(f"  weight_trust: {st.session_state.weight_trust}")
-
-            st.session_state.optimize_weights = False
-            st.session_state.weights_just_optimized = True  # Flag to show message after rerun
-
-            # Store the optimized R² for display
-            if 'optimized_r2' in weight_analysis:
-                st.session_state.optimized_r2 = weight_analysis['optimized_r2']
-
-            # Recalculate composite scores in-place with new weights (no re-fetch needed!)
-            if 'df_composite' in st.session_state and st.session_state['df_composite'] is not None:
-                new_weights = {
-                    'valuation': val_pct / 100,
-                    'liquidity': liq_pct / 100,
-                    'coverage': cov_pct / 100,
-                    'sentiment': tru_pct / 100
-                }
-                st.session_state['df_composite'] = recalculate_composite_scores(
-                    st.session_state['df_composite'].copy(), new_weights
-                )
-                print("DEBUG: Recalculated composite scores with new weights")
-
-            st.rerun()  # Rerun to update sliders with new values
-        except Exception as e:
-            st.error(f"Could not optimize weights: {e}")
-            import traceback
-            st.code(traceback.format_exc())
-            st.session_state.optimize_weights = False
-    else:
-        st.warning("Please run an analysis first before optimizing weights")
-        st.session_state.optimize_weights = False
-
-# Show success message after weights were optimized
-if st.session_state.get('weights_just_optimized', False):
-    # Verify weights sum to 100
-    total = st.session_state.weight_valuation + st.session_state.weight_liquidity + st.session_state.weight_coverage + st.session_state.weight_trust
-
-    msg = "✓ **Weights Auto-Optimized & Results Updated!** IRCI scores have been recalculated with optimized weights.\n\n"
-    msg += f"**New Weights (sum = {total:.1f}%):**\n"
-    msg += f"- Valuation: {st.session_state.weight_valuation:.1f}%\n"
-    msg += f"- Liquidity: {st.session_state.weight_liquidity:.1f}%\n"
-    msg += f"- Coverage: {st.session_state.weight_coverage:.1f}%\n"
-    msg += f"- Trust: {st.session_state.weight_trust:.1f}%"
-    if 'optimized_r2' in st.session_state:
-        msg += f"\n\n**Achieved R²:** {st.session_state.optimized_r2:.3f}"
-    msg += "\n\n📊 Results below now reflect these optimized weights. No need to re-run analysis!"
-
-    if abs(total - 100.0) > 0.5:
-        st.warning(f"⚠️ {msg}\n\n**Note:** Weights sum to {total:.1f}% (not 100%). They will be normalized when running analysis.")
-    else:
-        st.success(msg)
-
-    st.session_state.weights_just_optimized = False
 
 # Main content area - show results if they exist in session state
 show_results = 'df_composite' in st.session_state
@@ -2163,7 +2043,7 @@ AI can write your press release. It can't tell you if anyone read it, whether it
             progress_bar.progress(30, text="✓ Trust complete")
 
             # 2. Valuation
-            progress_bar.progress(35, text="💰 Step 2/5: Valuation dial (EV/EBITDA peer comparison)")
+            progress_bar.progress(35, text="💰 Step 2/5: Valuation dial (EV/EBITDA + PEG blended)")
             status_text.text(f"Computing valuation metrics for {len(tickers)} companies...")
             df_val = valuation_snapshot(
                 tickers,
@@ -2362,6 +2242,48 @@ AI can write your press release. It can't tell you if anyone read it, whether it
         st.session_state['analysis_just_completed'] = True
         st.session_state['analysis_summary'] = f"🎉 **Analysis Complete!** Successfully analyzed **{len(tickers)} companies** across **{len(all_quarters_results)} quarter(s)**"
 
+        # Auto-optimize weights based on peer group variance
+        try:
+            from irci.dial_insights import recommend_optimal_weights
+
+            df_composite_for_opt = st.session_state['df_composite']
+            if df_composite_for_opt is not None and not df_composite_for_opt.empty:
+                # For multi-quarter, use the most recent quarter for optimization
+                if 'quarter' in df_composite_for_opt.columns:
+                    latest_quarter = sorted(df_composite_for_opt['quarter'].unique())[-1]
+                    df_for_opt = df_composite_for_opt[df_composite_for_opt['quarter'] == latest_quarter]
+                else:
+                    df_for_opt = df_composite_for_opt
+
+                # Get current weights for optimization context
+                current_weights = {
+                    'valuation': weight_valuation / 100,
+                    'liquidity': weight_liquidity / 100,
+                    'coverage': weight_coverage / 100,
+                    'sentiment': weight_trust / 100
+                }
+
+                # Run optimization
+                weight_analysis = recommend_optimal_weights(df_for_opt, current_weights=current_weights)
+                rec_weights = weight_analysis.get('recommended_weights', {})
+
+                if rec_weights:
+                    # Apply optimized weights to session state
+                    st.session_state['weight_valuation'] = round(rec_weights.get('valuation', 0.35) * 100)
+                    st.session_state['weight_liquidity'] = round(rec_weights.get('liquidity', 0.35) * 100)
+                    st.session_state['weight_coverage'] = round(rec_weights.get('coverage', 0.15) * 100)
+                    st.session_state['weight_trust'] = round(rec_weights.get('sentiment', 0.15) * 100)
+
+                    # Mark that weights were auto-optimized
+                    st.session_state['weights_auto_optimized'] = True
+                    st.session_state['optimization_r2'] = weight_analysis.get('r2_score', 0)
+
+                    # Update analysis summary to mention optimization
+                    st.session_state['analysis_summary'] += f" Weights auto-optimized (R²={weight_analysis.get('r2_score', 0):.1%})."
+        except Exception as e:
+            # Don't fail analysis if optimization fails - just log it
+            print(f"Auto-optimization warning: {e}")
+
         # Force page refresh to ensure navigation and results are displayed properly
         st.rerun()
     else:
@@ -2433,13 +2355,10 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     Focus on identifying the weakest dial and taking targeted action.
     """)
 
-    # Auto-optimize weights button (post-analysis)
-    col_opt1, col_opt2, col_opt3 = st.columns([2, 1, 2])
-    with col_opt2:
-        if st.button("🎯 Auto-Optimize Weights", key="optimize_post_analysis", use_container_width=True,
-                     help="Find weights that maximize EV ~ IRCI regression R² based on current results"):
-            st.session_state.optimize_weights = True
-            st.rerun()
+    # Show auto-optimization status if weights were optimized
+    if st.session_state.get('weights_auto_optimized', False):
+        r2 = st.session_state.get('optimization_r2', 0)
+        st.caption(f"✓ Weights auto-optimized based on peer group variance (R²={r2:.1%})")
 
     try:
         df_composite = st.session_state['df_composite']
@@ -2773,7 +2692,17 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         st.markdown("### 📋 Detailed Metrics")
 
         with st.expander("💰 Valuation Details", expanded=False):
-            # Include PEG ratio if available from Alpha Vantage
+            # Valuation scoring methodology explanation
+            st.markdown("""
+**Blended Valuation Scoring (70% EV/EBITDA + 30% PEG)**
+
+The valuation dial uses a blended approach combining two complementary metrics:
+- **EV/EBITDA (70%)**: Capital-structure neutral, compares enterprise value to operating earnings
+- **PEG Ratio (30%)**: Growth-adjusted P/E, captures if you're paying appropriately for growth
+
+*When PEG is unavailable, scoring uses 100% EV/EBITDA.*
+            """)
+
             val_cols = ['ticker']
             val_rename = {'ticker': 'Ticker'}
 
@@ -2782,15 +2711,29 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 val_cols.append('quarter')
                 val_rename['quarter'] = 'Quarter'
 
+            # Core valuation columns
             val_cols.extend(['valuation_pct', 'ev_to_ebitda'])
             val_rename.update({
-                'valuation_pct': 'Score %',
+                'valuation_pct': 'Blended Score %',
                 'ev_to_ebitda': 'EV/EBITDA'
             })
+
+            # Add component scores if available
+            if 'ev_ebitda_pct' in df_val.columns:
+                val_cols.append('ev_ebitda_pct')
+                val_rename['ev_ebitda_pct'] = 'EV/EBITDA %'
 
             if 'peg_ratio' in df_val.columns:
                 val_cols.append('peg_ratio')
                 val_rename['peg_ratio'] = 'PEG Ratio'
+
+            if 'peg_pct' in df_val.columns:
+                val_cols.append('peg_pct')
+                val_rename['peg_pct'] = 'PEG %'
+
+            if 'valuation_method' in df_val.columns:
+                val_cols.append('valuation_method')
+                val_rename['valuation_method'] = 'Method'
 
             val_cols.extend(['peer_mean_excl_self', 'valuation_gap_pct', 'valuation_quartile'])
             val_rename.update({
@@ -2799,33 +2742,46 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 'valuation_quartile': 'Quartile'
             })
 
-            # Create display dataframe with proper formatting for PEG ratio
-            df_val_display = df_val[val_cols].copy()
+            # Create display dataframe with proper formatting
+            available_cols = [c for c in val_cols if c in df_val.columns]
+            df_val_display = df_val[available_cols].copy()
+
+            # Format PEG ratio
             if 'peg_ratio' in df_val_display.columns:
-                # Replace None, NaN, and invalid values with "N/A"
                 df_val_display['peg_ratio'] = df_val_display['peg_ratio'].apply(
                     lambda x: "N/A" if pd.isna(x) or x is None or str(x).lower() in ('none', 'nan', '') else f"{x:.2f}"
                 )
 
+            # Format PEG pct
+            if 'peg_pct' in df_val_display.columns:
+                df_val_display['peg_pct'] = df_val_display['peg_pct'].apply(
+                    lambda x: "N/A" if pd.isna(x) else f"{x:.1f}"
+                )
+
             st.dataframe(
-                df_val_display.rename(columns=val_rename),
+                df_val_display.rename(columns={k: v for k, v in val_rename.items() if k in available_cols}),
                 use_container_width=True,
                 hide_index=True
             )
 
             st.caption("""
 💡 **Metric Definitions:**
-• **EV/EBITDA** = Enterprise Value ÷ EBITDA. Lower means cheaper relative to earnings.
-• **Peer Avg** = Average EV/EBITDA of peer group (excluding the company itself).
-• **Gap %** = Difference from peer average. Negative = discount, Positive = premium.
-• **Quartile** = Ranking within peer group (1 = cheapest, 4 = most expensive).
+• **EV/EBITDA** = Enterprise Value ÷ EBITDA. Lower = cheaper relative to earnings.
+• **EV/EBITDA %** = Peer percentile for EV/EBITDA (lower multiple → higher score).
+• **PEG Ratio** = P/E ÷ Expected Growth Rate. <1.0 suggests undervalued relative to growth.
+• **PEG %** = Peer percentile for PEG (lower PEG → higher score).
+• **Blended Score** = 70% × EV/EBITDA % + 30% × PEG % (or 100% EV/EBITDA if PEG unavailable).
+• **Method** = "blended_ev_peg" when both metrics available, "ev_ebitda_only" otherwise.
 
-📚 **Why discounts score higher:** Based on Merton's (1987) Investor Recognition Hypothesis - stocks with lower visibility often trade at discounts. IRCI assumes discounts represent potential IR opportunity to improve market perception and close the gap. However, discounts may also reflect fundamental issues unrelated to IR. Premiums may indicate IR success (market fully recognizes value) rather than a problem. Interpret in context of fundamentals.
+📚 **Academic References:**
+• **EV/EBITDA**: Preferred by CFA Institute for capital-structure neutral comparisons (CFA Institute, 2025)
+• **PEG Ratio**: Growth-adjusted valuation per Lynch (1989) "One Up on Wall Street"
+• **Blended Approach**: Combining metrics improves accuracy per Macabacus valuation research
+• **Merton (1987)**: Investor Recognition Hypothesis - lower visibility → trading discounts
+• **Jensen (2005)**: Overvalued equity creates agency costs and value destruction risk
 
-⚠️ **Overvaluation risk:** Per Jensen (2005), stocks trading at substantial premiums may be considered **overpriced** by investors. When valuations exceed what fundamentals can support, companies face pressure to meet unrealistic expectations—potentially leading to value destruction. Extremely high valuations (top quartile premiums) warrant caution and may signal the stock has limited upside or elevated downside risk.
+⚠️ **Interpretation:** Lower valuations score higher, assuming discounts represent IR opportunity. However, discounts may reflect fundamental issues. Premiums may indicate IR success. Interpret in context.
 """)
-            if 'peg_ratio' in df_val.columns:
-                st.caption("• **PEG Ratio** = Price/Earnings ÷ Growth Rate. Lower is better (<1.0 often indicates undervalued relative to growth).")
 
         with st.expander("💧 Liquidity Details", expanded=False):
             # Build liquidity columns list
@@ -4062,101 +4018,23 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
         st.markdown("---")
 
-        # Section 3: Optimal Weight Recommendations
-        st.markdown("#### ⚖️ Optimal Weight Recommendations")
-        st.markdown("*Analyzes peer group variance to suggest optimal dial weights*")
+        # Section 3: Applied Weights
+        st.markdown("#### ⚖️ Applied Weights")
 
-        try:
-            # First, compute current R² with current weights
-            from scipy import stats
-            current_composite = df_composite['irci_composite_pct']
-            if 'enterprise_value' in df_composite.columns:
-                valid_mask = (current_composite > 0) & (df_composite['enterprise_value'] > 0)
-                if valid_mask.sum() >= 3:
-                    _, _, r_value, _, _ = stats.linregress(
-                        current_composite[valid_mask],
-                        df_composite['enterprise_value'][valid_mask]
-                    )
-                    current_r2 = r_value ** 2
-                    st.info(f"📊 **Current R² with your weights:** {current_r2:.4f}")
+        # Show applied weights with auto-optimization status
+        if st.session_state.get('weights_auto_optimized', False):
+            r2 = st.session_state.get('optimization_r2', 0)
+            st.success(f"✓ Weights auto-optimized based on peer group variance (R²={r2:.1%})")
 
-            weight_analysis = recommend_optimal_weights(df_composite, current_weights=current_weights)
+        weights_df = pd.DataFrame([
+            {'Dial': 'Valuation', 'Weight': f"{current_weights['valuation']*100:.1f}%"},
+            {'Dial': 'Liquidity', 'Weight': f"{current_weights['liquidity']*100:.1f}%"},
+            {'Dial': 'Coverage', 'Weight': f"{current_weights['coverage']*100:.1f}%"},
+            {'Dial': 'Trust', 'Weight': f"{current_weights['sentiment']*100:.1f}%"}
+        ])
+        st.dataframe(weights_df, use_container_width=True, hide_index=True)
 
-            # Display recommendations
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.markdown("**Current Weights:**")
-                current_weights_df = pd.DataFrame([
-                    {'Dial': 'Valuation', 'Weight': f"{current_weights['valuation']*100:.1f}%"},
-                    {'Dial': 'Liquidity', 'Weight': f"{current_weights['liquidity']*100:.1f}%"},
-                    {'Dial': 'Coverage', 'Weight': f"{current_weights['coverage']*100:.1f}%"},
-                    {'Dial': 'Trust', 'Weight': f"{current_weights['sentiment']*100:.1f}%"}
-                ])
-                st.dataframe(current_weights_df, use_container_width=True, hide_index=True)
-
-            with col2:
-                st.markdown("**Recommended Weights:**")
-                rec_weights = weight_analysis['recommended_weights']
-                recommended_weights_df = pd.DataFrame([
-                    {'Dial': 'Valuation', 'Weight': f"{rec_weights['valuation']*100:.1f}%"},
-                    {'Dial': 'Liquidity', 'Weight': f"{rec_weights['liquidity']*100:.1f}%"},
-                    {'Dial': 'Coverage', 'Weight': f"{rec_weights['coverage']*100:.1f}%"},
-                    {'Dial': 'Trust', 'Weight': f"{rec_weights['sentiment']*100:.1f}%"}
-                ])
-                st.dataframe(recommended_weights_df, use_container_width=True, hide_index=True)
-
-                # Show optimization method and achieved R² if available
-                if 'optimized_r2' in weight_analysis:
-                    st.success(f"🎯 Optimizer achieved R² = {weight_analysis['optimized_r2']:.4f}")
-                    st.caption(f"Method: {weight_analysis.get('optimization_method', 'unknown')}")
-                else:
-                    st.caption(f"Method: {weight_analysis.get('optimization_method', 'variance-based')}")
-
-            # Variance analysis
-            st.markdown("**Variance Analysis (Why these weights?):**")
-            st.caption("Dials with higher variance across peers better differentiate companies and should receive more weight")
-
-            variance_df = pd.DataFrame([
-                {
-                    'Dial': 'Valuation',
-                    'Mean Score': f"{weight_analysis['variance_analysis']['valuation']['mean']:.1f}",
-                    'Std Dev': f"{weight_analysis['variance_analysis']['valuation']['std']:.1f}",
-                    'Coefficient of Variation': f"{weight_analysis['variance_analysis']['valuation']['cv']:.2f}",
-                    'Data Availability': f"{weight_analysis['variance_analysis']['valuation']['availability']*100:.0f}%",
-                    'Discriminating Power': f"{weight_analysis['discriminating_power']['valuation']:.1f}"
-                },
-                {
-                    'Dial': 'Liquidity',
-                    'Mean Score': f"{weight_analysis['variance_analysis']['liquidity']['mean']:.1f}",
-                    'Std Dev': f"{weight_analysis['variance_analysis']['liquidity']['std']:.1f}",
-                    'Coefficient of Variation': f"{weight_analysis['variance_analysis']['liquidity']['cv']:.2f}",
-                    'Data Availability': f"{weight_analysis['variance_analysis']['liquidity']['availability']*100:.0f}%",
-                    'Discriminating Power': f"{weight_analysis['discriminating_power']['liquidity']:.1f}"
-                },
-                {
-                    'Dial': 'Coverage',
-                    'Mean Score': f"{weight_analysis['variance_analysis']['coverage']['mean']:.1f}",
-                    'Std Dev': f"{weight_analysis['variance_analysis']['coverage']['std']:.1f}",
-                    'Coefficient of Variation': f"{weight_analysis['variance_analysis']['coverage']['cv']:.2f}",
-                    'Data Availability': f"{weight_analysis['variance_analysis']['coverage']['availability']*100:.0f}%",
-                    'Discriminating Power': f"{weight_analysis['discriminating_power']['coverage']:.1f}"
-                },
-                {
-                    'Dial': 'Trust',
-                    'Mean Score': f"{weight_analysis['variance_analysis']['sentiment']['mean']:.1f}",
-                    'Std Dev': f"{weight_analysis['variance_analysis']['sentiment']['std']:.1f}",
-                    'Coefficient of Variation': f"{weight_analysis['variance_analysis']['sentiment']['cv']:.2f}",
-                    'Data Availability': f"{weight_analysis['variance_analysis']['sentiment']['availability']*100:.0f}%",
-                    'Discriminating Power': f"{weight_analysis['discriminating_power']['sentiment']:.1f}"
-                }
-            ])
-            st.dataframe(variance_df, use_container_width=True, hide_index=True)
-
-            st.info("💡 **Tip**: Update weights in the sidebar based on these recommendations, or use the 'Auto-Optimize Weights' button to automatically apply the optimal values.")
-
-        except Exception as e:
-            st.warning(f"Could not compute weight recommendations: {str(e)}")
+        st.caption("Weights are auto-optimized on each analysis run based on peer group variance. Adjust manually in the sidebar if needed.")
 
     # SECTION 4 (or SECTION 3 if not multi-quarter): Playbook & Events
     if selected_section == "🎯 Playbook & Events":

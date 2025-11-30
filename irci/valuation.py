@@ -5,7 +5,6 @@ import numpy as np
 import requests
 from requests import HTTPError
 import os
-import time
 import yfinance as yf
 
 from .config import Settings
@@ -125,8 +124,47 @@ def _get_json(url: str, timeout: int = 60) -> list | dict:
     r.raise_for_status()
     return r.json()
 
+def get_fmp_peg_ratio(ticker: str, apikey: str) -> dict:
+    """
+    Fetch PEG ratio from FMP Ratios TTM endpoint.
+    Returns dict with peg_ratio and method.
+
+    PEG = P/E divided by expected earnings growth rate.
+    A PEG < 1 suggests undervaluation relative to growth; > 1 suggests overvaluation.
+    """
+    try:
+        url = f"https://financialmodelingprep.com/api/v3/ratios-ttm/{ticker}?apikey={apikey}"
+        log.info(f"GET FMP ratios-ttm for {ticker}")
+        data = _get_json(url)
+
+        if not data or not isinstance(data, list) or len(data) == 0:
+            log.warning(f"No ratios data from FMP for {ticker}")
+            return {"peg_ratio": np.nan, "method": "unavailable"}
+
+        ratios = data[0]
+        peg = ratios.get("pegRatioTTM")
+
+        if peg is None or peg == 0:
+            log.warning(f"PEG ratio not available from FMP for {ticker}")
+            return {"peg_ratio": np.nan, "method": "unavailable"}
+
+        # Filter out unreasonable PEG values (negative or extremely high)
+        peg = float(peg)
+        if peg < 0 or peg > 10:
+            log.warning(f"PEG ratio {peg} for {ticker} outside reasonable range, excluding")
+            return {"peg_ratio": np.nan, "method": "excluded_outlier"}
+
+        log.info(f"FMP PEG for {ticker}: {peg}")
+        return {"peg_ratio": peg, "method": "fmp_ratios_ttm"}
+
+    except Exception as e:
+        log.warning(f"FMP PEG fetch failed for {ticker}: {e}")
+        return {"peg_ratio": np.nan, "method": "error"}
+
+
 def get_alpha_vantage_peg(ticker: str) -> float:
     """
+    DEPRECATED: Use get_fmp_peg_ratio instead.
     Fetch PEG ratio from Alpha Vantage Company Overview endpoint.
     Returns np.nan if unavailable or on error.
 
@@ -485,11 +523,10 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
                 if pd.isna(ebitda) and not pd.isna(yahoo_data["ebitda"]):
                     ebitda = yahoo_data["ebitda"]
 
-        # 3) PEG ratio from Alpha Vantage (with rate limiting)
-        peg_ratio = get_alpha_vantage_peg(sym)
-        # Rate limit: 5 calls/minute = 12 seconds between calls
-        if not pd.isna(peg_ratio):
-            time.sleep(12)
+        # 3) PEG ratio from FMP (no rate limiting needed - same API key)
+        peg_result = get_fmp_peg_ratio(sym, s.fmp_api_key)
+        peg_ratio = peg_result["peg_ratio"]
+        peg_method = peg_result["method"]
 
         rows.append({
             "ticker": sym,
@@ -499,6 +536,7 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
             "ev_to_ebitda": ratio,
             "ebitda_method": ebitda_method,
             "peg_ratio": peg_ratio,
+            "peg_method": peg_method,
         })
 
     out = pd.DataFrame(rows)
@@ -517,33 +555,45 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
     out["peer_mean_excl_self"] = ((peer_sum - out["ev_to_ebitda"]) / (out["peer_count"] - 1)).where(out["peer_count"] > 1)
     out["valuation_gap_pct"] = (out["ev_to_ebitda"] - out["peer_mean_excl_self"]) / out["peer_mean_excl_self"]
 
-    # NEW: continuous dial 0–100% with median at 50 (invert because lower EV/EBITDA is better)
-    out["valuation_pct"] = grp["ev_to_ebitda"].transform(lambda s: median_anchored_pct(s, lower_is_better=True))
-            # --- Percentile dial: 0–100 where higher = cheaper ---
-            # rank(pct=True) in ascending order => cheapest gets smallest pct
-        # --- NEW: pure percentile-rank dial (lower EV/EBITDA is better) ---
-    def _empirical_percentile_lower_is_better(s: pd.Series, stretch_to_full_range: bool = False) -> pd.Series:
-        s = s.astype(float)
-        r = s.rank(pct=True, method="average")       # in (1/n .. 1]
-        if stretch_to_full_range:
-            rmin, rmax = r.min(), r.max()
-            if rmax == rmin:                         # all equal → flat 50
-                return pd.Series(50.0, index=s.index, dtype="float64")
-            r = (r - rmin) / (rmax - rmin)           # now in [0..1]
-        # invert so cheaper (lower) → higher %
-        pct = (1.0 - r) * 100.0
-        pct[s.isna()] = np.nan
-        return pct
+    # --- VALUATION SCORING ---
+    # EV/EBITDA percentile: lower = cheaper = better (invert)
+    out["ev_ebitda_pct"] = grp["ev_to_ebitda"].transform(lambda s: median_anchored_pct(s, lower_is_better=True))
 
-    out["valuation_pct_empirical"] = grp["ev_to_ebitda"].transform(_empirical_percentile_lower_is_better)
-    
-    rank_pct = grp["ev_to_ebitda"].rank(method="average", pct=True, ascending=True)
-    val_dial_pct = (1.0 - rank_pct) * 100.0            # invert so cheapest → 100
+    # PEG percentile: lower = cheaper relative to growth = better (invert)
+    # PEG < 1 suggests undervaluation; PEG > 1 suggests overvaluation
+    out["peg_pct"] = grp["peg_ratio"].transform(lambda s: median_anchored_pct(s, lower_is_better=True))
 
-        # If a peer bucket has only one name, set neutral 50
-    val_dial_pct = np.where(out["peer_count"] == 1, 50.0, val_dial_pct)
+    # --- BLENDED VALUATION SCORE ---
+    # Combine EV/EBITDA (70%) and PEG (30%) for growth-adjusted valuation
+    # If PEG unavailable, use 100% EV/EBITDA
+    # Rationale:
+    #   - EV/EBITDA: Capital-structure neutral, compares value to operating earnings
+    #   - PEG: Growth-adjusted, captures if you're paying appropriately for growth
+    #   - Sources: CFA Institute (2025), Macabacus valuation multiples research
+    def _blend_valuation(row):
+        ev_pct = row["ev_ebitda_pct"]
+        peg_pct = row["peg_pct"]
 
-    out["valuation_dial_pct"] = np.round(val_dial_pct, 1)
+        if pd.isna(ev_pct):
+            return np.nan
+        if pd.isna(peg_pct):
+            # No PEG available, use 100% EV/EBITDA
+            return ev_pct
+        # Blend: 70% EV/EBITDA + 30% PEG
+        return 0.7 * ev_pct + 0.3 * peg_pct
+
+    out["valuation_pct"] = out.apply(_blend_valuation, axis=1)
+
+    # Track which method was used for transparency
+    out["valuation_method"] = out.apply(
+        lambda r: "blended_ev_peg" if not pd.isna(r["peg_pct"]) else "ev_ebitda_only",
+        axis=1
+    )
+
+    # If a peer bucket has only one name, set neutral 50
+    out["valuation_pct"] = np.where(out["peer_count"] == 1, 50.0, out["valuation_pct"])
+
+    out["valuation_dial_pct"] = np.round(out["valuation_pct"], 1)
 
     # Quartile label for quick interpretation
     def _bucket(p):
