@@ -117,33 +117,108 @@ def quarterly_liquidity(daily_df: pd.DataFrame, freq: str = "QE-DEC") -> pd.Data
     q["q_spread_bps"] = q["q_roll_spread"] * 1e4   # basis points
     return q
 
+# --- Institutional ownership integration -------------------------------------
+
+def fetch_institutional_ownership_for_liquidity(symbols: list, settings=None) -> pd.DataFrame:
+    """
+    Fetch institutional ownership data for liquidity integration.
+    Higher institutional ownership typically indicates better liquidity (larger block trades).
+    """
+    try:
+        from .institutional_ownership import get_ownership_for_liquidity
+        return get_ownership_for_liquidity(symbols, settings)
+    except Exception as e:
+        log.warning(f"Institutional ownership fetch failed: {e}")
+        return pd.DataFrame(columns=["ticker", "institutional_pct", "holder_count", "inst_ownership_score"])
+
+
 # --- Peer dial (0–100%) -----------------------------------------------------
 
-def add_liquidity_percentile(df_q: pd.DataFrame) -> pd.DataFrame:
+def add_liquidity_percentile(
+    df_q: pd.DataFrame,
+    include_institutional: bool = True,
+    institutional_weight: float = 0.15
+) -> pd.DataFrame:
     """
     Compute a 0–100 liquidity dial per (quarter_end, ticker):
-      - q_amihud: lower is better
-      - q_roll_spread: lower is better
-      - q_turnover: higher is better
+      - q_amihud: lower is better (35% weight)
+      - q_roll_spread: lower is better (25% weight)
+      - q_turnover: higher is better (25% weight)
+      - inst_ownership_score: higher is better (15% weight, if available)
     """
     df_q = df_q.copy()
 
     # numeric hygiene
     for c in ["q_amihud", "q_turnover", "q_roll_spread"]:
-        df_q[c] = pd.to_numeric(df_q[c], errors="coerce")
+        if c in df_q.columns:
+            df_q[c] = pd.to_numeric(df_q[c], errors="coerce")
 
     # make sure left merge key is tz-aware UTC
     df_q["quarter_end"] = pd.to_datetime(df_q["quarter_end"], utc=True)
+
+    # Fetch institutional ownership if requested
+    if include_institutional and "inst_ownership_score" not in df_q.columns:
+        symbols = df_q["ticker"].unique().tolist()
+        try:
+            inst_df = fetch_institutional_ownership_for_liquidity(symbols)
+            if not inst_df.empty and "inst_ownership_score" in inst_df.columns:
+                df_q = df_q.merge(
+                    inst_df[["ticker", "institutional_pct", "holder_count", "inst_ownership_score"]],
+                    on="ticker",
+                    how="left"
+                )
+                log.info(f"Added institutional ownership data for {len(inst_df)} symbols")
+        except Exception as e:
+            log.warning(f"Could not add institutional ownership: {e}")
+
+    has_institutional = include_institutional and "inst_ownership_score" in df_q.columns
 
     def per_quarter(x: pd.DataFrame) -> pd.DataFrame:
         # Percentiles; some components may be entirely/partially NaN
         p_amihud = x["q_amihud"].rank(pct=True, ascending=False)   # lower is better -> higher pct
         p_spread = x["q_roll_spread"].rank(pct=True, ascending=False)
         p_turn   = x["q_turnover"].rank(pct=True, ascending=True)  # higher is better
-        comps   = pd.concat([p_amihud, p_spread, p_turn], axis=1)
-        counts  = comps.notna().sum(axis=1)        # how many components are present
-        sums    = comps.fillna(0).sum(axis=1)      # sum only the present ones
-        dial    = (sums / counts.clip(lower=1)) * 100.0
+
+        if has_institutional:
+            # inst_ownership_score is already 0-100, just rank it
+            p_inst = x["inst_ownership_score"].rank(pct=True, ascending=True)  # higher is better
+            # Weighted average: amihud 35%, spread 25%, turnover 25%, institutional 15%
+            w_amihud = 0.35
+            w_spread = 0.25
+            w_turn = 0.25
+            w_inst = institutional_weight
+
+            # Normalize weights
+            total_w = w_amihud + w_spread + w_turn + w_inst
+            w_amihud /= total_w
+            w_spread /= total_w
+            w_turn /= total_w
+            w_inst /= total_w
+
+            # Handle NaN components by only using available ones
+            comps = pd.DataFrame({
+                'p_amihud': p_amihud,
+                'p_spread': p_spread,
+                'p_turn': p_turn,
+                'p_inst': p_inst
+            })
+            weights = pd.DataFrame({
+                'p_amihud': w_amihud,
+                'p_spread': w_spread,
+                'p_turn': w_turn,
+                'p_inst': w_inst
+            }, index=comps.index)
+
+            # Weighted sum, normalized by available weights
+            weighted_sum = (comps.fillna(0) * weights).sum(axis=1)
+            weight_sum = (comps.notna().astype(float) * weights).sum(axis=1)
+            dial = (weighted_sum / weight_sum.clip(lower=0.01)) * 100.0
+        else:
+            # Original logic without institutional data
+            comps = pd.concat([p_amihud, p_spread, p_turn], axis=1)
+            counts = comps.notna().sum(axis=1)
+            sums = comps.fillna(0).sum(axis=1)
+            dial = (sums / counts.clip(lower=1)) * 100.0
 
         out = x[["quarter_end", "ticker"]].copy()
         out["liquidity_pct"] = dial.round().astype("Int64")

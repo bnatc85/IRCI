@@ -197,30 +197,34 @@ def coverage_snapshot(
     as_of: str | None = None,
     lookahead_days: int = 90,
     media_fetcher: Optional[Callable[[str, pd.Timestamp, pd.Timestamp, Settings], pd.DataFrame]] = None,
-    media_weight: float = 0.50,
+    media_weight: float = 0.40,
     persist_media: bool = False,
-    debug_components: bool = False,    
+    debug_components: bool = False,
+    include_transcripts: bool = True,  # Include earnings call transcript analysis
+    transcript_weight: float = 0.15,   # Weight for transcript quality score
 ) -> pd.DataFrame:
     """
     Coverage/Visibility dial (per quarter end = as_of bucket):
       - SEC cadence & timeliness (always)
       - Media visibility (optional): weighted unique reputable articles/domains
+      - Earnings call transcript quality (optional): forward-looking statements, guidance coverage
         NOTE: sentiment/tone is excluded (belongs to Trust)
 
     SEC metrics:
       - q_8k_count: # of 8-Ks filed during the quarter (cadence/visibility)
       - q_days_to_10q: days from quarter-end to first 10-Q (or 10-K in Q4) filing (timeliness; lower is better)
 
-    Scoring:
-      If media is provided:
-        coverage_pct = w_media * p_media + w_8k * p_8k + w_time * p_timely
-        default weights: w_media=0.50, w_8k=0.30, w_time=0.20
-      Else:
-        coverage_pct = 0.60 * p_8k + 0.40 * p_timely
+    Transcript metrics:
+      - transcript_quality_score: 0-100 score based on forward-looking content, guidance, Q&A
+
+    Scoring with all components:
+      coverage_pct = w_media * p_media + w_8k * p_8k + w_time * p_timely + w_transcript * p_transcript
+      default weights: w_media=0.40, w_8k=0.25, w_time=0.20, w_transcript=0.15
 
     Returns columns:
       ticker, as_of, as_of_bucket, coverage_pct, q_8k_count, q_days_to_10q
       and if media present: q_media_weighted, q_media_unique_articles, q_media_unique_domains
+      and if transcripts: transcript_quality_score, has_transcript
     """
     s = Settings.load()
     as_of_ts = pd.to_datetime(as_of, utc=True) if as_of is not None else pd.Timestamp.utcnow(tz="UTC")
@@ -234,14 +238,16 @@ def coverage_snapshot(
         except Exception as e:
             log.warning(f"SEC submissions unavailable for {sym}: {e}")
             row = {"ticker": sym, "as_of": q_end, "q_8k_count": np.nan, "q_days_to_10q": np.nan}
-            row.update(_media_visibility(sym, q_start, q_end, s,    
+            row.update(_media_visibility(sym, q_start, q_end, s,
                 media_fetcher=media_fetcher, persist_media=persist_media))
+            row.update({"transcript_quality_score": np.nan, "has_transcript": False})
             rows.append(row)
             continue
 
         if subs.empty or "filingDate" not in subs.columns or "form" not in subs.columns:
             row = {"ticker": sym, "as_of": q_end, "q_8k_count": np.nan, "q_days_to_10q": np.nan}
             row.update(_media_visibility(sym, q_start, q_end, s, media_fetcher=media_fetcher))
+            row.update({"transcript_quality_score": np.nan, "has_transcript": False})
             rows.append(row)
             continue
 
@@ -268,12 +274,26 @@ def coverage_snapshot(
         media_metrics = _media_visibility(sym, q_start, q_end, s,
     media_fetcher=media_fetcher, persist_media=persist_media)
 
+        # Transcript metrics (earnings call quality)
+        transcript_metrics = {"transcript_quality_score": np.nan, "has_transcript": False}
+        if include_transcripts:
+            try:
+                from .transcripts import get_transcript_coverage_metrics
+                transcript_data = get_transcript_coverage_metrics(sym, q_start, q_end, s)
+                transcript_metrics = {
+                    "transcript_quality_score": transcript_data.get("transcript_quality_score", np.nan),
+                    "has_transcript": transcript_data.get("has_transcript", False),
+                }
+            except Exception as e:
+                log.warning(f"Transcript fetch failed for {sym}: {e}")
+
         row = {
             "ticker": sym,
             "as_of": q_end,               # use quarter end as the as_of for this dial
             "q_8k_count": q_8k_count,
             "q_days_to_10q": q_days_to_10q,
             **media_metrics,
+            **transcript_metrics,
         }
         rows.append(row)
 
@@ -294,32 +314,56 @@ def coverage_snapshot(
         cov["p_media"] = _pct_rank(cov.get("q_media_weighted", pd.Series(index=cov.index, dtype=float)),
                                 higher_is_better=True)
 
+    # Transcript percentile (transcript_quality_score is already 0-100, use as-is for ranking)
+    has_transcripts = include_transcripts and "transcript_quality_score" in cov.columns
+    if has_transcripts:
+        cov["p_transcript"] = _pct_rank(cov["transcript_quality_score"], higher_is_better=True)
+    else:
+        cov["p_transcript"] = 50.0  # neutral
+
+    # Compute coverage_pct with all available components
+    w_transcript = float(transcript_weight) if has_transcripts else 0.0
+
     if has_media:
         w_media = float(media_weight)
-        # scale the remaining 0.5 in the 0.30 : 0.20 ratio
-        remainder = max(0.0, 1.0 - w_media)
-        total = 0.30 + 0.20
-        w_8k = 0.30 * (remainder / total) if total else 0.0
-        w_time = 0.20 * (remainder / total) if total else 0.0
-        cov["coverage_pct"] = (w_8k * cov["p_8k"] + w_time * cov["p_timely"] + w_media * cov["p_media"]).round(1)
+        # Distribute remaining weight (after media + transcript) between 8k and timeliness
+        remainder = max(0.0, 1.0 - w_media - w_transcript)
+        # Base ratio is 0.30 : 0.20 (60% : 40% of remainder)
+        w_8k = 0.60 * remainder
+        w_time = 0.40 * remainder
+        cov["coverage_pct"] = (
+            w_8k * cov["p_8k"] +
+            w_time * cov["p_timely"] +
+            w_media * cov["p_media"] +
+            w_transcript * cov["p_transcript"]
+        ).round(1)
     else:
-        w_media, w_8k, w_time = 0.0, 0.60, 0.40
-        cov["coverage_pct"] = (w_8k * cov["p_8k"] + w_time * cov["p_timely"]).round(1)
+        w_media = 0.0
+        remainder = max(0.0, 1.0 - w_transcript)
+        w_8k = 0.60 * remainder
+        w_time = 0.40 * remainder
+        cov["coverage_pct"] = (
+            w_8k * cov["p_8k"] +
+            w_time * cov["p_timely"] +
+            w_transcript * cov["p_transcript"]
+        ).round(1)
 
     # if debugging, expose component weights as constant columns
     if debug_components:
         cov["w_8k"] = w_8k
         cov["w_time"] = w_time
         cov["w_media"] = w_media
+        cov["w_transcript"] = w_transcript
 
     # Order & return
     base_cols = ["ticker", "as_of", "as_of_bucket", "coverage_pct", "q_8k_count", "q_days_to_10q"]
     media_cols = ["q_media_weighted", "q_media_unique_articles", "q_media_unique_domains"] if has_media else []
+    transcript_cols = ["transcript_quality_score", "has_transcript"] if has_transcripts else []
     debug_cols = []
     if debug_components:
-        debug_cols = ["p_8k", "p_timely"] + (["p_media"] if has_media else []) + ["w_8k", "w_time"] + (["w_media"] if has_media else [])
+        debug_cols = ["p_8k", "p_timely"] + (["p_media"] if has_media else []) + (["p_transcript"] if has_transcripts else []) + ["w_8k", "w_time"] + (["w_media"] if has_media else []) + (["w_transcript"] if has_transcripts else [])
 
-    cov = cov[base_cols + media_cols + debug_cols].sort_values(["as_of_bucket", "ticker"]).reset_index(drop=True)
+    cov = cov[base_cols + media_cols + transcript_cols + debug_cols].sort_values(["as_of_bucket", "ticker"]).reset_index(drop=True)
     return cov
 
 if __name__ == "__main__":

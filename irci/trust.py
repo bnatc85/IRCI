@@ -385,16 +385,18 @@ from dataclasses import dataclass
 
 @dataclass
 class TrustWeights:
-    w_event_calm: float = 0.50
-    w_baseline_calm: float = 0.20
+    w_event_calm: float = 0.40
+    w_baseline_calm: float = 0.15
     w_media_tone: float = 0.30
+    w_social_sentiment: float = 0.15  # Reddit/StockTwits sentiment
 
 def _coerce_weights(weights):
     if isinstance(weights, dict):
         return TrustWeights(
-            w_event_calm=float(weights.get("w_event_calm", 0.50)),
-            w_baseline_calm=float(weights.get("w_baseline_calm", 0.20)),
+            w_event_calm=float(weights.get("w_event_calm", 0.40)),
+            w_baseline_calm=float(weights.get("w_baseline_calm", 0.15)),
             w_media_tone=float(weights.get("w_media_tone", 0.30)),
+            w_social_sentiment=float(weights.get("w_social_sentiment", 0.15)),
         )
     return TrustWeights()
 
@@ -550,6 +552,22 @@ def trust_quarter_for_symbol(
         shrink = media_tone_n / (media_tone_n + k) if media_tone_n > 0 else 0.0
         media_tone_raw = float(np.clip(media_tone_raw * shrink, -0.6, 0.6))
 
+    # 4) Social sentiment (Reddit/WSB, StockTwits)
+    social_sentiment_raw = np.nan
+    social_sources = 0
+    social_activity = "none"
+    try:
+        from .media_fetchers.social_sentiment import social_sentiment_score_for_trust
+        social_data = social_sentiment_score_for_trust(symbol, news_sentiment=media_tone_raw)
+        if social_data.get("data_available"):
+            # Use raw combined score (-1 to 1)
+            social_sentiment_raw = social_data.get("social_sentiment_raw", np.nan)
+            social_sources = social_data.get("sources", 0)
+            social_activity = social_data.get("retail_activity", "none")
+            log.info(f"Social sentiment for {symbol}: raw={social_sentiment_raw:.3f}, sources={social_sources}, activity={social_activity}")
+    except Exception as e:
+        log.warning(f"Social sentiment failed for {symbol}: {e}")
+
     return {
         "event_calm_raw": event_calm_raw,
         "baseline_calm_raw": baseline_calm_raw,
@@ -557,6 +575,9 @@ def trust_quarter_for_symbol(
         "media_tone_src": media_tone_src,
         "media_tone_n": media_tone_n,
         "event_count": event_count,
+        "social_sentiment_raw": social_sentiment_raw,
+        "social_sources": social_sources,
+        "social_activity": social_activity,
     }
 
 def trust_snapshot(
@@ -623,9 +644,11 @@ def trust_snapshot(
     df["p_event_calm"]    = median_anchored_pct(df["event_calm_raw"],   lower_is_better=False)
     df["p_baseline_calm"] = median_anchored_pct(df["baseline_calm_raw"], lower_is_better=False)
     df["p_media_tone"]    = median_anchored_pct(df["media_tone_raw"],    lower_is_better=False)
+    df["p_social_sentiment"] = median_anchored_pct(df["social_sentiment_raw"], lower_is_better=False)
+
     # Weighted blend (renormalize if some sub-dials are NaN)
     W = _coerce_weights(weights)
-    w_event, w_base, w_media = W.w_event_calm, W.w_baseline_calm, W.w_media_tone
+    w_event, w_base, w_media, w_social = W.w_event_calm, W.w_baseline_calm, W.w_media_tone, W.w_social_sentiment
 
     def _wavg_trust(row):
         vals, wts = [], []
@@ -635,6 +658,8 @@ def trust_snapshot(
             vals.append(row["p_baseline_calm"]); wts.append(w_base)
         if pd.notna(row.get("p_media_tone")):
             vals.append(row["p_media_tone"]); wts.append(w_media)
+        if pd.notna(row.get("p_social_sentiment")):
+            vals.append(row["p_social_sentiment"]); wts.append(w_social)
         if not wts:
             return np.nan
         return float(np.average(vals, weights=wts))
@@ -644,9 +669,9 @@ def trust_snapshot(
     df["quarter_end"] = q_end
 
     keep = ["ticker","quarter_end","trust_pct","sentiment_pct",
-            "p_event_calm","p_baseline_calm","p_media_tone",
-            "event_calm_raw","baseline_calm_raw","media_tone_raw",
-            "media_tone_src","media_tone_n","event_count"]
+            "p_event_calm","p_baseline_calm","p_media_tone","p_social_sentiment",
+            "event_calm_raw","baseline_calm_raw","media_tone_raw","social_sentiment_raw",
+            "media_tone_src","media_tone_n","event_count","social_sources","social_activity"]
     return df[keep].sort_values(["ticker"]).reset_index(drop=True)
 
 
