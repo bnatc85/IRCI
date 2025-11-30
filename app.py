@@ -5572,7 +5572,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 with col4:
                     trust_cls = playbook['dial_classifications']['trust']
                     st.metric(
-                        "🤝 Trust",
+                        "💭 Trust",
                         f"{dial_scores['trust']:.1f}%",
                         delta=f"{classification_colors[trust_cls]} {trust_cls.capitalize()}"
                     )
@@ -5599,7 +5599,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         'valuation': ('💰 Valuation', weight_valuation / 100),
                         'liquidity': ('💧 Liquidity', weight_liquidity / 100),
                         'coverage': ('📰 Coverage', weight_coverage / 100),
-                        'trust': ('🤝 Trust', weight_trust / 100)
+                        'trust': ('💭 Trust', weight_trust / 100)
                     }
     
                     for dial, score in dial_scores.items():
@@ -5771,7 +5771,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 st.markdown("---")
                 st.markdown("### 📂 Recommendations by Dial")
     
-                category_tabs = st.tabs(["💰 Valuation", "💧 Liquidity", "📰 Coverage", "🤝 Trust"])
+                category_tabs = st.tabs(["💰 Valuation", "💧 Liquidity", "📰 Coverage", "💭 Trust"])
     
                 for i, category in enumerate(['Valuation', 'Liquidity', 'Coverage', 'Trust']):
                     with category_tabs[i]:
