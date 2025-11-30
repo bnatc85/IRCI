@@ -2863,13 +2863,10 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 'q_turnover': 'Turnover'
             })
 
-            # Add institutional ownership columns if available
+            # Add institutional ownership column if available (holder_count removed - Yahoo only provides top 10)
             if 'institutional_pct' in df_liq.columns:
-                liq_cols.extend(['institutional_pct', 'holder_count'])
-                liq_rename.update({
-                    'institutional_pct': 'Inst. Ownership %',
-                    'holder_count': '13F Holders'
-                })
+                liq_cols.append('institutional_pct')
+                liq_rename['institutional_pct'] = 'Inst. Ownership %'
 
             st.dataframe(
                 df_liq[[c for c in liq_cols if c in df_liq.columns]].rename(columns=liq_rename),
@@ -2882,8 +2879,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 • **Amihud (×10⁶)** = Price impact measure. Lower = more liquid. Shows how much price moves per dollar of volume.
 • **Spread (bps)** = Bid-ask spread in basis points. Lower = tighter spreads = better liquidity.
 • **Turnover** = Trading volume ÷ shares outstanding. Higher = more actively traded.
-• **Inst. Ownership %** = Percentage of shares held by institutional investors (from 13F filings). Higher = more institutional interest.
-• **13F Holders** = Number of institutional holders reporting in 13F filings.
+• **Inst. Ownership %** = Percentage of shares held by institutional investors (from Yahoo Finance). Higher = more institutional interest.
 """)
 
         with st.expander("📰 Coverage Details", expanded=False):
