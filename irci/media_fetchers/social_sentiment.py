@@ -3,7 +3,7 @@
 Social Sentiment Fetcher for Reddit (r/wallstreetbets) and StockTwits
 
 Aggregates retail investor sentiment from social platforms:
-- Reddit via Tradestie API (free, no auth required)
+- Reddit via ApeWisdom API (free, no auth required) - tracks WSB mentions
 - StockTwits API (free tier available)
 """
 from __future__ import annotations
@@ -17,61 +17,114 @@ from ..logging import get_logger
 
 log = get_logger("irci.social_sentiment")
 
+# Cache for ApeWisdom data (refreshes every 5 minutes)
+_apewisdom_cache = {"data": None, "timestamp": None}
+_CACHE_TTL_SECONDS = 300  # 5 minutes
 
-def fetch_reddit_sentiment(ticker: str) -> Dict:
+
+def _get_apewisdom_data() -> List[Dict]:
     """
-    Fetch Reddit/WSB sentiment from Tradestie API.
-
-    Free API that tracks r/wallstreetbets mentions and sentiment.
-    https://tradestie.com/api/v1/apps/reddit
-
-    Returns:
-        Dict with sentiment data including:
-        - sentiment: 'Bullish' or 'Bearish'
-        - sentiment_score: -1 to 1 scale
-        - mentions: Number of mentions in past 24h
-        - rank: Popularity rank on WSB
+    Fetch and cache ApeWisdom data for all stocks.
+    Returns list of stock sentiment data from Reddit/WSB.
     """
+    global _apewisdom_cache
+
+    now = datetime.now()
+    if (_apewisdom_cache["data"] is not None and
+        _apewisdom_cache["timestamp"] is not None and
+        (now - _apewisdom_cache["timestamp"]).total_seconds() < _CACHE_TTL_SECONDS):
+        return _apewisdom_cache["data"]
+
     try:
-        # Tradestie Reddit API - free, no auth
-        url = "https://tradestie.com/api/v1/apps/reddit"
-        response = requests.get(url, timeout=10)
+        url = "https://apewisdom.io/api/v1.0/filter/all-stocks"
+        response = requests.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
 
-        if not isinstance(data, list):
-            return {"error": "Invalid response format", "sentiment_score": np.nan}
+        results = data.get("results", [])
+        _apewisdom_cache["data"] = results
+        _apewisdom_cache["timestamp"] = now
+        log.info(f"ApeWisdom: fetched {len(results)} stocks from Reddit sentiment")
+        return results
+
+    except Exception as e:
+        log.warning(f"ApeWisdom API error: {e}")
+        return _apewisdom_cache.get("data", []) or []
+
+
+def fetch_reddit_sentiment(ticker: str) -> Dict:
+    """
+    Fetch Reddit/WSB sentiment from ApeWisdom API.
+
+    Free API that tracks r/wallstreetbets and other investing subreddits.
+    https://apewisdom.io/api/
+
+    Returns:
+        Dict with sentiment data including:
+        - sentiment: 'Bullish', 'Bearish', or 'Neutral' (based on rank change)
+        - sentiment_score: -1 to 1 scale
+        - mentions: Number of mentions in past 24h
+        - rank: Popularity rank on WSB
+        - upvotes: Total upvotes
+    """
+    try:
+        data = _get_apewisdom_data()
+
+        if not data:
+            return {"error": "No data available", "sentiment_score": np.nan}
 
         # Find our ticker in the results
         ticker_upper = ticker.upper()
         for item in data:
-            if item.get("ticker", "").upper() == ticker_upper:
-                sentiment = item.get("sentiment", "")
+            item_ticker = item.get("ticker", "").upper()
+            if item_ticker == ticker_upper:
+                rank = item.get("rank", 0)
+                mentions = item.get("mentions", 0)
+                upvotes = item.get("upvotes", 0)
+                rank_24h_ago = item.get("rank_24h_ago", rank)
 
-                # Convert to numeric score (-1 to 1)
-                if sentiment.lower() == "bullish":
-                    sentiment_score = 0.5  # Moderate positive
-                elif sentiment.lower() == "bearish":
-                    sentiment_score = -0.5  # Moderate negative
+                # Calculate sentiment based on rank change and activity
+                # Rank improvement = bullish momentum, rank decline = bearish
+                rank_change = (rank_24h_ago - rank) if rank_24h_ago else 0
+
+                # Base sentiment on rank change
+                if rank_change > 5:
+                    sentiment = "Bullish"
+                    sentiment_score = 0.6
+                elif rank_change > 0:
+                    sentiment = "Bullish"
+                    sentiment_score = 0.3
+                elif rank_change < -5:
+                    sentiment = "Bearish"
+                    sentiment_score = -0.4
+                elif rank_change < 0:
+                    sentiment = "Bearish"
+                    sentiment_score = -0.2
                 else:
+                    sentiment = "Neutral"
                     sentiment_score = 0.0
 
-                # Adjust by mention count (more mentions = stronger signal)
-                no_of_comments = item.get("no_of_comments", 0)
-                if no_of_comments > 100:
-                    sentiment_score *= 1.2  # Boost for high activity
-                elif no_of_comments < 10:
-                    sentiment_score *= 0.8  # Reduce confidence for low activity
+                # Boost score based on activity level (mentions + upvotes)
+                activity_score = mentions + (upvotes / 10)
+                if activity_score > 200:
+                    sentiment_score *= 1.3  # High activity = stronger signal
+                elif activity_score > 50:
+                    sentiment_score *= 1.1
+                elif activity_score < 10:
+                    sentiment_score *= 0.7  # Low activity = weaker signal
 
-                sentiment_score = np.clip(sentiment_score, -1, 1)
+                sentiment_score = float(np.clip(sentiment_score, -1, 1))
 
                 return {
                     "ticker": ticker_upper,
                     "sentiment": sentiment,
                     "sentiment_score": sentiment_score,
-                    "mentions": no_of_comments,
-                    "rank": data.index(item) + 1,
-                    "source": "reddit_wsb"
+                    "mentions": mentions,
+                    "upvotes": upvotes,
+                    "rank": rank,
+                    "rank_24h_ago": rank_24h_ago,
+                    "rank_change": rank_change,
+                    "source": "apewisdom_reddit"
                 }
 
         # Ticker not found in WSB trending - return neutral
@@ -81,8 +134,8 @@ def fetch_reddit_sentiment(ticker: str) -> Dict:
             "sentiment_score": 0.0,
             "mentions": 0,
             "rank": None,
-            "source": "reddit_wsb",
-            "note": "Not trending on WSB"
+            "source": "apewisdom_reddit",
+            "note": "Not trending on Reddit"
         }
 
     except requests.RequestException as e:
