@@ -2268,11 +2268,11 @@ AI can write your press release. It can't tell you if anyone read it, whether it
                 rec_weights = weight_analysis.get('recommended_weights', {})
 
                 if rec_weights:
-                    # Apply optimized weights to session state
-                    st.session_state['weight_valuation'] = round(rec_weights.get('valuation', 0.35) * 100)
-                    st.session_state['weight_liquidity'] = round(rec_weights.get('liquidity', 0.35) * 100)
-                    st.session_state['weight_coverage'] = round(rec_weights.get('coverage', 0.15) * 100)
-                    st.session_state['weight_trust'] = round(rec_weights.get('sentiment', 0.15) * 100)
+                    # Apply optimized weights to session state (use float for st.number_input compatibility)
+                    st.session_state['weight_valuation'] = float(round(rec_weights.get('valuation', 0.35) * 100, 1))
+                    st.session_state['weight_liquidity'] = float(round(rec_weights.get('liquidity', 0.35) * 100, 1))
+                    st.session_state['weight_coverage'] = float(round(rec_weights.get('coverage', 0.15) * 100, 1))
+                    st.session_state['weight_trust'] = float(round(rec_weights.get('sentiment', 0.15) * 100, 1))
 
                     # Mark that weights were auto-optimized
                     st.session_state['weights_auto_optimized'] = True
