@@ -2367,18 +2367,6 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     if st.session_state.get('analysis_just_completed', False):
         st.success(st.session_state.get('analysis_summary', '🎉 **Analysis Complete!**'))
 
-        # Navigation buttons - appear immediately after analysis
-        st.markdown("### 🧭 Jump to Results:")
-        nav_col1, nav_col2, nav_col3, nav_col4 = st.columns(4)
-        with nav_col1:
-            st.markdown("[📊 Company Analysis](#composite-ranking)", unsafe_allow_html=True)
-        with nav_col2:
-            st.markdown("[📈 Trends](#trends)", unsafe_allow_html=True)
-        with nav_col3:
-            st.markdown("[💵 Value Analysis](#value-analysis)", unsafe_allow_html=True)
-        with nav_col4:
-            st.markdown("[🎯 Playbook](#playbook)", unsafe_allow_html=True)
-
         st.markdown("---")
 
     st.markdown("## 📊 Analysis Results")
@@ -3791,7 +3779,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     use_container_width=True,
                     hide_index=True
                 )
-                st.caption("$/IRCI Point = EV × 1% × R². Potential Upside capped at 20% of EV. Based on Bushee & Miller (2012), Agarwal et al. (2016).")
+                st.caption("\\$/IRCI Point = EV × 1% × R². Potential Upside capped at 20% of EV. Based on Bushee & Miller (2012), Agarwal et al. (2016).")
 
                 # Additional detailed metrics
                 with st.expander("📊 Additional Enterprise Value Metrics"):
@@ -3877,7 +3865,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     r_squared = r_value ** 2
                     scaled_slope = abs(slope) * r_squared
                     stat_sig = "✓" if p_value < 0.05 else "⚠️"
-                    st.caption(f"Regression: Raw slope ${abs(slope):,.0f}/pt × R²={r_squared:.2f} = **${scaled_slope:,.0f}/pt** (p={p_value:.3f} {stat_sig})")
+                    st.caption(f"Regression: Raw slope \\${abs(slope):,.0f}/pt × R²={r_squared:.2f} = \\${scaled_slope:,.0f}/pt (p={p_value:.3f} {stat_sig})")
 
         except Exception as e:
             st.warning(f"Could not compute dollar value metrics: {str(e)}")
