@@ -118,7 +118,7 @@ def send_irci_report_email(
     subject = f"IRCI Analysis Report: {ticker} - {quarter}"
 
     # Build HTML body
-    score_text = f"<strong>IRCI Score: {irci_score:.1f}%</strong><br><br>" if irci_score else ""
+    score_text = f"<strong>IRCI Score: {irci_score:.0f}%</strong><br><br>" if irci_score else ""
     summary_text = f"<p><strong>Summary:</strong><br>{summary}</p>" if summary else ""
 
     body_html = f"""

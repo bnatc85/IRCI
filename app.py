@@ -960,7 +960,7 @@ ticker_items = [
     "+1 IRCI point ≈ $XX Millions.",
     "If a CEO is forcibly removed, how does this affect value?",
     "What is the value of a social media campaign?",
-]
+    "IRCI is like a credit score for investor relations.",]
 
 # Create the scrolling ticker HTML/CSS
 ticker_text = " &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; ".join(ticker_items)
