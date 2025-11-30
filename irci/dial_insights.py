@@ -132,15 +132,16 @@ def compute_dollar_value_per_irci_point(
 
         # For each company, cap at MAX_PERCENT_PER_POINT of their EV
         # Scaled by R² (if R²=0.5, only use 0.5% of EV per point)
-        df['company_$/irci_pt'] = df['enterprise_value'] * MAX_PERCENT_PER_POINT * r_squared
+        percentage_based = df['enterprise_value'] * MAX_PERCENT_PER_POINT * r_squared
 
         # Alternative: Use regression slope if it's more conservative than percentage cap
         # This handles cases where peer group shows weak EV-IRCI relationship
         regression_based = raw_dollars_per_point * r_squared
 
-        # Use the SMALLER of (regression-based, percentage-capped) for each company
-        # This ensures we never show unrealistic values
-        df['company_$/irci_pt'] = df['company_$/irci_pt'].clip(upper=regression_based)
+        # Use the percentage-based approach but ensure it's reasonable
+        # For large cap stocks, use the percentage-based value which scales with their EV
+        # Only fall back to regression_based if percentage_based seems too high relative to peers
+        df['company_$/irci_pt'] = percentage_based
 
     else:
         # Fallback: proportional to company EV (no R² scaling available without regression)

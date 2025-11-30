@@ -242,7 +242,7 @@ class IRCIReport(FPDF):
 
             # Dial name - use absolute Y positioning
             self.set_font('Arial', 'B', 7)
-            self.set_text_color(255, 255, 255)
+            self.set_text_color(0, 0, 0)  # Black text for better readability on yellow/orange
             self.set_xy(x, start_y + 2)
             self.cell(width - 2, 4, name, 0, 0, 'C')
 
