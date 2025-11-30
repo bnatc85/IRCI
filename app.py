@@ -1247,13 +1247,14 @@ with st.sidebar:
             st.session_state.weight_trust = DEFAULT_WEIGHTS['trust']
 
         # Use number inputs with BOTH value and key for proper state management
+        # Note: Always cast value to float to avoid StreamlitMixedNumericTypesError
         col1, col2 = st.columns(2)
         with col1:
             weight_valuation = st.number_input(
                 "💰 Valuation (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=st.session_state.weight_valuation,
+                value=float(st.session_state.weight_valuation),
                 step=0.1,
                 format="%.1f",
                 help="How fairly priced is the stock vs peers? Based on EV/EBITDA ratios. Higher weight = valuation matters more to your score."
@@ -1262,7 +1263,7 @@ with st.sidebar:
                 "📰 Coverage (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=st.session_state.weight_coverage,
+                value=float(st.session_state.weight_coverage),
                 step=0.1,
                 format="%.1f",
                 help="How much attention is the company getting? Based on SEC filings and media coverage. Higher weight = visibility matters more."
@@ -1273,7 +1274,7 @@ with st.sidebar:
                 "💧 Liquidity (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=st.session_state.weight_liquidity,
+                value=float(st.session_state.weight_liquidity),
                 step=0.1,
                 format="%.1f",
                 help="How easy is it to trade the stock? Based on bid-ask spread and trading volume. Higher weight = trading ease matters more."
@@ -1282,7 +1283,7 @@ with st.sidebar:
                 "💭 Trust (%)",
                 min_value=0.0,
                 max_value=100.0,
-                value=st.session_state.weight_trust,
+                value=float(st.session_state.weight_trust),
                 step=0.1,
                 format="%.1f",
                 help="How positive is market sentiment? Based on news sentiment and event stability. Higher weight = market perception matters more."
@@ -1388,10 +1389,10 @@ with st.sidebar:
                     st.session_state['df_cov'] = session_data.get('df_cov')
                     st.session_state['df_liq'] = session_data.get('df_liq')
                     st.session_state['news_df'] = session_data.get('news_df')
-                    st.session_state['weight_liquidity'] = session_data.get('weight_liquidity', 35)
-                    st.session_state['weight_valuation'] = session_data.get('weight_valuation', 35)
-                    st.session_state['weight_coverage'] = session_data.get('weight_coverage', 15)
-                    st.session_state['weight_trust'] = session_data.get('weight_trust', 15)
+                    st.session_state['weight_liquidity'] = float(session_data.get('weight_liquidity', 35.0))
+                    st.session_state['weight_valuation'] = float(session_data.get('weight_valuation', 35.0))
+                    st.session_state['weight_coverage'] = float(session_data.get('weight_coverage', 15.0))
+                    st.session_state['weight_trust'] = float(session_data.get('weight_trust', 15.0))
                     st.session_state['run_time'] = datetime.now()
     
                     # Verify data was loaded
@@ -2184,6 +2185,7 @@ AI can write your press release. It can't tell you if anyone read it, whether it
             st.session_state['news_df'] = all_quarters_results[quarter]['news_df']
             st.session_state['corporate_events_df'] = all_quarters_results[quarter].get('corporate_events_df')
             st.session_state['run_time'] = datetime.now()
+            st.session_state['is_multi_quarter'] = False  # Single quarter - no Trends tab
         else:
             # For multiple quarters, combine all data with quarter labels
             combined_composite = []
@@ -2234,6 +2236,7 @@ AI can write your press release. It can't tell you if anyone read it, whether it
             st.session_state['corporate_events_df'] = pd.concat(combined_corporate_events, ignore_index=True) if combined_corporate_events else None
             st.session_state['run_time'] = datetime.now()
             st.session_state['selected_quarters'] = selected_quarters  # Store list of quarters analyzed
+            st.session_state['is_multi_quarter'] = True  # Flag for navigation to show Trends tab
 
         # Success notification - professional toast instead of animation
         st.toast("Analysis Complete!", icon="✅")
