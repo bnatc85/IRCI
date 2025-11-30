@@ -1070,7 +1070,7 @@ with st.sidebar:
             st.rerun()
 
         # Start Over link - clears analysis and returns to initial state
-        if st.button("🔄 Start Over", key="start_over_link", use_container_width=True, type="tertiary"):
+        if st.button("🔄 Start Over", key="start_over_link", type="tertiary"):
             # Clear all analysis data
             for key in ['df_composite', 'df_trust', 'df_val', 'df_cov', 'df_liq', 'news_df',
                         'corporate_events_df', 'selected_section', 'selected_subsection',
@@ -6288,7 +6288,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         st.session_state['pdf_report'] = pdf_bytes
                         st.session_state['pdf_ticker'] = pdf_ticker
                         st.session_state['pdf_quarter'] = selected_quarter
-                        st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
+                        st.session_state['pdf_just_generated'] = True
+                        st.rerun()  # Rerun to update email section
 
                     except Exception as e:
                         st.error(f"Error generating PDF report: {str(e)}")
@@ -6298,6 +6299,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
         # Show download button if PDF was generated
         if 'pdf_report' in st.session_state and st.session_state.get('pdf_ticker') == pdf_ticker:
+            # Show success message after rerun
+            if st.session_state.pop('pdf_just_generated', False):
+                st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
             with col_pdf3:
                 st.download_button(
                     label=f"⬇️ Download {pdf_ticker} Report",
