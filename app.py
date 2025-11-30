@@ -953,16 +953,18 @@ if st.session_state.get('show_disclaimer', False):
 # Running ticker with IRCI questions and insights
 ticker_items = [
     "What was the value of our IR and communications efforts?",
+    "Drive critical decisions with trusted, data-backed insights.",
     "Is it worth it to travel and speak at a major conference?",
-    "How does our IR efficiency compare to peers?",
+    "How does our specific IR efficiency compare to peers?",
     "If an advertising campaign costs $10M, is the return worth it?",
     "Are we getting coverage from credible sources or just press wires?",
     "Does the market stay calm or freak out when we announce news?",
     "How easy is it for investors to trade our stock?",
-    "Which dial should we prioritize to maximize IR impact?",
-    "+1 IRCI point ≈ $XX Millions.",
+    "Which dial should we prioritize to maximize our company's IR impact?",
+    "+1 IRCI point ≈ $XX Millions for my company.",
     "If a CEO is forcibly removed, how does this affect value?",
-    "What is the value of a social media campaign?",
+    "What is the value of a social media brand campaign?",
+    "Print quantifiable board-ready IRCI reports in minutes.",
     "IRCI is like a credit score for investor relations.",]
 
 # Create the scrolling ticker HTML/CSS
@@ -1654,14 +1656,15 @@ The IR professional who uses IRCI will outperform the one who doesn't—not beca
             with col2:
                 st.markdown("""
 **Bonnie Rushing**
-*PhD Scholar, University of Colorado Colorado Springs*
+*PhD Scholar, College of Engineering and Applied Sciences, University of Colorado Colorado Springs*
 
 - Master's Degree in Strategic Intelligence
 - Military service in special operations and signals intelligence
 - Former instructor of strategic studies at US Air Force Academy
+- Trusted expert in social science research and data analytics
 - **Core expertise:** Signal detection, data analytics, translating operational tradecraft into market analysis
 
-*"From the aircraft to the boardroom, my job is the same: make sense of noise and enable decisions."*
+*"From the aircraft to the boardroom, my job is the same: make sense of noise and enable decision-makers."*
 
 📧 [brushing@uccs.edu](mailto:brushing@uccs.edu) | 🌐 [www.thebonnierushing.com](https://www.thebonnierushing.com)
                 """)
@@ -1679,6 +1682,7 @@ The IR professional who uses IRCI will outperform the one who doesn't—not beca
 
 - Led global communications and corporate affairs at Alibaba and PepsiCo
 - Senior government roles: Treasury, State Department, White House, USCENTCOM
+- Trusted expert in corporate communications, crisis management, and public affairs
 - **Core expertise:** Boardroom and global corporate communications strategy
                 """)
 
