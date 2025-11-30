@@ -2272,13 +2272,27 @@ AI can write your press release. It can't tell you how readers reacted, whether 
             from irci.dial_insights import recommend_optimal_weights
 
             df_composite_for_opt = st.session_state['df_composite']
+            df_val_for_opt = st.session_state.get('df_val')
+
             if df_composite_for_opt is not None and not df_composite_for_opt.empty:
                 # For multi-quarter, use the most recent quarter for optimization
                 if 'quarter' in df_composite_for_opt.columns:
                     latest_quarter = sorted(df_composite_for_opt['quarter'].unique())[-1]
-                    df_for_opt = df_composite_for_opt[df_composite_for_opt['quarter'] == latest_quarter]
+                    df_for_opt = df_composite_for_opt[df_composite_for_opt['quarter'] == latest_quarter].copy()
                 else:
-                    df_for_opt = df_composite_for_opt
+                    df_for_opt = df_composite_for_opt.copy()
+
+                # Merge enterprise_value from valuation data for R² optimization
+                if df_val_for_opt is not None and not df_val_for_opt.empty:
+                    if 'enterprise_value' in df_val_for_opt.columns and 'enterprise_value' not in df_for_opt.columns:
+                        ev_cols = ['ticker', 'enterprise_value']
+                        if 'quarter' in df_val_for_opt.columns and 'quarter' in df_for_opt.columns:
+                            ev_cols.append('quarter')
+                            ev_data = df_val_for_opt[ev_cols].drop_duplicates()
+                            df_for_opt = df_for_opt.merge(ev_data, on=['ticker', 'quarter'], how='left')
+                        else:
+                            ev_data = df_val_for_opt[['ticker', 'enterprise_value']].drop_duplicates()
+                            df_for_opt = df_for_opt.merge(ev_data, on='ticker', how='left')
 
                 # Get current weights for optimization context
                 current_weights = {
