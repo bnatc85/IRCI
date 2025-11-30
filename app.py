@@ -869,8 +869,8 @@ def show_intro_modal():
             st.rerun()
 
     with template_col2:
-        if st.button("🏦 **Financials**\n\nJPM, BAC, WFC, C, GS", use_container_width=True, key="modal_financials"):
-            st.session_state['found_peers'] = 'JPM, BAC, WFC, C, GS'
+        if st.button("🏦 **Financials**\n\nJPM, BAC, WFC, GS, MS", use_container_width=True, key="modal_financials"):
+            st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
             st.session_state['show_intro'] = False
             st.rerun()
 
@@ -1086,8 +1086,8 @@ with st.sidebar:
             st.session_state['found_peers'] = "AAPL, MSFT, GOOGL, META, AMZN"
             st.rerun()
     with template_col2:
-        if st.button("Finance", use_container_width=True, help="JPM, BAC, WFC, C, GS", key="tmpl_fin"):
-            st.session_state['found_peers'] = "JPM, BAC, WFC, C, GS"
+        if st.button("Finance", use_container_width=True, help="JPM, BAC, WFC, GS, MS", key="tmpl_fin"):
+            st.session_state['found_peers'] = "JPM, BAC, WFC, GS, MS"
             st.rerun()
     with template_col3:
         if st.button("Health", use_container_width=True, help="JNJ, PFE, UNH, ABBV, LLY", key="tmpl_health"):
