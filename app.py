@@ -1085,19 +1085,22 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📊 Select Companies")
 
-    # Quick templates for common peer groups - compact buttons
+    # Quick templates for common peer groups - icon buttons
     st.caption("Quick templates:")
     template_col1, template_col2, template_col3 = st.columns(3)
     with template_col1:
-        if st.button("Tech", use_container_width=True, help="AAPL, MSFT, GOOGL, META, AMZN", key="tmpl_tech"):
+        st.image("assets/tech-icon.jpg", use_container_width=True)
+        if st.button("Select", key="tmpl_tech", use_container_width=True):
             st.session_state['found_peers'] = "AAPL, MSFT, GOOGL, META, AMZN"
             st.rerun()
     with template_col2:
-        if st.button("Finance", use_container_width=True, help="JPM, BAC, WFC, GS, MS", key="tmpl_fin"):
+        st.image("assets/finance-icon.jpg", use_container_width=True)
+        if st.button("Select", key="tmpl_fin", use_container_width=True):
             st.session_state['found_peers'] = "JPM, BAC, WFC, GS, MS"
             st.rerun()
     with template_col3:
-        if st.button("Health", use_container_width=True, help="JNJ, PFE, UNH, ABBV, LLY", key="tmpl_health"):
+        st.image("assets/health-icon.jpg", use_container_width=True)
+        if st.button("Select", key="tmpl_health", use_container_width=True):
             st.session_state['found_peers'] = "JNJ, PFE, UNH, ABBV, LLY"
             st.rerun()
 
