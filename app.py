@@ -867,21 +867,21 @@ def show_intro_modal():
     template_col1, template_col2, template_col3 = st.columns(3)
 
     with template_col1:
-        st.image("assets/tech-icon.jpg", use_container_width=True)
+        st.image(str(repo_root / "assets" / "tech-icon.jpg"), use_container_width=True)
         if st.button("Select", key="modal_big_tech", use_container_width=True):
             st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
             st.session_state['show_intro'] = False
             st.rerun()
 
     with template_col2:
-        st.image("assets/finance-icon.jpg", use_container_width=True)
+        st.image(str(repo_root / "assets" / "finance-icon.jpg"), use_container_width=True)
         if st.button("Select", key="modal_financials", use_container_width=True):
             st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
             st.session_state['show_intro'] = False
             st.rerun()
 
     with template_col3:
-        st.image("assets/health-icon.jpg", use_container_width=True)
+        st.image(str(repo_root / "assets" / "health-icon.jpg"), use_container_width=True)
         if st.button("Select", key="modal_healthcare", use_container_width=True):
             st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
             st.session_state['show_intro'] = False
@@ -961,7 +961,7 @@ ticker_items = [
     "Does the market stay calm or freak out when we announce news?",
     "How easy is it for investors to trade our stock?",
     "Which dial should we prioritize to maximize our company's IR impact?",
-    "+1 IRCI point ≈ $XX Millions for my company.",
+    "+1 IRCI point ≈ $XX Million for my company.",
     "If a CEO is forcibly removed, how does this affect value?",
     "What is the value of a social media brand campaign?",
     "Print quantifiable board-ready IRCI reports in minutes.",
@@ -1091,17 +1091,17 @@ with st.sidebar:
     st.caption("Quick templates:")
     template_col1, template_col2, template_col3 = st.columns(3)
     with template_col1:
-        st.image("assets/tech-icon.jpg", use_container_width=True)
+        st.image(str(repo_root / "assets" / "tech-icon.jpg"), use_container_width=True)
         if st.button("Select", key="tmpl_tech", use_container_width=True):
             st.session_state['found_peers'] = "AAPL, MSFT, GOOGL, META, AMZN"
             st.rerun()
     with template_col2:
-        st.image("assets/finance-icon.jpg", use_container_width=True)
+        st.image(str(repo_root / "assets" / "finance-icon.jpg"), use_container_width=True)
         if st.button("Select", key="tmpl_fin", use_container_width=True):
             st.session_state['found_peers'] = "JPM, BAC, WFC, GS, MS"
             st.rerun()
     with template_col3:
-        st.image("assets/health-icon.jpg", use_container_width=True)
+        st.image(str(repo_root / "assets" / "health-icon.jpg"), use_container_width=True)
         if st.button("Select", key="tmpl_health", use_container_width=True):
             st.session_state['found_peers'] = "JNJ, PFE, UNH, ABBV, LLY"
             st.rerun()
