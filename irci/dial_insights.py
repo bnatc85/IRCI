@@ -110,7 +110,9 @@ def compute_dollar_value_per_irci_point(
 
         # Apply R² scaling to group dollars per point
         # This reflects that IR is only one factor affecting enterprise value
-        group_dollars_per_point = group_dollars_per_point_raw * r_squared
+        # Use a minimum floor for R² in calculations to avoid zero values
+        r_squared_for_calc = max(r_squared, 0.10)  # Minimum 10% floor for calculations
+        group_dollars_per_point = group_dollars_per_point_raw * r_squared_for_calc
 
         # Company-specific $/IRCI point calculation
         # NEW APPROACH: Use percentage-based limits to avoid unrealistic trillion-dollar values
@@ -120,7 +122,7 @@ def compute_dollar_value_per_irci_point(
         #
         # For cross-sectional peer comparisons:
         #   - Max impact = 10% of EV per 10 IRCI points (1% per point)
-        #   - Scaled by R² to reflect actual explanatory power
+        #   - Scaled by R² to reflect actual explanatory power (with floor)
         #
         # This prevents absurd results like "$500B upside from 10-point IRCI gap"
 
@@ -131,16 +133,15 @@ def compute_dollar_value_per_irci_point(
         raw_dollars_per_point = peer_regression_slope
 
         # For each company, cap at MAX_PERCENT_PER_POINT of their EV
-        # Scaled by R² (if R²=0.5, only use 0.5% of EV per point)
-        percentage_based = df['enterprise_value'] * MAX_PERCENT_PER_POINT * r_squared
+        # Scaled by R² with floor (if R²=0.5, use 0.5% of EV per point; if R²<0.1, use 0.1%)
+        percentage_based = df['enterprise_value'] * MAX_PERCENT_PER_POINT * r_squared_for_calc
 
         # Alternative: Use regression slope if it's more conservative than percentage cap
         # This handles cases where peer group shows weak EV-IRCI relationship
-        regression_based = raw_dollars_per_point * r_squared
+        regression_based = raw_dollars_per_point * r_squared_for_calc
 
         # Use the percentage-based approach but ensure it's reasonable
         # For large cap stocks, use the percentage-based value which scales with their EV
-        # Only fall back to regression_based if percentage_based seems too high relative to peers
         df['company_$/irci_pt'] = percentage_based
 
     else:
