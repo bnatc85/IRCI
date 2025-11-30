@@ -34,6 +34,7 @@ from irci.media_fetchers.finnhub_fetcher import finnhub_fetcher
 from irci.peers import find_peers_simple
 from irci.playbook import generate_playbook
 from irci.chatbot import chat_with_context, get_suggested_questions
+from irci.yahoo_metrics import get_yahoo_metrics_batch
 from irci.report_generator import generate_pdf_report
 from irci.corporate_events_fetcher import fetch_corporate_events_for_peer_group
 import numpy as np
@@ -2146,7 +2147,38 @@ AI can write your press release. It can't tell you how readers reacted, whether 
                     df_liq["quarter_end"] = pd.to_datetime(pd.to_datetime(df_liq["quarter_end"]).dt.date)
                 df_liq = add_liquidity_percentile(df_liq)
             ticker_progress.empty()  # Clear ticker progress
-            progress_bar.progress(85, text="✓ Liquidity complete")
+            progress_bar.progress(80, text="✓ Liquidity complete")
+
+            # 4b. Yahoo Finance metrics (analyst coverage, short interest)
+            progress_bar.progress(82, text="📊 Fetching analyst coverage & short interest...")
+            status_text.text(f"Fetching Yahoo Finance metrics for {len(tickers)} companies...")
+            try:
+                df_yahoo = get_yahoo_metrics_batch(tickers)
+                if not df_yahoo.empty:
+                    # Merge analyst coverage into Coverage dataframe
+                    if not df_cov.empty:
+                        yahoo_cov_cols = ['ticker', 'analyst_count', 'analyst_coverage_score',
+                                         'target_mean', 'price_target_upside_pct', 'recommendation']
+                        df_cov = df_cov.merge(
+                            df_yahoo[yahoo_cov_cols],
+                            on='ticker',
+                            how='left'
+                        )
+                    # Merge short interest into Trust dataframe
+                    if not df_trust.empty:
+                        yahoo_trust_cols = ['ticker', 'short_pct_float', 'short_ratio',
+                                           'short_change_pct', 'short_interest_score',
+                                           'recommendation_score']
+                        df_trust = df_trust.merge(
+                            df_yahoo[yahoo_trust_cols],
+                            on='ticker',
+                            how='left'
+                        )
+                    st.success(f"✓ Yahoo Finance: analyst coverage & short interest data loaded")
+            except Exception as e:
+                print(f"Warning: Could not fetch Yahoo metrics: {e}")
+                st.warning(f"⚠️ Yahoo metrics unavailable: {e}")
+            progress_bar.progress(85, text="✓ Yahoo metrics complete")
 
             # 5. Composite
             progress_bar.progress(90, text="🎯 Step 5/5: Computing IRCI composite scores")
@@ -2427,7 +2459,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     # Show auto-optimization status if weights were optimized
     if st.session_state.get('weights_auto_optimized', False):
         r2 = st.session_state.get('optimization_r2', 0)
-        st.caption(f"✓ Weights auto-optimized based on peer group variance (R²={r2:.1%})")
+        st.caption(f"✓ Weights auto-optimized based on peer group variance")
 
     try:
         df_composite = st.session_state['df_composite']
@@ -2955,11 +2987,44 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     'has_transcript': 'Has Transcript'
                 })
 
+            # Add analyst coverage columns if available (from Yahoo Finance)
+            if 'analyst_count' in df_cov_display.columns:
+                coverage_cols.extend(['analyst_count', 'recommendation', 'price_target_upside_pct'])
+                coverage_rename.update({
+                    'analyst_count': 'Analysts',
+                    'recommendation': 'Rating',
+                    'price_target_upside_pct': 'Target Upside %'
+                })
+
             st.dataframe(
                 df_cov_display[[c for c in coverage_cols if c in df_cov_display.columns]].rename(columns=coverage_rename),
                 use_container_width=True,
                 hide_index=True
             )
+
+            # Show analyst coverage summary if data available
+            if 'analyst_count' in df_cov_display.columns:
+                has_analyst_data = df_cov_display['analyst_count'].notna().any() and (df_cov_display['analyst_count'] > 0).any()
+                if has_analyst_data:
+                    st.markdown("---")
+                    st.markdown("**📈 Analyst Coverage (Yahoo Finance)**")
+                    analyst_display = df_cov_display[['ticker', 'analyst_count', 'recommendation', 'target_mean', 'price_target_upside_pct']].copy()
+                    analyst_display = analyst_display[analyst_display['analyst_count'].notna() & (analyst_display['analyst_count'] > 0)]
+                    if not analyst_display.empty:
+                        analyst_display['price_target_upside_pct'] = analyst_display['price_target_upside_pct'].apply(
+                            lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/A"
+                        )
+                        analyst_display['target_mean'] = analyst_display['target_mean'].apply(
+                            lambda x: f"${x:.2f}" if pd.notna(x) else "N/A"
+                        )
+                        analyst_display = analyst_display.rename(columns={
+                            'ticker': 'Ticker',
+                            'analyst_count': 'Analysts',
+                            'recommendation': 'Consensus',
+                            'target_mean': 'Price Target',
+                            'price_target_upside_pct': 'Upside'
+                        })
+                        st.dataframe(analyst_display, use_container_width=True, hide_index=True)
 
             st.caption("""
 💡 **Metric Definitions:**
@@ -3010,6 +3075,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     'social_activity': 'Retail Activity'
                 })
 
+            # Add short interest columns if available (from Yahoo Finance)
+            if 'short_pct_float' in df_trust.columns:
+                trust_cols.extend(['short_pct_float', 'short_ratio'])
+                trust_rename.update({
+                    'short_pct_float': 'Short % Float',
+                    'short_ratio': 'Days to Cover'
+                })
+
             st.dataframe(
                 df_trust[[c for c in trust_cols if c in df_trust.columns]].rename(columns=trust_rename),
                 use_container_width=True,
@@ -3043,15 +3116,44 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         hide_index=True
                     )
 
+            # Show short interest details if available
+            if 'short_pct_float' in df_trust.columns:
+                has_short_data = df_trust['short_pct_float'].notna().any()
+                if has_short_data:
+                    st.markdown("---")
+                    st.markdown("**📉 Short Interest (Yahoo Finance)**")
+                    short_cols = ['ticker', 'short_pct_float', 'short_ratio', 'short_change_pct']
+                    short_display = df_trust[[c for c in short_cols if c in df_trust.columns]].copy()
+                    short_display = short_display[short_display['short_pct_float'].notna()]
+                    if not short_display.empty:
+                        short_display['short_pct_float'] = short_display['short_pct_float'].apply(
+                            lambda x: f"{x:.2f}%" if pd.notna(x) else "N/A"
+                        )
+                        short_display['short_ratio'] = short_display['short_ratio'].apply(
+                            lambda x: f"{x:.1f}" if pd.notna(x) else "N/A"
+                        )
+                        if 'short_change_pct' in short_display.columns:
+                            short_display['short_change_pct'] = short_display['short_change_pct'].apply(
+                                lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/A"
+                            )
+                        short_display = short_display.rename(columns={
+                            'ticker': 'Ticker',
+                            'short_pct_float': 'Short % Float',
+                            'short_ratio': 'Days to Cover',
+                            'short_change_pct': 'MoM Change'
+                        })
+                        st.dataframe(short_display, use_container_width=True, hide_index=True)
+
             st.caption("""
 💡 **Metric Definitions:**
 • **Event Calm %** = Measures price stability around earnings and 8-K filings. Higher % = stock price moved LESS than peers during event windows (good for investor confidence).
 • **Baseline Calm %** = Measures day-to-day price volatility vs peers. Higher % = LOWER volatility than peers (more predictable stock).
 • **Media Tone %** = Sentiment score from news coverage. Higher = more positive coverage.
 • **Social Sentiment %** = Retail investor sentiment from Reddit (r/wallstreetbets). Higher = more bullish momentum.
+• **Short % Float** = Percentage of tradeable shares sold short. Lower = less bearish sentiment (higher trust).
+• **Days to Cover** = Number of days for shorts to cover based on avg volume. Higher = more crowded short trade.
 • **Events** = Number of corporate events (earnings, 8-K filings) analyzed.
 • **Articles** = Number of news articles analyzed for sentiment.
-• **Retail Activity** = Level of Reddit/social media discussion (high/moderate/low/minimal).
 """)
 
     # SECTION 2: Trend Analysis (only for multi-quarter data)
@@ -4138,7 +4240,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         # Show applied weights with auto-optimization status
         if st.session_state.get('weights_auto_optimized', False):
             r2 = st.session_state.get('optimization_r2', 0)
-            st.success(f"✓ Weights auto-optimized based on peer group variance (R²={r2:.1%})")
+            st.success(f"✓ Weights auto-optimized based on peer group variance")
 
         weights_df = pd.DataFrame([
             {'Dial': 'Valuation', 'Weight': f"{current_weights['valuation']*100:.1f}%"},
