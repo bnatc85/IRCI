@@ -3542,13 +3542,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         st.markdown("#### 💵 Dollar Value per IRCI Point")
         st.markdown("*Reveals how much enterprise value corresponds to each IRCI point improvement*")
 
-        st.warning("""
-        ⚠️ **Planning Range, Not a Promise:** Dollar-per-point estimates are derived from regression analysis of peer relationships
-        and **automatically scaled by R²** to reflect that IR is one of many factors affecting enterprise value.
-        R² values of 0.3-0.5 are typical for secondary factors (after fundamentals). If R²=0.3, dollar estimates are reduced by 70%
-        to reflect that IR explains only 30% of enterprise value variance.
-        These are **planning tools** for evaluating IR investments, not guarantees of market outcomes.
-        """)
+        st.caption("⚠️ Dollar estimates are **planning ranges** based on peer regression, not guarantees. Values scaled by R² for conservatism.")
 
         try:
             dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
@@ -3577,23 +3571,6 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     help="Largest gap between a peer and the top performer. This shows the maximum improvement opportunity in the peer group."
                 )
 
-                # Calculation methodology explainer
-                with st.expander("🔢 How We Calculate $/IRCI Point"):
-                    st.markdown(f"""
-                    ### Methodology: EV-Based Percentage Caps
-
-                    $/IRCI point is capped at **1% of enterprise value** (scaled by R²) to prevent unrealistic values for large companies.
-
-                    **Formula:** `$/IRCI Point = EV × 1% × R²`
-
-                    **Why 1%?** Academic research shows IR contributes 5-15% to firm value long-term. A 10-point IRCI gap = max 10% of EV (within that range).
-
-                    **Example (R² = {r2_score:.2f}):**
-                    - $500B company → ${500 * 0.01 * r2_score:,.1f}B per point
-                    - 10-point gap → ${500 * 0.01 * r2_score * 10:,.1f}B potential upside
-
-                    **Sources:** Bushee & Miller (2012), Agarwal et al. (2016)
-                    """)
 
                 # IR Contribution Value Summary
                 st.markdown("---")
@@ -3645,29 +3622,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         - 50-100%: Aggressive (assumes QoQ = structural differences)
                         """)
 
-                    st.info(f"""
-                    **What this shows:** Estimated dollar value of your IR team's quarterly performance change.
-
-                    **Calculation:** (Current IRCI - Previous IRCI) × $/IRCI point × **{quarterly_impact_factor:.0%} quarterly factor**
-
-                    The {quarterly_impact_factor:.0%} factor accounts for the difference between marginal quarterly improvements
-                    and structural peer differences. Adjust in settings above if needed.
-
-                    - **Positive value** = IRCI improved, IR added value this quarter
-                    - **Negative value** = IRCI declined, IR lost value this quarter
-                    - **Zero** = No change from last quarter
-                    """)
+                    st.caption(f"📊 Shows quarterly IR value change: (ΔIRCI × $/pt × {quarterly_impact_factor:.0%} factor). Positive = improved, Negative = declined.")
                 else:
-                    st.info("""
-                    **What this shows:** How much dollar value your IR team represents relative to peer average.
-                    Calculated as: (Your IRCI - Peer Average IRCI) × $/IRCI point (R²-scaled).
-
-                    💡 **To track quarterly improvement**, run analysis for previous quarter first, then this quarter.
-
-                    - **Positive value** = Your IR outperformed peers
-                    - **Negative value** = Your IR underperformed peers
-                    - **Zero** = You performed at peer average
-                    """)
+                    st.caption("📊 Shows IR value vs peer average: (Your IRCI - Peer Avg) × $/pt. Run previous quarter first to track QoQ changes.")
 
                 # Calculate peer average IRCI
                 peer_avg_irci = dollar_value_df['irci_composite_pct'].mean()
@@ -3815,21 +3772,6 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     - **As % of EV:** Shows the gap is capped at realistic academic bounds (5-15% of firm value over long term)
                     """)
 
-                # Academic methodology and references
-                with st.expander("📚 Academic Methodology & References"):
-                    st.markdown("""
-                    ### Why Quarterly Changes Use a 10% Factor
-
-                    $/IRCI point comes from **cross-sectional regression** (structural differences across companies), but quarterly changes are **time-series** (gradual improvements). Academic research shows IR effects take 12-24 months to fully materialize.
-
-                    **Key Research:**
-                    - Bushee & Miller (2012): IR contributes 5-10% to firm value
-                    - Agarwal et al. (2016): 8-12% higher institutional ownership, effects take 12-24 months
-                    - Kirk & Vincent (2014): 10-15% reduction in information asymmetry
-
-                    **10% factor** = conservative assumption that each quarter captures ~10% of structural value (full benefit in 2-3 years).
-                    """)
-
                 st.markdown("---")
                 # Per-Ticker $/IRCI Point Table (Most Important)
                 st.markdown("**Per-Ticker Dollar Value per IRCI Point:**")
@@ -3849,19 +3791,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     use_container_width=True,
                     hide_index=True
                 )
-                st.caption("""
-                📊 **Column Definitions:**
-
-                - **IRCI Score %:** Current composite IRCI score (0-100, peer-relative)
-                - **🎯 Company $/IRCI Point:** Enterprise value change per 1-point IRCI improvement
-                  - Capped at **1% of EV per point** (scaled by R²)
-                  - Based on academic research: IR contributes 5-15% to firm value over long term
-                  - Prevents unrealistic trillion-dollar values for large companies
-                - **Gap to Top (pts):** How many IRCI points behind the top performer
-                - **Potential $ Upside:** Total value opportunity from closing gap to top performer
-                  - Capped at **20% of enterprise value** to ensure realistic estimates
-                  - Represents long-term structural positioning, not quarterly achievable gains
-                """)
+                st.caption("$/IRCI Point = EV × 1% × R². Potential Upside capped at 20% of EV. Based on Bushee & Miller (2012), Agarwal et al. (2016).")
 
                 # Additional detailed metrics
                 with st.expander("📊 Additional Enterprise Value Metrics"):
@@ -3937,43 +3867,17 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                # Add methodology and proof section
-                with st.expander("📐 **Dollar Value Methodology**"):
-
-                    # Show actual regression results from this analysis
-                    if not dollar_value_df.empty:
-                        from scipy import stats
-                        slope, intercept, r_value, p_value, std_err = stats.linregress(
-                            dollar_value_df['irci_composite_pct'],
-                            dollar_value_df['enterprise_value']
-                        )
-                        r_squared = r_value ** 2
-                        raw_slope = abs(slope)
-                        scaled_slope = raw_slope * r_squared
-
-                        st.markdown(f"""
-**How It Works:** We regress Enterprise Value against IRCI scores across your peer group, then scale by R² to be conservative.
-
-**Your Peer Group Results:**
-| Metric | Value |
-|--------|-------|
-| Raw Slope | \${raw_slope:,.0f}/pt |
-| R² | {r_squared:.2f} ({r_squared*100:.0f}% of EV variance) |
-| **Scaled \$/IRCI pt** | **\${scaled_slope:,.0f}** |
-| P-value | {p_value:.4f} {'✓' if p_value < 0.05 else '⚠️'} |
-
-**Formula:** `Company $/IRCI = (Company EV / Peer Mean EV) × Slope × R²`
-
-**Key Points:** R² scaling ensures we only attribute the portion of value explained by IRCI. Larger companies = larger \$/IRCI values. These are planning estimates—fundamentals drive most value.
-                        """)
-                    else:
-                        st.markdown("""
-**How It Works:** We regress Enterprise Value against IRCI scores across your peer group, then scale by R² to be conservative.
-
-**Formula:** `Company $/IRCI = (Company EV / Peer Mean EV) × Slope × R²`
-
-**Key Points:** R² scaling ensures we only attribute the portion of value explained by IRCI. Larger companies = larger \$/IRCI values. These are planning estimates—fundamentals drive most value.
-                        """)
+                # Show regression stats inline if available
+                if not dollar_value_df.empty:
+                    from scipy import stats
+                    slope, intercept, r_value, p_value, std_err = stats.linregress(
+                        dollar_value_df['irci_composite_pct'],
+                        dollar_value_df['enterprise_value']
+                    )
+                    r_squared = r_value ** 2
+                    scaled_slope = abs(slope) * r_squared
+                    stat_sig = "✓" if p_value < 0.05 else "⚠️"
+                    st.caption(f"Regression: Raw slope ${abs(slope):,.0f}/pt × R²={r_squared:.2f} = **${scaled_slope:,.0f}/pt** (p={p_value:.3f} {stat_sig})")
 
         except Exception as e:
             st.warning(f"Could not compute dollar value metrics: {str(e)}")
