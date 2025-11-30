@@ -2348,7 +2348,7 @@ AI can write your press release. It can't tell you how readers reacted, whether 
 
                     # Update analysis summary to mention optimization
                     r2_val = weight_analysis.get('optimized_r2', 0) or 0
-                    st.session_state['analysis_summary'] += f" Weights auto-optimized (R²={r2_val:.1%})."
+                    st.session_state['analysis_summary'] += f" Weights auto-optimized."
         except Exception as e:
             # Don't fail analysis if optimization fails - just log it
             print(f"Auto-optimization warning: {e}")
