@@ -3081,6 +3081,56 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             )
             st.plotly_chart(fig_qoq, use_container_width=True)
 
+            # Calculate QoQ value creation if dollar value data is available
+            try:
+                from irci.dial_insights import compute_dollar_value_per_irci_point
+                # Use the most recent quarter's data for dollar value calculation
+                latest_quarter = unique_quarters[-1]
+                df_latest = df_composite[df_composite['quarter'] == latest_quarter].copy()
+                dollar_value_df = compute_dollar_value_per_irci_point(df_latest, df_val)
+
+                if dollar_value_df is not None and not dollar_value_df.empty:
+                    # Add dollar value to QoQ data
+                    qoq_df_with_value = qoq_df.merge(
+                        dollar_value_df[['ticker', 'company_$/irci_pt']],
+                        on='ticker',
+                        how='left'
+                    )
+                    qoq_df_with_value['value_change'] = qoq_df_with_value['change'] * qoq_df_with_value['company_$/irci_pt']
+
+                    # QoQ Value Creation Summary
+                    st.markdown("#### 💰 QoQ Value Creation")
+                    st.caption("Estimated enterprise value impact from IRCI score changes (IRCI change × \\$/IRCI point)")
+
+                    # Create summary with value
+                    value_summary = []
+                    for ticker in qoq_df_with_value['ticker'].unique():
+                        ticker_data = qoq_df_with_value[qoq_df_with_value['ticker'] == ticker]
+                        total_change = ticker_data['change'].sum()
+                        total_value = ticker_data['value_change'].sum()
+                        dollar_per_pt = ticker_data['company_$/irci_pt'].iloc[0] if not ticker_data['company_$/irci_pt'].isna().all() else 0
+
+                        value_summary.append({
+                            'Ticker': ticker,
+                            'Total IRCI Chg': f"{total_change:+.1f} pts",
+                            '$/IRCI Point': f"${dollar_per_pt/1e6:,.0f}M" if dollar_per_pt >= 1e6 else f"${dollar_per_pt:,.0f}",
+                            'Est. Value Created': f"${total_value/1e9:+.1f}B" if abs(total_value) >= 1e9 else f"${total_value/1e6:+,.0f}M"
+                        })
+
+                    value_summary_df = pd.DataFrame(value_summary)
+                    st.dataframe(value_summary_df, use_container_width=True, hide_index=True)
+
+                    # Total value creation across all companies
+                    total_value_all = qoq_df_with_value['value_change'].sum()
+                    if abs(total_value_all) >= 1e9:
+                        total_str = f"${total_value_all/1e9:+.1f}B"
+                    else:
+                        total_str = f"${total_value_all/1e6:+,.0f}M"
+
+                    st.info(f"**Total estimated value creation across peer group:** {total_str}")
+            except Exception as e:
+                pass  # Dollar value calculation not available
+
             # Summary table
             st.markdown("#### QoQ Change Summary")
             summary_df = qoq_df.groupby('ticker')['change'].agg(['mean', 'min', 'max']).reset_index()
