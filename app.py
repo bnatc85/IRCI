@@ -1764,17 +1764,17 @@ elif run_analysis:
 | Benchmark against competitors | ❌ | ✅ Peer-relative percentiles |
 | Verify claims with sources | ❌ | ✅ Every metric auditable |
 
-**🎯 Plan Your IR Activities with Confidence**
+**Plan Your IR Activities with Confidence**
 
-IRCI's **Playbook & Events** section transforms guesswork into strategy:
+IRCI transforms guesswork into strategy:
 - **Event Simulator**: Model the impact of investor days, earnings calls, analyst coverage before you commit budget
-- **Academic-Backed Values**: Every event impact draws from peer-reviewed research (Bushee & Miller 2012, Agarwal et al. 2016)
+- **Academic-Backed Values**: Event impacts draw from peer-reviewed research
 - **Dollar Translation**: See exactly how much value each IR initiative could add in your company's terms
 - **Prioritized Recommendations**: Data-driven playbook tells you where to focus for maximum ROI
 
 **The Bottom Line**
 
-AI can write your press release. It can't tell you if anyone read it, whether it moved your stock, or how you compare to competitors. IRCI answers those questions with data, not guesses—and helps you **plan what to do next**.
+AI can write your press release. It can't tell you how readers reacted, whether it moved your stock, or how you truly compare to competitors. IRCI answers those questions with data, not guesses—and helps you **plan what to do next**.
 
 *Your expertise + IRCI's measurement = Defensible, repeatable IR strategy*
 
@@ -2279,10 +2279,11 @@ AI can write your press release. It can't tell you if anyone read it, whether it
 
                     # Mark that weights were auto-optimized
                     st.session_state['weights_auto_optimized'] = True
-                    st.session_state['optimization_r2'] = weight_analysis.get('r2_score', 0)
+                    st.session_state['optimization_r2'] = weight_analysis.get('optimized_r2', 0) or 0
 
                     # Update analysis summary to mention optimization
-                    st.session_state['analysis_summary'] += f" Weights auto-optimized (R²={weight_analysis.get('r2_score', 0):.1%})."
+                    r2_val = weight_analysis.get('optimized_r2', 0) or 0
+                    st.session_state['analysis_summary'] += f" Weights auto-optimized (R²={r2_val:.1%})."
         except Exception as e:
             # Don't fail analysis if optimization fails - just log it
             print(f"Auto-optimization warning: {e}")
@@ -2761,7 +2762,21 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 hide_index=True
             )
 
-            st.caption("""
+            # Check peer count to show appropriate note
+            peer_count = df_val['peer_count'].iloc[0] if 'peer_count' in df_val.columns else len(df_val)
+
+            if peer_count <= 5:
+                if peer_count <= 2:
+                    score_range = "30-70%"
+                else:
+                    score_range = "15-85%"
+                st.caption(f"""
+💡 **Quick Guide:** EV/EBITDA compares value to earnings (lower = cheaper). PEG adjusts P/E for growth (below 1.0 = potentially undervalued). Scores show peer percentile ranking.
+
+📊 **Small Peer Group Note:** With only {peer_count} peers, percentile scores are compressed to {score_range} to avoid statistically unreliable extremes. Expand peer group for full 0-100% range.
+""")
+            else:
+                st.caption("""
 💡 **Quick Guide:** EV/EBITDA compares value to earnings (lower = cheaper). PEG adjusts P/E for growth (below 1.0 = potentially undervalued). Scores show peer percentile ranking.
 """)
 

@@ -161,7 +161,14 @@ def _residuals_capm_yf(df_px: pd.DataFrame, q_start: pd.Timestamp, q_end: pd.Tim
     mkt = mkt.copy()
     mkt.index = pd.to_datetime(mkt.index, utc=True)
     mkt = mkt.sort_index()
-    mkt["mret"] = mkt["Adj Close"].pct_change()
+
+    # Handle MultiIndex columns from yfinance (e.g., ('Close', 'SPY'))
+    if isinstance(mkt.columns, pd.MultiIndex):
+        mkt.columns = mkt.columns.get_level_values(0)
+
+    # With auto_adjust=True, yfinance returns 'Close' (already adjusted), not 'Adj Close'
+    close_col = "Close" if "Close" in mkt.columns else "Adj Close"
+    mkt["mret"] = mkt[close_col].pct_change()
 
     d = df_px.copy().sort_index()
     d["ret"] = d["adj_close"].pct_change()
