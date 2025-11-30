@@ -173,13 +173,13 @@ def irci_composite(
         weights = {"valuation": 0.35, "liquidity": 0.35, "coverage": 0.15, "sentiment": 0.15}
 
     frames = []
-    if valuation is not None:
+    if valuation is not None and "valuation_pct" in valuation.columns:
         frames.append(valuation[["ticker", "quarter_end", "valuation_pct"]])
-    if liquidity is not None:
+    if liquidity is not None and "liquidity_pct" in liquidity.columns:
         frames.append(liquidity[["ticker", "quarter_end", "liquidity_pct"]])
-    if coverage is not None and "coverage_pct" in coverage:
+    if coverage is not None and "coverage_pct" in coverage.columns:
         frames.append(coverage[["ticker", "quarter_end", "coverage_pct"]])
-    if sentiment is not None and "sentiment_pct" in sentiment:
+    if sentiment is not None and "sentiment_pct" in sentiment.columns:
         frames.append(sentiment[["ticker", "quarter_end", "sentiment_pct"]])
 
     if not frames:
