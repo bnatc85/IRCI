@@ -2559,11 +2559,13 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
         # Top metrics - handle single or multiple quarters
         quarters_analyzed = st.session_state.get('selected_quarters', [])
+        run_time = st.session_state['run_time']
         if 'quarter' in df_composite.columns:
             # Multi-quarter data
             unique_quarters = df_composite['quarter'].unique()
             num_companies = len(df_composite[df_composite['quarter'] == unique_quarters[0]])
-            st.markdown(f"### Quarters: {', '.join(unique_quarters)} | Companies: {num_companies} | Run: {st.session_state['run_time'].strftime('%Y-%m-%d %H:%M')}")
+            st.markdown(f"### Quarters: {', '.join(unique_quarters)} | Companies: {num_companies}")
+            st.caption(f"📅 Data as of: {run_time.strftime('%b %d, %Y at %I:%M %p')} • Market data from Yahoo Finance, SEC EDGAR, news APIs")
         else:
             # Single quarter data - try to get quarter from session state, or derive from data
             if quarters_analyzed:
@@ -2576,7 +2578,52 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 quarter_str = f"{year}{quarter}"
             else:
                 quarter_str = "N/A"
-            st.markdown(f"### Quarter: {quarter_str} | Companies: {len(df_composite)} | Run: {st.session_state['run_time'].strftime('%Y-%m-%d %H:%M')}")
+            st.markdown(f"### Quarter: {quarter_str} | Companies: {len(df_composite)}")
+            st.caption(f"📅 Data as of: {run_time.strftime('%b %d, %Y at %I:%M %p')} • Market data from Yahoo Finance, SEC EDGAR, news APIs")
+
+        # Data Quality Indicator
+        def check_data_quality(df_comp, df_v, df_l, df_c, df_t):
+            """Check for missing data across all dials."""
+            issues = []
+            tickers = df_comp['ticker'].unique() if 'ticker' in df_comp.columns else []
+
+            for ticker in tickers:
+                ticker_issues = []
+                # Check valuation
+                if 'ticker' in df_v.columns:
+                    val_row = df_v[df_v['ticker'] == ticker]
+                    if val_row.empty or val_row['valuation_pct'].isna().all():
+                        ticker_issues.append('Valuation')
+                # Check liquidity
+                if 'ticker' in df_l.columns:
+                    liq_row = df_l[df_l['ticker'] == ticker]
+                    if liq_row.empty or liq_row['liquidity_pct'].isna().all():
+                        ticker_issues.append('Liquidity')
+                # Check coverage
+                if 'ticker' in df_c.columns:
+                    cov_row = df_c[df_c['ticker'] == ticker]
+                    if cov_row.empty or cov_row['coverage_pct'].isna().all():
+                        ticker_issues.append('Coverage')
+                # Check trust
+                if 'ticker' in df_t.columns:
+                    trust_row = df_t[df_t['ticker'] == ticker]
+                    if trust_row.empty or trust_row['sentiment_pct'].isna().all():
+                        ticker_issues.append('Trust')
+
+                if ticker_issues:
+                    issues.append((ticker, ticker_issues))
+
+            return issues
+
+        data_issues = check_data_quality(df_composite, df_val, df_liq, df_cov, df_trust)
+        if data_issues:
+            with st.expander(f"⚠️ Data Quality: {len(data_issues)} ticker(s) with incomplete data", expanded=False):
+                for ticker, missing in data_issues:
+                    st.caption(f"**{ticker}**: Missing {', '.join(missing)}")
+                st.caption("*Missing dials use peer median for composite calculation*")
+        else:
+            st.caption("✅ Data quality: All tickers have complete data across all dials")
+
     except Exception as e:
         st.error(f"❌ Error displaying results: {str(e)}")
         st.exception(e)
@@ -2697,11 +2744,26 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             # Filter to only columns that exist
             columns_to_show = [c for c in columns_to_show if c in display_df.columns]
 
-            st.dataframe(
-                display_df[columns_to_show].rename(columns=column_names),
-                use_container_width=True,
-                hide_index=True
-            )
+            # Color-code the IRCI score column (green=high, red=low)
+            styled_df = display_df[columns_to_show].rename(columns=column_names)
+            score_col = 'IRCI Score %' if 'IRCI Score %' in styled_df.columns else 'IRCI %'
+            if score_col in styled_df.columns:
+                st.dataframe(
+                    styled_df.style.background_gradient(
+                        subset=[score_col],
+                        cmap='RdYlGn',
+                        vmin=0,
+                        vmax=100
+                    ),
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.dataframe(
+                    styled_df,
+                    use_container_width=True,
+                    hide_index=True
+                )
 
         with col2:
             # Top 3 performers
@@ -2849,6 +2911,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             gauge_cols = st.columns(4)
             gauge_session_id = st.session_state.get('analysis_timestamp', 'default')
 
+            # Dial tooltips/explanations
+            dial_tooltips = {
+                'Valuation': 'Market pricing vs peers (EV/EBITDA, PEG)',
+                'Liquidity': 'Trading ease (volume, spread, turnover)',
+                'Coverage': 'Visibility (media, filings, analyst count)',
+                'Trust': 'Market confidence (volatility, sentiment)'
+            }
+
             for i, (dial_name, dial_value) in enumerate(zip(categories, values)):
                 with gauge_cols[i]:
                     gauge_fig = create_gauge_chart(dial_value, dial_name)
@@ -2858,6 +2928,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         key=f"gauge_{dial_name}_{selected_company}_{gauge_session_id}_frag",
                         config={'displayModeBar': False, 'staticPlot': False}
                     )
+                    st.caption(f"ℹ️ {dial_tooltips.get(dial_name, '')}")
 
             # Status legend
             st.markdown("""
@@ -6127,6 +6198,45 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     st.markdown("---")
     st.markdown("### 💾 Download Results")
 
+    # All-in-one CSV export
+    st.markdown("#### 📦 Export All Data")
+
+    @st.cache_data
+    def create_combined_csv(df_comp, df_v, df_l, df_c, df_t):
+        """Create a combined CSV with all analysis data."""
+        import io
+        output = io.StringIO()
+
+        output.write("# IRCI Analysis Export\n")
+        output.write(f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
+
+        output.write("## COMPOSITE SCORES\n")
+        df_comp.to_csv(output, index=False)
+        output.write("\n\n## VALUATION DATA\n")
+        df_v.to_csv(output, index=False)
+        output.write("\n\n## LIQUIDITY DATA\n")
+        df_l.to_csv(output, index=False)
+        output.write("\n\n## COVERAGE DATA\n")
+        df_c.to_csv(output, index=False)
+        output.write("\n\n## TRUST DATA\n")
+        df_t.to_csv(output, index=False)
+
+        return output.getvalue()
+
+    col_all1, col_all2 = st.columns([1, 3])
+    with col_all1:
+        all_data_csv = create_combined_csv(df_composite, df_val, df_liq, df_cov, df_trust)
+        st.download_button(
+            "⬇️ Download All Data (CSV)",
+            all_data_csv,
+            f"irci_all_data_{selected_quarter}.csv",
+            "text/csv",
+            use_container_width=True
+        )
+    with col_all2:
+        st.caption("Combined export with composite scores, valuation, liquidity, coverage, and trust data in one file.")
+
+    st.markdown("#### 📊 Individual Datasets")
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
