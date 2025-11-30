@@ -861,25 +861,28 @@ def show_intro_modal():
     st.markdown("---")
 
     # Quick Start Templates
-    st.markdown("### 🎯 Quick Start Templates")
-    st.caption("Click a template to pre-fill peer companies and start analyzing immediately")
+    st.markdown("### Quick Start Templates")
+    st.caption("Click a template to pre-fill peer companies")
 
     template_col1, template_col2, template_col3 = st.columns(3)
 
     with template_col1:
-        if st.button("📱 **Big Tech**\n\nAAPL, MSFT, GOOGL, META, AMZN", use_container_width=True, key="modal_big_tech"):
+        st.image("assets/tech-icon.jpg", use_container_width=True)
+        if st.button("Select", key="modal_big_tech", use_container_width=True):
             st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
             st.session_state['show_intro'] = False
             st.rerun()
 
     with template_col2:
-        if st.button("🏦 **Financials**\n\nJPM, BAC, WFC, GS, MS", use_container_width=True, key="modal_financials"):
+        st.image("assets/finance-icon.jpg", use_container_width=True)
+        if st.button("Select", key="modal_financials", use_container_width=True):
             st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
             st.session_state['show_intro'] = False
             st.rerun()
 
     with template_col3:
-        if st.button("💉 **Healthcare**\n\nJNJ, PFE, UNH, ABBV, LLY", use_container_width=True, key="modal_healthcare"):
+        st.image("assets/health-icon.jpg", use_container_width=True)
+        if st.button("Select", key="modal_healthcare", use_container_width=True):
             st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
             st.session_state['show_intro'] = False
             st.rerun()
@@ -1099,7 +1102,7 @@ with st.sidebar:
             st.rerun()
 
     # Peer finder expander
-    with st.expander("🔍 Find Similar Companies", expanded=False):
+    with st.expander("🔍 Find Companies", expanded=False):
         st.caption("Enter a ticker to find peers in the same industry (60+ companies supported)")
 
         finder_col1, finder_col2 = st.columns([2, 1])
