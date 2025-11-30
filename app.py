@@ -4328,8 +4328,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     
                     st.info(f"""
                     💰 **{selected_timeline_ticker} Impact Calculation Parameters (R²-scaled)**:
-                    - Company $/IRCI Point: **${company_dollar_per_irci_pt:,.0f}**
-                    - Example: Single positive news article (sentiment +0.6) → +{example_irci_impact:.6f} IRCI pts → **${example_dollar_impact:,.0f}** impact
+                    - Company \\$/IRCI Point: **\\${company_dollar_per_irci_pt:,.0f}**
+                    - Example: Single positive news article (sentiment +0.6) → +{example_irci_impact:.6f} IRCI pts → **\\${example_dollar_impact:,.0f}** impact
     
                     **Note**: Individual events show small impacts because dials measure quarterly aggregates:
                     - Trust dial aggregates 50-100+ articles → each is ~1/100th of media tone component
