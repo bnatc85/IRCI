@@ -1659,7 +1659,7 @@ We combine:
 | Ablation Testing | All 4 dials contribute unique signal; dropping any weakens predictions ✅ |
 | Dollar Calibration | R² calculations appropriate for secondary factor after fundamentals ✅ |
 
-**Primary Data Sources:** SEC EDGAR (filings), Financial Markets API (pricing/fundamentals), Fama-French factors (adjustments), NLP sentiment (media tone), and news.
+**Primary Data Sources:** SEC EDGAR (filings, 13F institutional holdings), Financial Markets API (pricing/fundamentals, earnings transcripts), Fama-French factors (adjustments), NLP sentiment (media tone via FinBERT), social sentiment (Reddit/WSB, StockTwits), and news APIs.
 
 **Limitations:** IRCI measures IR efficiency. It doesn't replace fundamentals, guarantee price movements, or account for black swan events. Use for planning and benchmarking, not trading.
             """)
@@ -1718,9 +1718,31 @@ We combine:
 - FinBERT: Araci, D. (2019). FinBERT: Financial sentiment analysis with pre-trained language models. [arXiv](https://arxiv.org/abs/1908.10063)
 - VADER: Hutto, C. J., & Gilbert, E. (2014). VADER: A parsimonious rule-based model for sentiment analysis of social media text. *ICWSM*.
 
+**Social Media & Retail Sentiment:**
+- Cookson, J. A., Engelberg, J., & Mullins, W. (2023). Echo chambers. *Review of Financial Studies, 36*(2), 450-500. [DOI](https://doi.org/10.1093/rfs/hhac058)
+- Bartov, E., Faurel, L., & Mohanram, P. S. (2018). Can Twitter help predict firm-level earnings and stock returns? *The Accounting Review, 93*(3), 25-57. [DOI](https://doi.org/10.2308/accr-51865)
+- Chen, H., De, P., Hu, Y., & Hwang, B. H. (2014). Wisdom of crowds: The value of stock opinions transmitted through social media. *Review of Financial Studies, 27*(5), 1367-1403. [DOI](https://doi.org/10.1093/rfs/hhu001)
+- Antweiler, W., & Frank, M. Z. (2004). Is all that talk just noise? The information content of internet stock message boards. *Journal of Finance, 59*(3), 1259-1294. [DOI](https://doi.org/10.1111/j.1540-6261.2004.00662.x)
+- Bradley, D., Hanousek Jr, J., Jame, R., & Xiao, Z. (2024). Place your bets? The value of investment research on Reddit's Wallstreetbets. *Review of Financial Studies, 37*(4), 1409-1459. [DOI](https://doi.org/10.1093/rfs/hhad019)
+
+**Institutional Ownership & 13F Filings:**
+- Bushee, B. J. (1998). The influence of institutional investors on myopic R&D investment behavior. *The Accounting Review, 73*(3), 305-333. [JSTOR](https://www.jstor.org/stable/248542)
+- Gompers, P. A., & Metrick, A. (2001). Institutional investors and equity prices. *Quarterly Journal of Economics, 116*(1), 229-259. [DOI](https://doi.org/10.1162/003355301556392)
+- Yan, X., & Zhang, Z. (2009). Institutional investors and equity returns: Are short-term institutions better informed? *Review of Financial Studies, 22*(2), 893-924. [DOI](https://doi.org/10.1093/rfs/hhn019)
+- Agarwal, V., Jiang, W., Tang, Y., & Yang, B. (2013). Uncovering hedge fund skill from the portfolio holdings they hide. *Journal of Finance, 68*(2), 739-783. [DOI](https://doi.org/10.1111/jofi.12012)
+- Ben-David, I., Franzoni, F., & Moussawi, R. (2012). Hedge fund stock trading in the financial crisis of 2007-2009. *Review of Financial Studies, 25*(1), 1-54. [DOI](https://doi.org/10.1093/rfs/hhr114)
+
+**Earnings Call Transcripts & Management Tone:**
+- Matsumoto, D., Pronk, M., & Roelofsen, E. (2011). What makes conference calls useful? The information content of managers' presentations and analysts' discussion sessions. *The Accounting Review, 86*(4), 1383-1414. [DOI](https://doi.org/10.2308/accr-10034)
+- Hollander, S., Pronk, M., & Roelofsen, E. (2010). Does silence speak? An empirical analysis of disclosure choices during conference calls. *Journal of Accounting Research, 48*(3), 531-563. [DOI](https://doi.org/10.1111/j.1475-679X.2010.00365.x)
+- Frankel, R., Johnson, M., & Skinner, D. J. (1999). An empirical examination of conference calls as a voluntary disclosure medium. *Journal of Accounting Research, 37*(1), 133-150. [DOI](https://doi.org/10.2307/2491400)
+- Loughran, T., & McDonald, B. (2011). When is a liability not a liability? Textual analysis, dictionaries, and 10-Ks. *Journal of Finance, 66*(1), 35-65. [DOI](https://doi.org/10.1111/j.1540-6261.2010.01625.x)
+- Price, S. M., Doran, J. S., Peterson, D. R., & Bliss, B. A. (2012). Earnings conference calls and stock returns: The incremental informativeness of textual tone. *Journal of Banking & Finance, 36*(4), 992-1011. [DOI](https://doi.org/10.1016/j.jbankfin.2011.10.013)
+
 **Industry Research:**
 - MZ Group (2024). Investor Day Impact Analysis.
 - Brunswick Group (2023). Social Media and Institutional Investors Survey.
+- Edelman (2023). Trust Barometer: Institutional Investor Report.
                 """)
 
 elif run_analysis:
