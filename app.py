@@ -2697,13 +2697,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         with st.expander("💰 Valuation Details", expanded=False):
             # Valuation scoring methodology explanation
             st.markdown("""
-**Blended Valuation Scoring (70% EV/EBITDA + 30% PEG)**
-
-The valuation dial uses a blended approach combining two complementary metrics:
-- **EV/EBITDA (70%)**: Capital-structure neutral, compares enterprise value to operating earnings
-- **PEG Ratio (30%)**: Growth-adjusted P/E, captures if you're paying appropriately for growth
-
-*When PEG is unavailable, scoring uses 100% EV/EBITDA.*
+**Valuation Score** combines EV/EBITDA (70%) + PEG ratio (30%) for a growth-adjusted view. Lower multiples score higher vs peers.
             """)
 
             val_cols = ['ticker']
@@ -2768,22 +2762,7 @@ The valuation dial uses a blended approach combining two complementary metrics:
             )
 
             st.caption("""
-💡 **Metric Definitions:**
-• **EV/EBITDA** = Enterprise Value ÷ EBITDA. Lower = cheaper relative to earnings.
-• **EV/EBITDA %** = Peer percentile for EV/EBITDA (lower multiple → higher score).
-• **PEG Ratio** = P/E ÷ Expected Growth Rate. <1.0 suggests undervalued relative to growth.
-• **PEG %** = Peer percentile for PEG (lower PEG → higher score).
-• **Blended Score** = 70% × EV/EBITDA % + 30% × PEG % (or 100% EV/EBITDA if PEG unavailable).
-• **Method** = "blended_ev_peg" when both metrics available, "ev_ebitda_only" otherwise.
-
-📚 **Academic References:**
-• **EV/EBITDA**: Preferred by CFA Institute for capital-structure neutral comparisons (CFA Institute, 2025)
-• **PEG Ratio**: Growth-adjusted valuation per Lynch (1989) "One Up on Wall Street"
-• **Blended Approach**: Combining metrics improves accuracy per Macabacus valuation research
-• **Merton (1987)**: Investor Recognition Hypothesis - lower visibility → trading discounts
-• **Jensen (2005)**: Overvalued equity creates agency costs and value destruction risk
-
-⚠️ **Interpretation:** Lower valuations score higher, assuming discounts represent IR opportunity. However, discounts may reflect fundamental issues. Premiums may indicate IR success. Interpret in context.
+💡 **Quick Guide:** EV/EBITDA compares value to earnings (lower = cheaper). PEG adjusts P/E for growth (below 1.0 = potentially undervalued). Scores show peer percentile ranking.
 """)
 
         with st.expander("💧 Liquidity Details", expanded=False):

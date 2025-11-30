@@ -57,10 +57,11 @@ def median_anchored_pct(s: pd.Series, lower_is_better: bool = False) -> pd.Serie
     If all values equal, returns 50 for all.
     If lower_is_better=True, invert (so lower values -> higher %).
 
-    Special handling for small peer groups:
-    - With only 2 valid values: compress range to 30-70% instead of 0-100%
-      (insufficient data for extreme rankings)
-    - With only 1 valid value: return 50%
+    Range compression based on peer group size:
+    - 1 peer: return 50% (can't rank)
+    - 2 peers: compress to 30-70% range
+    - 3-5 peers: compress to 15-85% range (avoid extreme scores)
+    - 6+ peers: full 0-100% range
     """
     s = s.astype(float)
     valid = s.dropna()
@@ -101,11 +102,15 @@ def median_anchored_pct(s: pd.Series, lower_is_better: bool = False) -> pd.Serie
     else:
         pct.loc[s > med] = 50.0
 
-    # With only 2 valid values, compress range to avoid extreme 0%/100%
-    # This indicates limited peer comparison data
+    # Compress range based on peer group size to avoid overly extreme scores
+    # With small peer groups, extreme 0%/100% values aren't statistically meaningful
     if n_valid == 2:
         # Compress from [0,100] to [30,70] centered at 50
         pct = 30.0 + (pct / 100.0) * 40.0
+    elif n_valid <= 5:
+        # Small peer group: compress from [0,100] to [15,85] centered at 50
+        # This gives a 70pt spread instead of 100pt
+        pct = 15.0 + (pct / 100.0) * 70.0
 
     return 100.0 - pct if lower_is_better else pct
 
