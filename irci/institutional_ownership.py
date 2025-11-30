@@ -166,17 +166,45 @@ def get_institutional_ownership(
 
     # Try FMP first
     fmp_data = fetch_institutional_ownership_fmp(ticker, s)
+    holders = []
+    holder_count = 0
+    ownership_pct = np.nan
 
     if fmp_data.get("institutional_ownership_pct") and not np.isnan(fmp_data.get("institutional_ownership_pct", np.nan)):
         ownership_pct = fmp_data["institutional_ownership_pct"]
-    else:
-        # Fallback to Yahoo
-        yahoo_data = fetch_institutional_ownership_yahoo(ticker)
-        ownership_pct = yahoo_data.get("institutional_ownership_pct", np.nan)
+        # Get holder details from FMP
+        holders_data = fetch_institutional_holders_fmp(ticker, s)
+        holders = holders_data.get("holders", [])
+        holder_count = len(holders)
 
-    # Get holder details
-    holders_data = fetch_institutional_holders_fmp(ticker, s)
-    holders = holders_data.get("holders", [])
+    # If FMP failed or returned no data, fallback to Yahoo Finance
+    if np.isnan(ownership_pct) or holder_count == 0:
+        try:
+            import yfinance as yf
+            stock = yf.Ticker(ticker)
+
+            # Get ownership percentage from info
+            info = stock.info
+            yahoo_inst_pct = info.get("heldPercentInstitutions")
+            if yahoo_inst_pct is not None and not np.isnan(yahoo_inst_pct):
+                ownership_pct = float(yahoo_inst_pct) * 100  # Convert to percentage
+
+            # Get institutional holders list
+            inst_holders_df = stock.institutional_holders
+            if inst_holders_df is not None and not inst_holders_df.empty:
+                holder_count = len(inst_holders_df)
+                # Convert DataFrame to list of dicts
+                holders = []
+                for _, row in inst_holders_df.iterrows():
+                    holders.append({
+                        "holder": row.get("Holder", ""),
+                        "shares": row.get("Shares", 0),
+                        "change": row.get("pctChange", 0),
+                        "value": row.get("Value", 0)
+                    })
+                log.info(f"Yahoo Finance: {ticker} has {holder_count} institutional holders, {ownership_pct:.1f}% inst ownership")
+        except Exception as e:
+            log.warning(f"Yahoo institutional data failed for {ticker}: {e}")
 
     # Calculate top 10 concentration
     top_10 = sorted(holders, key=lambda x: x.get("shares", 0), reverse=True)[:10]
@@ -207,7 +235,7 @@ def get_institutional_ownership(
     return {
         "ticker": ticker,
         "institutional_ownership_pct": ownership_pct,
-        "holder_count": len(holders),
+        "holder_count": holder_count,
         "top_10_concentration": top_10_concentration,
         "top_10_holders": [
             {
