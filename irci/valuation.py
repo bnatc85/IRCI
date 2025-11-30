@@ -124,42 +124,58 @@ def _get_json(url: str, timeout: int = 60) -> list | dict:
     r.raise_for_status()
     return r.json()
 
-def get_fmp_peg_ratio(ticker: str, apikey: str) -> dict:
+def get_peg_ratio(ticker: str, apikey: str = None) -> dict:
     """
-    Fetch PEG ratio from FMP Ratios TTM endpoint.
-    Returns dict with peg_ratio and method.
+    Fetch PEG ratio, trying Yahoo Finance first (most reliable).
 
     PEG = P/E divided by expected earnings growth rate.
     A PEG < 1 suggests undervaluation relative to growth; > 1 suggests overvaluation.
+
+    Returns dict with peg_ratio and method.
     """
+    # Try Yahoo Finance first (most reliable source)
     try:
-        url = f"https://financialmodelingprep.com/api/v3/ratios-ttm/{ticker}?apikey={apikey}"
-        log.info(f"GET FMP ratios-ttm for {ticker}")
-        data = _get_json(url)
+        stock = yf.Ticker(ticker)
+        info = stock.info
 
-        if not data or not isinstance(data, list) or len(data) == 0:
-            log.warning(f"No ratios data from FMP for {ticker}")
-            return {"peg_ratio": np.nan, "method": "unavailable"}
+        # Yahoo has trailingPegRatio (TTM-based)
+        peg = info.get('trailingPegRatio') or info.get('pegRatio')
 
-        ratios = data[0]
-        peg = ratios.get("pegRatioTTM")
+        if peg is not None and peg > 0:
+            peg = float(peg)
+            # Filter out unreasonable PEG values (negative or extremely high)
+            if peg < 0 or peg > 10:
+                log.warning(f"PEG ratio {peg} for {ticker} outside reasonable range (0-10), excluding")
+                return {"peg_ratio": np.nan, "method": "excluded_outlier"}
 
-        if peg is None or peg == 0:
-            log.warning(f"PEG ratio not available from FMP for {ticker}")
-            return {"peg_ratio": np.nan, "method": "unavailable"}
-
-        # Filter out unreasonable PEG values (negative or extremely high)
-        peg = float(peg)
-        if peg < 0 or peg > 10:
-            log.warning(f"PEG ratio {peg} for {ticker} outside reasonable range, excluding")
-            return {"peg_ratio": np.nan, "method": "excluded_outlier"}
-
-        log.info(f"FMP PEG for {ticker}: {peg}")
-        return {"peg_ratio": peg, "method": "fmp_ratios_ttm"}
+            log.info(f"Yahoo Finance PEG for {ticker}: {peg:.2f}")
+            return {"peg_ratio": peg, "method": "yahoo_finance"}
 
     except Exception as e:
-        log.warning(f"FMP PEG fetch failed for {ticker}: {e}")
-        return {"peg_ratio": np.nan, "method": "error"}
+        log.warning(f"Yahoo Finance PEG fetch failed for {ticker}: {e}")
+
+    # Fallback: Try FMP if Yahoo fails (requires premium API)
+    if apikey:
+        try:
+            url = f"https://financialmodelingprep.com/api/v3/ratios-ttm/{ticker}?apikey={apikey}"
+            log.info(f"GET FMP ratios-ttm for {ticker}")
+            data = _get_json(url)
+
+            if data and isinstance(data, list) and len(data) > 0:
+                ratios = data[0]
+                peg = ratios.get("pegRatioTTM")
+
+                if peg is not None and peg > 0:
+                    peg = float(peg)
+                    if 0 < peg <= 10:
+                        log.info(f"FMP PEG for {ticker}: {peg:.2f}")
+                        return {"peg_ratio": peg, "method": "fmp_ratios_ttm"}
+
+        except Exception as e:
+            log.debug(f"FMP PEG fetch failed for {ticker}: {e}")
+
+    log.warning(f"PEG ratio not available for {ticker}")
+    return {"peg_ratio": np.nan, "method": "unavailable"}
 
 
 def get_alpha_vantage_peg(ticker: str) -> float:
@@ -523,8 +539,8 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
                 if pd.isna(ebitda) and not pd.isna(yahoo_data["ebitda"]):
                     ebitda = yahoo_data["ebitda"]
 
-        # 3) PEG ratio from FMP (no rate limiting needed - same API key)
-        peg_result = get_fmp_peg_ratio(sym, s.fmp_api_key)
+        # 3) PEG ratio (Yahoo Finance primary, FMP fallback)
+        peg_result = get_peg_ratio(sym, s.fmp_api_key)
         peg_ratio = peg_result["peg_ratio"]
         peg_method = peg_result["method"]
 
