@@ -178,7 +178,6 @@ class IRCIReport(FPDF):
         self.set_font('Arial', 'I', 8)
         self.set_text_color(128, 128, 128)
         self.cell(0, 4, f'Generated: {datetime.now().strftime("%B %d, %Y at %H:%M")}', 0, 1, 'C')
-        self.cell(0, 4, 'Confidential - For Board Use Only', 0, 1, 'C')
         self.set_text_color(0, 0, 0)
 
         self.is_cover_page = False
