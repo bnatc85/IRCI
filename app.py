@@ -881,7 +881,7 @@ def show_intro_modal():
 
     with template_col1:
         if modal_tech_img:
-            st.image(modal_tech_img, use_container_width=True)
+            st.image(modal_tech_img, width=80)
         if st.button("Select", key="modal_big_tech", use_container_width=True):
             st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
             st.session_state['show_intro'] = False
@@ -889,7 +889,7 @@ def show_intro_modal():
 
     with template_col2:
         if modal_fin_img:
-            st.image(modal_fin_img, use_container_width=True)
+            st.image(modal_fin_img, width=80)
         if st.button("Select", key="modal_financials", use_container_width=True):
             st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
             st.session_state['show_intro'] = False
@@ -897,7 +897,7 @@ def show_intro_modal():
 
     with template_col3:
         if modal_health_img:
-            st.image(modal_health_img, use_container_width=True)
+            st.image(modal_health_img, width=80)
         if st.button("Select", key="modal_healthcare", use_container_width=True):
             st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
             st.session_state['show_intro'] = False
