@@ -5682,9 +5682,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                             **What this means:**
                             - By focusing on {imp['dial'].lower()} improvement initiatives next quarter, you could realistically gain **{imp['min_improvement']:.1f}-{imp['max_improvement']:.1f} points**
                             - This translates to an estimated **\${imp['min_value']/1e6:.0f}M - \${imp['max_value']/1e6:.0f}M** in enterprise value impact
-                            - See recommendations below for specific actions to achieve these improvements
-    
-                            **Key actions:** Review the {imp['dial'].split()[1]} recommendations in the sections below for concrete next steps.
+                            - Review the **{imp['dial'].split()[1]}** recommendations below for specific actions
                             """)
     
                     st.caption(f"""
