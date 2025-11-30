@@ -759,7 +759,7 @@ class IRCIReport(FPDF):
         col_widths = [25, 22, 22, 22, 22, 22, 35] if dollar_per_point else [30, 28, 28, 28, 28, 28]
         headers = ['Quarter', 'IRCI', 'Val', 'Liq', 'Cov', 'Trust']
         if dollar_per_point:
-            headers.append('Est. IR Value')
+            headers.append('QoQ Value Chg')
 
         for i, header in enumerate(headers):
             self.cell(col_widths[i], 7, header, 1, 0, 'C', fill=True)
@@ -805,14 +805,18 @@ class IRCIReport(FPDF):
             self.cell(col_widths[5], 6, f"{trust:.0f}%", 1, 0, 'C', fill=True)
 
             if dollar_per_point:
-                # Estimate IR value contribution (IRCI score × $/point)
-                ir_value = irci * dollar_per_point
-                if ir_value >= 1e9:
-                    ir_value_str = f"${ir_value/1e9:.1f}B"
-                elif ir_value >= 1e6:
-                    ir_value_str = f"${ir_value/1e6:.0f}M"
+                # Calculate quarter-over-quarter value change
+                if prev_irci is not None:
+                    irci_change = irci - prev_irci
+                    value_change = irci_change * dollar_per_point
+                    if abs(value_change) >= 1e9:
+                        ir_value_str = f"{'+' if value_change >= 0 else '-'}${abs(value_change)/1e9:.1f}B"
+                    elif abs(value_change) >= 1e6:
+                        ir_value_str = f"{'+' if value_change >= 0 else '-'}${abs(value_change)/1e6:.0f}M"
+                    else:
+                        ir_value_str = f"{'+' if value_change >= 0 else '-'}${abs(value_change):,.0f}"
                 else:
-                    ir_value_str = f"${ir_value:,.0f}"
+                    ir_value_str = "-"  # No previous quarter to compare
                 self.cell(col_widths[6], 6, ir_value_str, 1, 0, 'C', fill=True)
 
             self.ln()
