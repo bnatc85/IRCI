@@ -41,13 +41,13 @@ def fmp_news_media_fetcher(ticker: str, q_start, q_end, settings) -> pd.DataFram
     try:
         # Fetch multiple pages to get sufficient news coverage
         all_articles = []
-        max_pages = 10  # Fetch up to 10 pages (typically ~200 articles)
+        max_pages = 3  # Reduced from 10 - fetch up to 3 pages to avoid timeouts
 
         for page in range(max_pages):
             params_with_page = params.copy()
             params_with_page["page"] = page
 
-            response = requests.get(url, params=params_with_page, timeout=30)
+            response = requests.get(url, params=params_with_page, timeout=10)  # Reduced from 30s
             response.raise_for_status()
             data = response.json()
 
