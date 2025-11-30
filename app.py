@@ -6083,6 +6083,25 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         except:
                             pass
 
+                        # Extract quarterly data for multi-quarter reports
+                        quarterly_data = None
+                        if 'quarter' in df_composite.columns:
+                            quarters = df_composite['quarter'].unique()
+                            if len(quarters) >= 2:
+                                quarterly_data = []
+                                for q in sorted(quarters):
+                                    q_data = df_composite[(df_composite['quarter'] == q) & (df_composite['ticker'] == pdf_ticker)]
+                                    if not q_data.empty:
+                                        row = q_data.iloc[0]
+                                        quarterly_data.append({
+                                            'quarter': q,
+                                            'irci_score': row.get('irci_composite_pct', 0) or 0,
+                                            'valuation': row.get('valuation_pct', 0) or 0,
+                                            'liquidity': row.get('liquidity_pct', 0) or 0,
+                                            'coverage': row.get('coverage_pct', 0) or 0,
+                                            'trust': row.get('sentiment_pct', 0) or 0
+                                        })
+
                         # Generate PDF
                         pdf_bytes = generate_pdf_report(
                             ticker=pdf_ticker,
@@ -6096,7 +6115,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                             timeline_df=timeline_data,
                             news_df=pdf_news_df,
                             dollar_value_df=pdf_dollar_value_df,
-                            weights=pdf_weights
+                            weights=pdf_weights,
+                            quarterly_data=quarterly_data
                         )
 
                         # Store in session state for download

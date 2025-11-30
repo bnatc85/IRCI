@@ -737,6 +737,120 @@ class IRCIReport(FPDF):
 
         self.set_text_color(0, 0, 0)
 
+    def add_quarterly_trends(self, ticker: str, quarterly_data: List[Dict], dollar_per_point: Optional[float] = None):
+        """Add quarterly IR value trends table"""
+        self.chapter_title('QUARTERLY IR VALUE TRENDS')
+
+        if not quarterly_data or len(quarterly_data) < 2:
+            self.body_text("Quarterly trends require at least 2 quarters of data.")
+            return
+
+        self.body_text(
+            f"Historical IRCI performance for {ticker} across {len(quarterly_data)} quarters. "
+            "Track progress over time to measure IR effectiveness."
+        )
+        self.ln(3)
+
+        # Table header
+        self.set_font('Arial', 'B', 9)
+        self.set_fill_color(44, 62, 80)
+        self.set_text_color(255, 255, 255)
+
+        col_widths = [25, 22, 22, 22, 22, 22, 35] if dollar_per_point else [30, 28, 28, 28, 28, 28]
+        headers = ['Quarter', 'IRCI', 'Val', 'Liq', 'Cov', 'Trust']
+        if dollar_per_point:
+            headers.append('Est. IR Value')
+
+        for i, header in enumerate(headers):
+            self.cell(col_widths[i], 7, header, 1, 0, 'C', fill=True)
+        self.ln()
+
+        self.set_text_color(0, 0, 0)
+        self.set_font('Arial', '', 9)
+
+        # Sort by quarter
+        sorted_data = sorted(quarterly_data, key=lambda x: x.get('quarter', ''))
+
+        # Calculate quarter-over-quarter changes for the last row
+        prev_irci = None
+
+        for i, qdata in enumerate(sorted_data):
+            # Alternate row colors
+            if i % 2 == 0:
+                self.set_fill_color(248, 249, 250)
+            else:
+                self.set_fill_color(255, 255, 255)
+
+            quarter = qdata.get('quarter', 'N/A')
+            irci = qdata.get('irci_score', 0)
+            val = qdata.get('valuation', 0)
+            liq = qdata.get('liquidity', 0)
+            cov = qdata.get('coverage', 0)
+            trust = qdata.get('trust', 0)
+
+            # Format IRCI with change indicator
+            irci_str = f"{irci:.1f}%"
+            if prev_irci is not None:
+                change = irci - prev_irci
+                if change > 0:
+                    irci_str = f"{irci:.1f}% (+{change:.1f})"
+                elif change < 0:
+                    irci_str = f"{irci:.1f}% ({change:.1f})"
+
+            self.cell(col_widths[0], 6, quarter, 1, 0, 'C', fill=True)
+            self.cell(col_widths[1], 6, irci_str, 1, 0, 'C', fill=True)
+            self.cell(col_widths[2], 6, f"{val:.0f}%", 1, 0, 'C', fill=True)
+            self.cell(col_widths[3], 6, f"{liq:.0f}%", 1, 0, 'C', fill=True)
+            self.cell(col_widths[4], 6, f"{cov:.0f}%", 1, 0, 'C', fill=True)
+            self.cell(col_widths[5], 6, f"{trust:.0f}%", 1, 0, 'C', fill=True)
+
+            if dollar_per_point:
+                # Estimate IR value contribution (IRCI score × $/point)
+                ir_value = irci * dollar_per_point
+                if ir_value >= 1e9:
+                    ir_value_str = f"${ir_value/1e9:.1f}B"
+                elif ir_value >= 1e6:
+                    ir_value_str = f"${ir_value/1e6:.0f}M"
+                else:
+                    ir_value_str = f"${ir_value:,.0f}"
+                self.cell(col_widths[6], 6, ir_value_str, 1, 0, 'C', fill=True)
+
+            self.ln()
+            prev_irci = irci
+
+        self.ln(3)
+
+        # Summary insights
+        if len(sorted_data) >= 2:
+            first_irci = sorted_data[0].get('irci_score', 0)
+            last_irci = sorted_data[-1].get('irci_score', 0)
+            total_change = last_irci - first_irci
+
+            self.set_font('Arial', 'B', 10)
+            self.body_text("Trend Summary:")
+            self.set_font('Arial', '', 9)
+
+            if total_change > 0:
+                trend_text = f"IRCI improved by {total_change:.1f} points over {len(sorted_data)} quarters."
+                if dollar_per_point:
+                    value_gain = total_change * dollar_per_point
+                    if value_gain >= 1e9:
+                        trend_text += f" Estimated value creation: ${value_gain/1e9:.1f}B"
+                    elif value_gain >= 1e6:
+                        trend_text += f" Estimated value creation: ${value_gain/1e6:.0f}M"
+            elif total_change < 0:
+                trend_text = f"IRCI declined by {abs(total_change):.1f} points over {len(sorted_data)} quarters."
+                if dollar_per_point:
+                    value_loss = abs(total_change) * dollar_per_point
+                    if value_loss >= 1e9:
+                        trend_text += f" Estimated value impact: -${value_loss/1e9:.1f}B"
+                    elif value_loss >= 1e6:
+                        trend_text += f" Estimated value impact: -${value_loss/1e6:.0f}M"
+            else:
+                trend_text = f"IRCI remained stable over {len(sorted_data)} quarters."
+
+            self.body_text(trend_text)
+
 
 def generate_pdf_report(
     ticker: str,
@@ -750,7 +864,8 @@ def generate_pdf_report(
     timeline_df: Optional[pd.DataFrame] = None,
     news_df: Optional[pd.DataFrame] = None,
     dollar_value_df: Optional[pd.DataFrame] = None,
-    weights: Optional[Dict] = None
+    weights: Optional[Dict] = None,
+    quarterly_data: Optional[List[Dict]] = None
 ) -> bytes:
     """
     Generate a comprehensive board-grade PDF report of IRCI analysis
@@ -814,6 +929,11 @@ def generate_pdf_report(
     if dollar_per_point and dollar_per_point > 0:
         pdf.add_page()
         pdf.add_roi_section(ticker, dial_scores, dollar_per_point, playbook)
+
+    # === PAGE 5: QUARTERLY TRENDS (only if multiple quarters) ===
+    if quarterly_data and len(quarterly_data) >= 2:
+        pdf.add_page()
+        pdf.add_quarterly_trends(ticker, quarterly_data, dollar_per_point)
 
     # === FINAL PAGE: METHODOLOGY & DISCLAIMER ===
     pdf.add_page()
