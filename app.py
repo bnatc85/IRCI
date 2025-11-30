@@ -2497,8 +2497,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             st.markdown(f"""
             <div style="background-color: #1e3a5f; padding: 10px; border-radius: 5px; margin-top: 5px;">
                 <strong>📊 Currently Viewing:</strong> {selected_quarter} |
-                <em>{len(available_quarters)} quarters available</em> |
-                <a href="#" style="color: #00d4ff;">→ See Trends</a>
+                <em>{len(available_quarters)} quarters available</em>
             </div>
             """, unsafe_allow_html=True)
 
