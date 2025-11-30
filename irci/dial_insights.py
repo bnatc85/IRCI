@@ -357,22 +357,28 @@ def recommend_optimal_weights(
         else:
             initial_guess = [0.33, 0.33, 0.33]
 
-        # Bounds: each weight between 0 and 1
-        bounds = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
+        # Bounds: each weight between 5% minimum and 60% maximum
+        # This prevents any dial from being completely ignored or dominating
+        MIN_WEIGHT = 0.05  # 5% floor ensures all dials contribute
+        MAX_WEIGHT = 0.60  # 60% cap prevents over-reliance on one dial
+        bounds = [(MIN_WEIGHT, MAX_WEIGHT), (MIN_WEIGHT, MAX_WEIGHT), (MIN_WEIGHT, MAX_WEIGHT)]
 
-        # Constraint: first 3 weights must sum to at most 1.0
-        constraints = {'type': 'ineq', 'fun': lambda w: 1.0 - sum(w)}
+        # Constraint: first 3 weights must sum to at most 0.95 (leaving at least 5% for sentiment)
+        constraints = {'type': 'ineq', 'fun': lambda w: (1.0 - MIN_WEIGHT) - sum(w)}
 
         # Optimize
         result = minimize(objective, initial_guess, method='SLSQP', bounds=bounds, constraints=constraints)
 
         if result.success:
             opt_weights = result.x
+            sentiment_weight = max(MIN_WEIGHT, 1.0 - sum(opt_weights))  # Ensure sentiment also has minimum
+            # Renormalize if needed to ensure sum = 1.0
+            total = opt_weights[0] + opt_weights[1] + opt_weights[2] + sentiment_weight
             recommended_weights = {
-                'valuation': float(opt_weights[0]),
-                'liquidity': float(opt_weights[1]),
-                'coverage': float(opt_weights[2]),
-                'sentiment': float(1.0 - sum(opt_weights))
+                'valuation': float(opt_weights[0] / total),
+                'liquidity': float(opt_weights[1] / total),
+                'coverage': float(opt_weights[2] / total),
+                'sentiment': float(sentiment_weight / total)
             }
             optimization_r2 = -result.fun  # Negate back to get positive R²
 
