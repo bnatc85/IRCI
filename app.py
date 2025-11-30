@@ -5842,162 +5842,100 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
     # SECTION 5 (or SECTION 4 if not multi-quarter): AI Assistant
     if selected_section == "💬 AI Assistant":
-        # AI Chatbot Assistant
         st.markdown("#### 💬 AI Assistant")
-        st.markdown("*Ask questions about your IRCI results and get IR recommendations*")
 
-        # Check for OpenAI API key
+        # Check for Gemini API key
         s = Settings.load()
-        if not s.openai_api_key:
+        if not s.gemini_api_key:
             st.warning("""
-            ⚠️ **OpenAI API Key Required**
+            ⚠️ **Gemini API Key Required**
 
-            To use the AI Assistant, please add your OpenAI API key:
-            1. Add `OPENAI_API_KEY=your-key-here` to your `.env` file
-            2. Or set the `OPENAI_API_KEY` environment variable
+            To use the AI Assistant, please add your Google Gemini API key:
+            1. Add `GEMINI_API_KEY=your-key-here` to your `.env` file
+            2. Or set the `GEMINI_API_KEY` environment variable
             3. Reload the app
 
-            Get your API key at: https://platform.openai.com/api-keys
+            Get your free API key at: https://aistudio.google.com/app/apikey
             """)
         else:
             try:
-                # Initialize chat history in session state
+                # Initialize session state
                 if 'chat_history' not in st.session_state:
                     st.session_state.chat_history = []
+                if 'ai_response' not in st.session_state:
+                    st.session_state.ai_response = None
 
-                # Company selector for chatbot
+                # Company selector
                 chatbot_ticker = st.selectbox(
-                    "Select company to discuss:",
+                    "Company:",
                     df_composite['ticker'].unique(),
                     key="chatbot_ticker_select"
                 )
 
-                # Display suggested questions
-                st.markdown("---")
-                st.markdown("**💡 Suggested Questions:**")
+                # Simple text input with submit button
+                col1, col2 = st.columns([5, 1])
+                with col1:
+                    user_question = st.text_input(
+                        "Ask a question:",
+                        placeholder="e.g., What are the key takeaways from this analysis?",
+                        key="ai_question_input",
+                        label_visibility="collapsed"
+                    )
+                with col2:
+                    submit_clicked = st.button("Ask", type="primary", use_container_width=True)
 
-                suggestions = get_suggested_questions(chatbot_ticker, df_composite)
-
-                # Create columns for suggested questions (2 per row)
-                for i in range(0, len(suggestions), 2):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if i < len(suggestions):
-                            if st.button(suggestions[i], key=f"suggestion_{i}", use_container_width=True):
-                                # Add question to chat
-                                st.session_state.chat_history.append({
-                                    "role": "user",
-                                    "content": suggestions[i]
-                                })
-                                # Get response
-                                response = chat_with_context(
-                                    suggestions[i],
-                                    df_composite,
-                                    chatbot_ticker,
-                                    st.session_state.chat_history[:-1],  # Exclude the question we just added
-                                    s.openai_api_key
-                                )
-                                # Add response to history
-                                st.session_state.chat_history.append({
-                                    "role": "assistant",
-                                    "content": response
-                                })
-                                st.rerun()
-
-                    with col2:
-                        if i + 1 < len(suggestions):
-                            if st.button(suggestions[i + 1], key=f"suggestion_{i+1}", use_container_width=True):
-                                # Add question to chat
-                                st.session_state.chat_history.append({
-                                    "role": "user",
-                                    "content": suggestions[i + 1]
-                                })
-                                # Get response
-                                response = chat_with_context(
-                                    suggestions[i + 1],
-                                    df_composite,
-                                    chatbot_ticker,
-                                    st.session_state.chat_history[:-1],
-                                    s.openai_api_key
-                                )
-                                # Add response to history
-                                st.session_state.chat_history.append({
-                                    "role": "assistant",
-                                    "content": response
-                                })
-                                st.rerun()
-
-                st.markdown("---")
-
-                # Display chat history
-                st.markdown("**💬 Conversation:**")
-
-                if st.session_state.chat_history:
-                    for i, message in enumerate(st.session_state.chat_history):
-                        if message["role"] == "user":
-                            with st.chat_message("user"):
-                                st.markdown(message["content"])
-                        else:
-                            with st.chat_message("assistant"):
-                                st.markdown(message["content"])
-                else:
-                    st.info("👋 Start by asking a question or clicking a suggested question above!")
-
-                # Chat input
-                user_input = st.chat_input("Ask me anything about your IRCI analysis...")
-
-                if user_input:
-                    # Add user message to history
-                    st.session_state.chat_history.append({
-                        "role": "user",
-                        "content": user_input
-                    })
-
-                    # Get AI response
+                # Handle submission
+                if submit_clicked and user_question:
                     with st.spinner("Thinking..."):
                         response = chat_with_context(
-                            user_input,
+                            user_question,
                             df_composite,
                             chatbot_ticker,
-                            st.session_state.chat_history[:-1],  # Exclude the question we just added
-                            s.openai_api_key
+                            st.session_state.chat_history,
+                            s.gemini_api_key
                         )
+                        # Store in history
+                        st.session_state.chat_history.append({"role": "user", "content": user_question})
+                        st.session_state.chat_history.append({"role": "assistant", "content": response})
+                        st.session_state.ai_response = response
 
-                    # Add assistant response to history
-                    st.session_state.chat_history.append({
-                        "role": "assistant",
-                        "content": response
-                    })
+                # Quick question buttons
+                st.markdown("**Quick questions:**")
+                suggestions = get_suggested_questions(chatbot_ticker, df_composite)[:4]
+                cols = st.columns(2)
+                for i, suggestion in enumerate(suggestions):
+                    with cols[i % 2]:
+                        if st.button(suggestion, key=f"q_{i}", use_container_width=True):
+                            with st.spinner("Thinking..."):
+                                response = chat_with_context(
+                                    suggestion,
+                                    df_composite,
+                                    chatbot_ticker,
+                                    st.session_state.chat_history,
+                                    s.gemini_api_key
+                                )
+                                st.session_state.chat_history.append({"role": "user", "content": suggestion})
+                                st.session_state.chat_history.append({"role": "assistant", "content": response})
+                                st.session_state.ai_response = response
 
-                    # Rerun to display new messages
-                    st.rerun()
-
-                # Clear chat button
+                # Display conversation
                 if st.session_state.chat_history:
                     st.markdown("---")
-                    col1, col2, col3 = st.columns([1, 1, 4])
-                    with col1:
-                        if st.button("🗑️ Clear Chat"):
-                            st.session_state.chat_history = []
-                            st.rerun()
-                    with col2:
-                        # Export chat
-                        if st.session_state.chat_history:
-                            chat_text = "\n\n".join([
-                                f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"
-                                for msg in st.session_state.chat_history
-                            ])
-                            st.download_button(
-                                "💾 Export Chat",
-                                chat_text,
-                                f"irci_chat_{chatbot_ticker}.txt",
-                                "text/plain"
-                            )
+                    for msg in st.session_state.chat_history:
+                        if msg["role"] == "user":
+                            st.markdown(f"**You:** {msg['content']}")
+                        else:
+                            st.markdown(f"**Assistant:** {msg['content']}")
+                        st.markdown("")
+
+                    # Clear button
+                    if st.button("Clear conversation"):
+                        st.session_state.chat_history = []
+                        st.session_state.ai_response = None
+                        st.rerun()
 
             except Exception as e:
-                st.error(f"Error loading chatbot: {str(e)}")
-                import traceback
-                st.code(traceback.format_exc())
+                st.error(f"Error: {str(e)}")
 
     # Download section
     st.markdown("---")

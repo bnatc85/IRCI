@@ -14,6 +14,7 @@ class Settings:
     finnhub_api_key: str = os.getenv("FINNHUB_API_KEY", "")
     alpha_vantage_api_key: str = os.getenv("ALPHA_VANTAGE_API_KEY", "")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     data_dir: Path = Path(os.getenv("IRCI_DATA_DIR", "./data"))
     out_dir: Path = Path(os.getenv("IRCI_OUTPUT_DIR", "./outputs"))
     # SEC user-agent used by coverage.py for SEC requests

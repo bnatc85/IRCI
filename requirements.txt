@@ -29,6 +29,7 @@ vaderSentiment>=3.3.2
 
 # AI Chatbot
 openai>=1.0.0
+google-generativeai>=0.3.0
 
 # Additional dependencies for IRCI functionality
 beautifulsoup4>=4.12.0

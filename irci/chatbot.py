@@ -144,53 +144,53 @@ def chat_with_context(
     api_key: str = None
 ) -> str:
     """
-    Generate chatbot response using OpenAI API with IRCI context
+    Generate chatbot response using Google Gemini API with IRCI context
 
     Args:
         user_message: User's question or message
         df_composite: Composite dataframe with analysis results
         ticker: Optional ticker for company-specific context
         conversation_history: Previous conversation messages
-        api_key: OpenAI API key
+        api_key: Google Gemini API key
 
     Returns:
         Assistant's response
     """
     if not api_key:
-        return "⚠️ OpenAI API key not configured. Please add OPENAI_API_KEY to your .env file or settings."
+        return "⚠️ Gemini API key not configured. Please add GEMINI_API_KEY to your .env file or Streamlit secrets."
 
     try:
-        import openai
-        client = openai.OpenAI(api_key=api_key)
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
     except ImportError:
-        return "⚠️ OpenAI library not installed. Run: pip install openai"
+        return "⚠️ Google Generative AI library not installed. Run: pip install google-generativeai"
     except Exception as e:
-        return f"⚠️ Error initializing OpenAI client: {str(e)}"
+        return f"⚠️ Error initializing Gemini client: {str(e)}"
 
     # Build context
     system_prompt = build_context_prompt(df_composite, ticker, conversation_history)
 
-    # Build messages
-    messages = [{"role": "system", "content": system_prompt}]
-
-    # Add conversation history
+    # Build conversation history for Gemini
+    history = []
     if conversation_history:
-        messages.extend(conversation_history)
-
-    # Add current user message
-    messages.append({"role": "user", "content": user_message})
+        for msg in conversation_history:
+            role = "user" if msg["role"] == "user" else "model"
+            history.append({"role": role, "parts": [msg["content"]]})
 
     try:
-        # Call OpenAI API
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Using GPT-4o-mini for cost-effectiveness
-            messages=messages,
-            temperature=0.7,
-            max_tokens=800
+        # Initialize Gemini model
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=system_prompt
         )
 
-        assistant_message = response.choices[0].message.content
-        return assistant_message
+        # Start chat with history
+        chat = model.start_chat(history=history)
+
+        # Generate response
+        response = chat.send_message(user_message)
+
+        return response.text
 
     except Exception as e:
         return f"⚠️ Error generating response: {str(e)}"
