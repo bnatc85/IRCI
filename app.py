@@ -877,31 +877,33 @@ def show_intro_modal():
     modal_fin_img = load_image_bytes("finance-icon.jpg")
     modal_health_img = load_image_bytes("health-icon.jpg")
 
-    template_col1, template_col2, template_col3 = st.columns(3)
+    # Center the template icons with padding columns
+    _, center_col, _ = st.columns([1, 2, 1])
+    with center_col:
+        tcol1, tcol2, tcol3 = st.columns(3)
+        with tcol1:
+            if modal_tech_img:
+                st.image(modal_tech_img, width=80)
+            if st.button("Select", key="modal_big_tech"):
+                st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
+                st.session_state['show_intro'] = False
+                st.rerun()
 
-    with template_col1:
-        if modal_tech_img:
-            st.image(modal_tech_img, width=80)
-        if st.button("Select", key="modal_big_tech"):
-            st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
-            st.session_state['show_intro'] = False
-            st.rerun()
+        with tcol2:
+            if modal_fin_img:
+                st.image(modal_fin_img, width=80)
+            if st.button("Select", key="modal_financials"):
+                st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
+                st.session_state['show_intro'] = False
+                st.rerun()
 
-    with template_col2:
-        if modal_fin_img:
-            st.image(modal_fin_img, width=80)
-        if st.button("Select", key="modal_financials"):
-            st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
-            st.session_state['show_intro'] = False
-            st.rerun()
-
-    with template_col3:
-        if modal_health_img:
-            st.image(modal_health_img, width=80)
-        if st.button("Select", key="modal_healthcare"):
-            st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
-            st.session_state['show_intro'] = False
-            st.rerun()
+        with tcol3:
+            if modal_health_img:
+                st.image(modal_health_img, width=80)
+            if st.button("Select", key="modal_healthcare"):
+                st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
+                st.session_state['show_intro'] = False
+                st.rerun()
 
     st.markdown("---")
 
