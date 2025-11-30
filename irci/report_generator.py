@@ -599,10 +599,10 @@ class IRCIReport(FPDF):
             value_str = f'${dollar_per_point/1e6:.1f} million'
 
         self.set_font('Arial', 'B', 14)
-        self.cell(0, 8, value_str, 0, 1, 'L')
-        self.set_font('Arial', 'I', 9)
-        self.body_text("Based on peer group regression, R-squared scaled for conservatism.")
-        self.ln(3)
+        self.cell(0, 7, value_str, 0, 1, 'L')
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 4, "Based on peer group regression, R-squared scaled for conservatism.", 0, 1, 'L')
+        self.ln(2)
 
         # Improvement scenarios
         self.section_title('Improvement Scenarios')
@@ -638,7 +638,99 @@ class IRCIReport(FPDF):
             self.cell(50, 6, value_str, 1, 0, 'C')
             self.cell(60, 6, desc, 1, 1, 'L')
 
-        self.ln(5)
+        self.ln(3)
+
+        # Event Value Menu - What each event type is worth
+        self.section_title('Event Value Menu')
+
+        # Define key event types with their impacts (positive and negative)
+        event_menu_items = [
+            # Positive events
+            ("Investor Day", "+2.0%", "+0.8 to +1.2 pts"),
+            ("Analyst Day", "+1.5%", "+0.5 to +0.8 pts"),
+            ("Analyst Coverage Initiation", "+1.0%", "+0.4 to +0.7 pts"),
+            ("Buyback Announcement", "+3.5%", "+0.3 to +0.5 pts"),
+            ("Dividend Initiation", "+3.4%", "+0.3 to +0.5 pts"),
+            ("Dividend Increase (>10%)", "+1.0%", "+0.1 to +0.2 pts"),
+            ("Earnings Beat (>5%)", "+2.0%", "+0.2 to +0.4 pts"),
+            ("Guidance Raise", "+1.8%", "+0.2 to +0.3 pts"),
+            ("Conference Presentation", "+0.8%", "+0.2 to +0.4 pts"),
+            ("Strategic Partnership", "+1.2%", "+0.2 to +0.3 pts"),
+            ("CEO Change (Inside)", "+0.5%", "+0.1 to +0.2 pts"),
+            ("Non-Deal Roadshow", "+0.6%", "+0.1 to +0.2 pts"),
+            ("IR Website Improvement", "+0.5%", "+0.1 to +0.2 pts"),
+            # Negative events
+            ("Earnings Miss (>5%)", "-2.5%", "-0.2 to -0.4 pts"),
+            ("Guidance Lower", "-2.2%", "-0.2 to -0.4 pts"),
+            ("Dividend Cut", "-3.7%", "-0.3 to -0.5 pts"),
+            ("CEO Change (Forced)", "-1.5%", "-0.2 to -0.4 pts"),
+            ("CEO Change (Outside)", "-0.5%", "-0.1 to -0.2 pts"),
+            ("CFO Change (Forced)", "-1.0%", "-0.1 to -0.3 pts"),
+            ("M&A Announcement (Acquirer)", "-1.0%", "-0.1 to -0.2 pts"),
+            ("Restructuring Announcement", "-0.8%", "-0.1 to -0.2 pts"),
+        ]
+
+        # Table header
+        self.set_font('Arial', 'B', 7)
+        self.set_fill_color(20, 40, 80)
+        self.set_text_color(255, 255, 255)
+
+        self.cell(55, 5, 'Event Type', 1, 0, 'C', fill=True)
+        self.cell(30, 5, 'Expected CAR', 1, 0, 'C', fill=True)
+        self.cell(35, 5, 'IRCI Impact', 1, 0, 'C', fill=True)
+        self.cell(50, 5, 'Est. Value Impact', 1, 1, 'C', fill=True)
+
+        self.set_text_color(0, 0, 0)
+        self.set_font('Arial', '', 7)
+
+        for i, (event_name, car, irci_impact) in enumerate(event_menu_items):
+            # Alternate row colors
+            if i % 2 == 0:
+                self.set_fill_color(248, 249, 250)
+            else:
+                self.set_fill_color(255, 255, 255)
+
+            # Parse IRCI impact range and calculate dollar value
+            # Extract values from ranges like "+0.8 to +1.2 pts" or "-0.2 to -0.4 pts"
+            match = re.search(r'([\+\-]?\d+\.?\d*)\s*to\s*([\+\-]?\d+\.?\d*)', irci_impact)
+            if match:
+                low_pts = float(match.group(1))
+                high_pts = float(match.group(2))
+                low_value = low_pts * dollar_per_point
+                high_value = high_pts * dollar_per_point
+
+                # Handle negative values
+                is_negative = low_pts < 0
+                abs_low = abs(low_value)
+                abs_high = abs(high_value)
+
+                if abs_high >= 1e9:
+                    if is_negative:
+                        value_str = f"-${abs_low/1e9:.1f}B to -${abs_high/1e9:.1f}B"
+                    else:
+                        value_str = f"${abs_low/1e9:.1f}B - ${abs_high/1e9:.1f}B"
+                elif abs_high >= 1e6:
+                    if is_negative:
+                        value_str = f"-${abs_low/1e6:.0f}M to -${abs_high/1e6:.0f}M"
+                    else:
+                        value_str = f"${abs_low/1e6:.0f}M - ${abs_high/1e6:.0f}M"
+                else:
+                    if is_negative:
+                        value_str = f"-${abs_low:,.0f} to -${abs_high:,.0f}"
+                    else:
+                        value_str = f"${abs_low:,.0f} - ${abs_high:,.0f}"
+            else:
+                value_str = "N/A"
+
+            self.cell(55, 4, event_name, 1, 0, 'L', fill=True)
+            self.cell(30, 4, car, 1, 0, 'C', fill=True)
+            self.cell(35, 4, irci_impact, 1, 0, 'C', fill=True)
+            self.cell(50, 4, value_str, 1, 1, 'C', fill=True)
+
+        self.set_font('Arial', 'I', 7)
+        self.cell(0, 4, "CAR = Cumulative Abnormal Return. Value estimates based on company's $/IRCI point.", 0, 1, 'L')
+
+        self.ln(2)
 
         # Investment recommendation
         self.section_title('Investment Recommendation')
@@ -654,20 +746,15 @@ class IRCIReport(FPDF):
         else:
             per_point_str = f'${dollar_per_point/1e6:.1f}M'
 
-        self.body_text(
-            f"Primary Investment Focus: {weakest_dial.upper()} Dial (currently {weakest_score:.1f}%)\n\n"
-            f"Investment Logic:\n"
-            f"* Every 1-point IRCI improvement = ~{per_point_str} in enterprise value\n"
-            f"* With focused effort on {weakest_dial}, a +3-5 point improvement is achievable\n"
-            f"* Potential value creation: {per_point_str} to {f'${(5 * dollar_per_point)/1e9:.2f}B' if 5*dollar_per_point >= 1e9 else f'${(5 * dollar_per_point)/1e6:.0f}M'}"
+        self.set_font('Arial', '', 9)
+        self.safe_multi_cell(0, 4,
+            f"Primary Focus: {weakest_dial.upper()} Dial ({weakest_score:.1f}%). "
+            f"Every 1-pt IRCI improvement = ~{per_point_str}. "
+            f"With focused effort, +3-5 pts achievable = {per_point_str} to {f'${(5 * dollar_per_point)/1e9:.2f}B' if 5*dollar_per_point >= 1e9 else f'${(5 * dollar_per_point)/1e6:.0f}M'} potential value."
         )
-
-        self.ln(3)
-        self.set_font('Arial', 'I', 8)
-        self.body_text(
-            "Note: Value estimates are R-squared scaled to reflect that IR is one of many factors "
-            "affecting enterprise value. Actual results depend on execution and market conditions."
-        )
+        self.ln(1)
+        self.set_font('Arial', 'I', 7)
+        self.cell(0, 4, "Value estimates R-squared scaled. Actual results depend on execution and market conditions.", 0, 1, 'L')
 
     def add_risk_flags(self, dial_scores: Dict, ticker: str, df_composite: pd.DataFrame):
         """Add risk flags section"""
