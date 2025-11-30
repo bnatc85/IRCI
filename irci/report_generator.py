@@ -643,45 +643,51 @@ class IRCIReport(FPDF):
         # Event Value Menu - What each event type is worth
         self.section_title('Event Value Menu')
 
-        # Define key event types with their impacts (positive and negative)
+        # Define ALL event types with their impacts (matching app.py)
+        # Format: (Event Name, Expected CAR, IRCI Impact Range)
         event_menu_items = [
-            # Positive events
-            ("Investor Day", "+2.0%", "+0.8 to +1.2 pts"),
-            ("Analyst Day", "+1.5%", "+0.5 to +0.8 pts"),
-            ("Analyst Coverage Initiation", "+1.0%", "+0.4 to +0.7 pts"),
+            # === Positive Events (sorted by impact) ===
             ("Buyback Announcement", "+3.5%", "+0.3 to +0.5 pts"),
             ("Dividend Initiation", "+3.4%", "+0.3 to +0.5 pts"),
-            ("Dividend Increase (>10%)", "+1.0%", "+0.1 to +0.2 pts"),
+            ("Investor Day", "+2.0%", "+0.8 to +1.2 pts"),
             ("Earnings Beat (>5%)", "+2.0%", "+0.2 to +0.4 pts"),
             ("Guidance Raise", "+1.8%", "+0.2 to +0.3 pts"),
-            ("Conference Presentation", "+0.8%", "+0.2 to +0.4 pts"),
+            ("Analyst Day", "+1.5%", "+0.5 to +0.8 pts"),
+            ("Advertising Campaign", "+1.3%", "+0.2 to +0.3 pts"),
             ("Strategic Partnership", "+1.2%", "+0.2 to +0.3 pts"),
-            ("CEO Change (Inside)", "+0.5%", "+0.1 to +0.2 pts"),
+            ("Dividend Increase (>10%)", "+1.0%", "+0.1 to +0.2 pts"),
+            ("Analyst Coverage Init.", "+1.0%", "+0.4 to +0.7 pts"),
+            ("Conference Presentation", "+0.8%", "+0.2 to +0.4 pts"),
             ("Non-Deal Roadshow", "+0.6%", "+0.1 to +0.2 pts"),
+            ("CEO Change (Inside)", "+0.5%", "+0.1 to +0.2 pts"),
+            ("Social Media Campaign", "+0.5%", "+0.1 to +0.2 pts"),
             ("IR Website Improvement", "+0.5%", "+0.1 to +0.2 pts"),
-            # Negative events
+            ("Press Release Program", "+0.5%", "+0.1 to +0.2 pts"),
+            # === Negative Events (sorted by impact) ===
+            ("Dividend Cut", "-3.7%", "-0.3 to -0.5 pts"),
             ("Earnings Miss (>5%)", "-2.5%", "-0.2 to -0.4 pts"),
             ("Guidance Lower", "-2.2%", "-0.2 to -0.4 pts"),
-            ("Dividend Cut", "-3.7%", "-0.3 to -0.5 pts"),
             ("CEO Change (Forced)", "-1.5%", "-0.2 to -0.4 pts"),
-            ("CEO Change (Outside)", "-0.5%", "-0.1 to -0.2 pts"),
             ("CFO Change (Forced)", "-1.0%", "-0.1 to -0.3 pts"),
-            ("M&A Announcement (Acquirer)", "-1.0%", "-0.1 to -0.2 pts"),
-            ("Restructuring Announcement", "-0.8%", "-0.1 to -0.2 pts"),
+            ("M&A Announce (Acquirer)", "-1.0%", "-0.1 to -0.2 pts"),
+            ("Restructuring", "-0.8%", "-0.1 to -0.2 pts"),
+            ("CEO Change (Outside)", "-0.5%", "-0.1 to -0.2 pts"),
+            ("CFO Change (Voluntary)", "-0.3%", "-0.05 to -0.1 pts"),
+            ("Director Change", "-0.2%", "-0.05 to -0.1 pts"),
         ]
 
-        # Table header
-        self.set_font('Arial', 'B', 7)
+        # Table header - use smaller font and row height to fit all items
+        self.set_font('Arial', 'B', 6)
         self.set_fill_color(20, 40, 80)
         self.set_text_color(255, 255, 255)
 
-        self.cell(55, 5, 'Event Type', 1, 0, 'C', fill=True)
-        self.cell(30, 5, 'Expected CAR', 1, 0, 'C', fill=True)
-        self.cell(35, 5, 'IRCI Impact', 1, 0, 'C', fill=True)
-        self.cell(50, 5, 'Est. Value Impact', 1, 1, 'C', fill=True)
+        self.cell(50, 4, 'Event Type', 1, 0, 'C', fill=True)
+        self.cell(20, 4, 'CAR', 1, 0, 'C', fill=True)
+        self.cell(30, 4, 'IRCI Impact', 1, 0, 'C', fill=True)
+        self.cell(40, 4, 'Est. Value', 1, 1, 'C', fill=True)
 
         self.set_text_color(0, 0, 0)
-        self.set_font('Arial', '', 7)
+        self.set_font('Arial', '', 6)
 
         for i, (event_name, car, irci_impact) in enumerate(event_menu_items):
             # Alternate row colors
@@ -691,7 +697,6 @@ class IRCIReport(FPDF):
                 self.set_fill_color(255, 255, 255)
 
             # Parse IRCI impact range and calculate dollar value
-            # Extract values from ranges like "+0.8 to +1.2 pts" or "-0.2 to -0.4 pts"
             match = re.search(r'([\+\-]?\d+\.?\d*)\s*to\s*([\+\-]?\d+\.?\d*)', irci_impact)
             if match:
                 low_pts = float(match.group(1))
@@ -699,7 +704,6 @@ class IRCIReport(FPDF):
                 low_value = low_pts * dollar_per_point
                 high_value = high_pts * dollar_per_point
 
-                # Handle negative values
                 is_negative = low_pts < 0
                 abs_low = abs(low_value)
                 abs_high = abs(high_value)
@@ -708,27 +712,27 @@ class IRCIReport(FPDF):
                     if is_negative:
                         value_str = f"-${abs_low/1e9:.1f}B to -${abs_high/1e9:.1f}B"
                     else:
-                        value_str = f"${abs_low/1e9:.1f}B - ${abs_high/1e9:.1f}B"
+                        value_str = f"${abs_low/1e9:.1f}B-${abs_high/1e9:.1f}B"
                 elif abs_high >= 1e6:
                     if is_negative:
                         value_str = f"-${abs_low/1e6:.0f}M to -${abs_high/1e6:.0f}M"
                     else:
-                        value_str = f"${abs_low/1e6:.0f}M - ${abs_high/1e6:.0f}M"
+                        value_str = f"${abs_low/1e6:.0f}M-${abs_high/1e6:.0f}M"
                 else:
                     if is_negative:
                         value_str = f"-${abs_low:,.0f} to -${abs_high:,.0f}"
                     else:
-                        value_str = f"${abs_low:,.0f} - ${abs_high:,.0f}"
+                        value_str = f"${abs_low:,.0f}-${abs_high:,.0f}"
             else:
                 value_str = "N/A"
 
-            self.cell(55, 4, event_name, 1, 0, 'L', fill=True)
-            self.cell(30, 4, car, 1, 0, 'C', fill=True)
-            self.cell(35, 4, irci_impact, 1, 0, 'C', fill=True)
-            self.cell(50, 4, value_str, 1, 1, 'C', fill=True)
+            self.cell(50, 3.5, event_name, 1, 0, 'L', fill=True)
+            self.cell(20, 3.5, car, 1, 0, 'C', fill=True)
+            self.cell(30, 3.5, irci_impact, 1, 0, 'C', fill=True)
+            self.cell(40, 3.5, value_str, 1, 1, 'C', fill=True)
 
-        self.set_font('Arial', 'I', 7)
-        self.cell(0, 4, "CAR = Cumulative Abnormal Return. Value estimates based on company's $/IRCI point.", 0, 1, 'L')
+        self.set_font('Arial', 'I', 6)
+        self.cell(0, 3, "CAR = Cumulative Abnormal Return. Value = IRCI Impact x $/pt.", 0, 1, 'L')
 
         self.ln(2)
 
