@@ -3872,9 +3872,12 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         dollar_value_df['enterprise_value']
                     )
                     r_squared = r_value ** 2
-                    scaled_slope = abs(slope) * r_squared
+                    # Apply 10% floor for calculation (same as dial_insights.py)
+                    r_squared_for_calc = max(r_squared, 0.10)
+                    scaled_slope = abs(slope) * r_squared_for_calc
                     stat_sig = "✓" if p_value < 0.05 else "⚠️"
-                    st.caption(f"Regression: Raw slope \\${abs(slope):,.0f}/pt × R²={r_squared:.2f} = \\${scaled_slope:,.0f}/pt (p={p_value:.3f} {stat_sig})")
+                    floor_note = " (10% floor applied)" if r_squared < 0.10 else ""
+                    st.caption(f"Regression: Raw slope \\${abs(slope):,.0f}/pt × R²={r_squared_for_calc:.2f}{floor_note} = \\${scaled_slope:,.0f}/pt (p={p_value:.3f} {stat_sig})")
 
         except Exception as e:
             st.warning(f"Could not compute dollar value metrics: {str(e)}")
