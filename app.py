@@ -872,28 +872,34 @@ def show_intro_modal():
     st.markdown("### Quick Start Templates")
     st.caption("Click a template to pre-fill peer companies")
 
-    template_col1, template_col2, template_col3 = st.columns(3)
-
-    with template_col1:
-        st.image("assets/tech-icon.jpg", use_container_width=True)
-        if st.button("Select", key="modal_big_tech", use_container_width=True):
-            st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
-            st.session_state['show_intro'] = False
-            st.rerun()
-
-    with template_col2:
-        st.image("assets/finance-icon.jpg", use_container_width=True)
-        if st.button("Select", key="modal_financials", use_container_width=True):
-            st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
-            st.session_state['show_intro'] = False
-            st.rerun()
-
-    with template_col3:
-        st.image("assets/health-icon.jpg", use_container_width=True)
-        if st.button("Select", key="modal_healthcare", use_container_width=True):
-            st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
-            st.session_state['show_intro'] = False
-            st.rerun()
+    # Center the icons with padding columns on either side
+    _, center_col, _ = st.columns([1, 2, 1])
+    with center_col:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("<div style='display: flex; flex-direction: column; align-items: center;'>", unsafe_allow_html=True)
+            st.image("assets/tech-icon.jpg", width=80)
+            st.markdown("</div>", unsafe_allow_html=True)
+            if st.button("Select", key="modal_big_tech", use_container_width=True):
+                st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
+                st.session_state['show_intro'] = False
+                st.rerun()
+        with col2:
+            st.markdown("<div style='display: flex; flex-direction: column; align-items: center;'>", unsafe_allow_html=True)
+            st.image("assets/finance-icon.jpg", width=80)
+            st.markdown("</div>", unsafe_allow_html=True)
+            if st.button("Select", key="modal_financials", use_container_width=True):
+                st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
+                st.session_state['show_intro'] = False
+                st.rerun()
+        with col3:
+            st.markdown("<div style='display: flex; flex-direction: column; align-items: center;'>", unsafe_allow_html=True)
+            st.image("assets/health-icon.jpg", width=80)
+            st.markdown("</div>", unsafe_allow_html=True)
+            if st.button("Select", key="modal_healthcare", use_container_width=True):
+                st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
+                st.session_state['show_intro'] = False
+                st.rerun()
 
     st.markdown("---")
 
