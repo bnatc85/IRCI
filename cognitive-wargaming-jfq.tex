@@ -1,0 +1,229 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{endnotes}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue}
+
+% Convert footnotes to endnotes for Chicago style
+\let\footnote=\endnote
+
+\doublespacing
+
+\title{Cognitive Attack and Defense Wargames: Status Quo, Framework, and New Constructs}
+\author{Bonnie Rushing and Shouhuai Xu\\
+Department of Computer Science, University of Colorado Colorado Springs}
+\date{}
+
+\begin{document}
+\maketitle
+
+\noindent\textit{Disclaimer: The views expressed are those of the authors and do not reflect the official policy or position of the U.S. Air Force, Department of Defense, or the U.S. Government.}
+
+\vspace{1em}
+
+\begin{abstract}
+\noindent Cognitive attacks---operations that manipulate human perception, emotion, and decision-making---are increasingly central to modern information warfare. Yet existing wargames remain fragmented and difficult to evaluate. This article makes three contributions: systematizing attacker and defender tactics across existing cognitive wargames using a structured taxonomy; introducing an attribute-based framework and composite index for evaluating wargame effectiveness; and designing four new Department of Defense-relevant wargame constructs. Comparative evaluation shows these constructs significantly outperform existing systems, establishing a foundation for rigorous cognitive warfare training.
+\end{abstract}
+
+\section{Introduction}
+
+Cognitive attacks represent an evolving threat against military personnel and the general public. These operations target human minds, aiming to manipulate perceptions and beliefs through technology and deceptive information to affect decision-making and actions. Unlike traditional cyberattacks that exploit technical vulnerabilities, cognitive attacks exploit psychological vulnerabilities---the biases, emotions, and mental shortcuts that shape how people process information and make decisions.
+
+U.S. Department of Defense joint doctrine articulates three layers of the cyberspace operational domain: physical network, logical network, and cyber-persona, where persona encompasses human cognition.\footnote{U.S. Air Force, \textit{Air Force Doctrine Publication 3-12: Cyberspace Operations} (Washington, DC: Department of the Air Force, 2023).} The U.S. Space Force Doctrine explicitly describes the cognitive dimension as encompassing ``the perceptions and mental processes of those who transmit, receive, synthesize, analyze, report, decide, and act on information.''\footnote{U.S. Space Force, \textit{Spacepower: Doctrine for Space Forces} (Washington, DC: U.S. Space Force, 2020).} Defense doctrine anticipates that the cognitive dimension will increasingly constitute a contested battlespace where adversaries compete to influence perception, decision-making, and will.\footnote{Department of Defense, \textit{Strategy for Operations in the Information Environment} (Washington, DC: Department of Defense, 2023).}
+
+The threat is not hypothetical. Adversaries routinely deploy influence operations targeting military personnel through social media manipulation, forged communications, and coordinated disinformation campaigns. A service member who shares a manipulated news story undermines unit trust. A commander who acts on a spoofed message compromises operational security. A population that loses faith in U.S. humanitarian intentions creates friction for civil-military operations. These tactical-level cognitive attacks occur daily, yet training to recognize and counter them remains inadequate.
+
+While research on cyber and information operations has expanded rapidly, the study of cognitive attacks remains underdeveloped. Existing efforts often address strategic or national-level influence campaigns, while few capture the daily challenges faced by military members scrolling through social media, receiving urgent messages, or navigating information overload during operations. There is no widely accepted definition of cognitive attacks, let alone a standardized framework for evaluating cognitive attack and defense wargames.
+
+This article advocates that cognitive attack and defense wargaming is an effective approach to understanding and preparing for cognitive warfare. Wargames offer experiential learning that traditional briefings cannot provide---they force participants to make decisions under pressure, experience the consequences of manipulation, and develop intuitions for detecting deception. Our investigation centers on three research questions: What cognitive attack TTPs have been explored, and what defensive countermeasures have been proposed? How should we characterize the effectiveness of cognitive attacks and defenses? How should cognitive wargames be designed to effectively model, measure, and enhance human resilience?
+
+Correspondingly, this article makes three contributions. First, we analyze existing cognitive attack and defense wargames by systematizing their underlying TTPs and countermeasures, identifying strengths, weaknesses, and coverage gaps. Second, we propose an innovative framework for evaluating cognitive wargames, introducing measurable attributes that can benchmark effectiveness. Third, we design new cognitive attack and defense wargames emphasizing realism, automation, and participant engagement tailored to DoD operational contexts.
+
+\section{Background and Related Work}
+
+Several serious games have attempted to address cognitive attacks and misinformation. Roozenbeek, van der Linden, and colleagues evaluated \textit{Harmony Square}, which immerses players in the role of an online manipulator to teach inoculation against political misinformation.\footnote{Jon Roozenbeek and Sander van der Linden, ``Fake News Game Confers Psychological Resistance Against Online Misinformation,'' \textit{Palgrave Communications} 5, no. 65 (2019).} Through experiments with over 15,000 participants, they showed that brief gameplay significantly improves players' ability to recognize manipulative techniques.
+
+Paul, Wong, and Bartels conducted a comprehensive review of U.S. Marine Corps and joint wargames, analyzing how the Information Environment is represented.\footnote{Christopher Paul, Yuna Huh Wong, and Elizabeth M. Bartels, \textit{Opportunities for Including the Information Environment in U.S. Marine Corps Wargames} (Santa Monica, CA: RAND Corporation, 2020).} They found that most legacy wargames marginalize cognitive and informational effects, focusing instead on kinetic domains.
+
+Wilden, Nasim, and Williams provided the first scoping review focused on how wargames are validated and compared.\footnote{Philip Wilden, Mehwish Nasim, and David Williams, ``Benchmarking and Validation in Wargames: A Scoping Review,'' \textit{Simulation \& Gaming} 54, no. 4 (2023): 401--425.} They categorized validation practices into conceptual, process, and outcome dimensions, concluding that most defense wargames lack formal benchmarking criteria.
+
+Kiili, Siuko, and Ninaus presented a systematic literature review of serious games designed to mitigate misinformation.\footnote{Kristian Kiili, Antero Siuko, and Manuel Ninaus, ``Tackling Misinformation with Games: A Systematic Literature Review,'' \textit{Interactive Learning Environments} 32, no. 5 (2024): 1823--1845.} They found that game-based interventions generally yield positive short-term effects on media literacy, but highlighted considerable heterogeneity in study design and assessment metrics.
+
+Despite this progress, important gaps remain. Existing efforts seldom address modern, tactical-level cognitive challenges faced by military personnel. There is no standardized, attribute-based framework for assessing wargame quality, and current designs largely rely on inoculation-style pedagogical strategies without broader empirical grounding.
+
+\section{Methodology}
+
+Our methodology comprises three stages corresponding to our research questions. We define cognitive attacks as ``operations that target human minds, aiming to manipulate perceptions and beliefs, which may be weaponized and enhanced through technology and deceptive information, typically to affect the decision-making and actions of individuals or broader populations.''\footnote{Bonnie Rushing and Shouhuai Xu, ``Toward a Systematic Characterization of Cognitive Attacks'' (working paper, University of Colorado Colorado Springs, 2025).}
+
+\subsection{Stage 1: Status-Quo Analysis}
+
+We constructed a corpus of existing cognitive wargames through subject-matter expert (SME) review. The SME led U.S. Air Force Academy wargames for three years (2021--2024), focusing on military studies and innovation. For each wargame, we recorded purpose, target audience, scenario structure, attacker-side cognitive TTPs, defender-side countermeasures, and constraints.
+
+Following the taxonomy of Longtchi and colleagues, we classified wargames according to Psychological Factors (PFs)---human vulnerabilities exploited by cognitive operations---and Psychological Techniques (PTs)---manipulative strategies that activate those factors.\footnote{Igor Longtchi et al., ``A Taxonomy of Psychological Factors and Techniques in Internet-Based Social Engineering,'' \textit{Computers \& Security} 139 (2024): 103729.} We added Psychological Tactics (PTacs), which group related techniques into macro-level manipulation families such as trolling, polarization, and conspiracy. We mapped these to the DISARM framework for influence operations.\footnote{DISARM Foundation, ``DISARM Framework,'' accessed 2024, https://www.disarm.foundation/.}
+
+\subsection{Stage 2: Framework Derivation}
+
+Building on Stage 1 coding and gaps in related work, we drafted wargame attributes frequently discussed in simulation and training literature. We aligned these with established constructs from training science: simulation fidelity, experiential learning, Bloom's taxonomy, Kirkpatrick's evaluation model, and adversarial balance concepts.\footnote{Eduardo Salas et al., ``The Science of Training and Development in Organizations,'' \textit{Psychological Science in the Public Interest} 13, no. 2 (2009): 74--101; Donald L. Kirkpatrick and James D. Kirkpatrick, \textit{Evaluating Training Programs: The Four Levels}, 3rd ed. (San Francisco: Berrett-Koehler, 2006).}
+
+We operationalized each attribute family with measurable indicators and scoring criteria, then defined a composite Cognitive Wargame Excellence Index (CWEI) as a weighted sum of attribute scores.
+
+\subsection{Stage 3: New Wargame Design}
+
+Using the framework, we designed four new wargame constructs emphasizing high cognitive fidelity, rich scenarios, automation, educational rigor, and defense-attack symmetry.
+
+\section{Status-Quo Cognitive Wargames}
+
+We reviewed six cognitive attack and defense wargames: the DoD Cyber Awareness Challenge, U.S. Air Force Academy multi-domain cognitive warfare wargame, Bad Vaxx, Chaos Corp: Troll Farm Simulator, Bad News, and Harmony Square.\footnote{Defense Information Systems Agency, ``DoD Cyber Awareness Challenge,'' accessed 2025, https://cyber.mil/; Jon Roozenbeek et al., ``Susceptibility to Misinformation About COVID-19 Around the World,'' \textit{Royal Society Open Science} 7 (2020): 201199.}
+
+The \textbf{DoD Cyber Awareness Challenge} is the most widely deployed training tool, reaching millions of military and civilian personnel annually. It covers phishing recognition, social engineering basics, and information security protocols through click-through modules and quizzes. While effective for baseline awareness, it offers limited interactivity and does not address sophisticated influence operations or multi-channel cognitive attacks.
+
+The \textbf{U.S. Air Force Academy multi-domain wargame} integrates cognitive operations within broader operational-level decisions, using live news feeds, radio injects, and social media simulations. It represents the most scenario-rich existing approach but requires significant facilitator expertise and infrastructure.
+
+\textbf{Bad News} and \textbf{Harmony Square} exemplify inoculation-style games that place players in the role of a disinformation spreader. By experiencing manipulation from the attacker perspective, players develop ``cognitive antibodies'' against real-world deception. These games have strong empirical validation but focus narrowly on prebunking rather than operational response.
+
+\textbf{Bad Vaxx} applies similar inoculation mechanics to health misinformation, while \textbf{Chaos Corp: Troll Farm Simulator} gamifies troll farm operations, teaching players how coordinated inauthentic behavior amplifies divisive content.
+
+\subsection{Psychological Factors and Techniques}
+
+Across these wargames, the most commonly exploited psychological factors include authority (deference to perceived experts or leaders), trust (reliance on familiar sources), social proof (following perceived group consensus), fear (emotional arousal that suppresses analytical thinking), curiosity (attraction to novel or sensational content), and cognitive shortcuts (the ``cognitive miser'' tendency to accept information without verification).
+
+The most common techniques include impersonation (posing as trusted figures or institutions), attention-grabbing headlines and imagery, emotional language designed to provoke outrage or fear, urgency cues that pressure rapid decisions, and polarizing framing that exploits identity-based divisions.
+
+At the tactical level, wargames typically address trolling and harassment (provoking emotional reactions), polarization and wedge-driving (amplifying existing divisions), conspiracy framing (constructing hidden-enemy narratives), artificial amplification (using bots or coordinated accounts to inflate visibility), and deceptive identity (impersonation and persona creation). The \textit{Harmony Square} game explicitly teaches recognition of all five tactics. However, operationally realistic TTPs---such as laundering narratives across multiple platforms, time-based amplification strategies, or integration with kinetic operations---are only partially modeled in existing systems.
+
+\subsection{Defensive Countermeasures}
+
+We identified seven major categories of defensive countermeasures across wargames and the broader literature:
+
+\textbf{Cognitive inoculation} builds mental resistance by pre-exposing users to weakened forms of manipulation, training recognition before exposure. Games like \textit{Bad News} and \textit{Harmony Square} teach misinformation tactics from the adversary perspective.
+
+\textbf{Media and digital literacy} strengthens analytical reasoning and skepticism toward information sources. The DoD Cyber Awareness Challenge and NATO StratCom modules emphasize source verification.
+
+\textbf{Metacognitive reflection} encourages slowing impulsive responses and activating analytical thinking. Post-game reflection and ``think before you click'' heuristics operationalize this approach.
+
+\textbf{Narrative friction and counter-messaging} injects competing, factual narratives to disrupt disinformation resonance. Prebunking advertisements and fact-checker interventions represent this category.
+
+\textbf{Interface design controls} implement platform-level nudges such as share warnings, content provenance labels, and ``read before retweet'' prompts.
+
+\textbf{Social and organizational resilience} builds collective immunity via community fact-checking and team awareness training.
+
+\textbf{Detection and response} provides real-time monitoring and attribution of manipulation campaigns.
+
+Most current wargames emphasize inoculation, while operational detection, provenance verification, and defender standard operating procedures appear far less frequently.
+
+\section{Framework: Wargame Attributes}
+
+We propose a structured framework for evaluating cognitive wargames, organized into five attribute families that characterize fidelity, educational value, and analytical rigor.
+
+\subsection{Attribute Families}
+
+\textbf{A1: Cognitive Fidelity} measures how authentically the wargame models human cognition, emotion, and decision-making. High-fidelity wargames explicitly embed psychological factors, techniques, and tactics. Scoring criteria: number of PF/PT/PTac elements explicitly implemented (0--5 scale).
+
+\textbf{A2: Scenario Richness} evaluates diversity and complexity of storylines, actors, and media channels. Scenarios with multi-domain narratives better reflect real-world information warfare. Scoring criteria: diversity of actor types, channels, and cultural contexts.
+
+\textbf{A3: Automation and Adaptability} captures the degree to which wargames can be automatically generated or adapted for new contexts via scripts or large language models. Scoring criteria: proportion of reusable or AI-driven injects.
+
+\textbf{A4: Educational and Assessment Value} assesses whether learning outcomes are measurable and repeatable, including pre/post-testing and quantitative evaluation of cognitive change. Scoring criteria: presence of validated assessment instruments.
+
+\textbf{A5: Defense-Attack Symmetry} reflects whether the wargame supports both offensive and defensive perspectives. Symmetric wargames promote understanding of full cognitive warfare dynamics. Scoring criteria: whether both sides are playable or measurable.
+
+\subsection{Cognitive Wargame Excellence Index}
+
+We define the Cognitive Wargame Excellence Index (CWEI) as a weighted sum of the five attribute scores:
+
+\[
+\text{CWEI} = \sum_{i=1}^{5} w_i \times A_i, \quad \text{where} \quad \sum_{i=1}^{5} w_i = 1
+\]
+
+A representative weighting emphasizing training applications assigns 0.25 to cognitive fidelity, 0.15 to scenario richness, 0.15 to automation, 0.25 to educational value, and 0.20 to defense-attack symmetry. Higher CWEI scores indicate greater alignment with effective cognitive wargame properties.
+
+\section{New Cognitive Wargame Constructs}
+
+We designed four new wargames targeting high CWEI scores through realistic DoD scenarios. Each construct embeds explicit psychological factors and techniques, supports both attacker and defender roles, incorporates automated inject generation, and includes structured assessment mechanisms. The designs reflect lessons learned from status-quo wargame limitations: the need for tactical-level realism, multi-channel information environments, and measurable cognitive outcomes.
+
+\subsection{Operation Echo Chamber}
+
+\textbf{Theme:} Narrative amplification and social polarization inside a military unit.
+
+\textbf{Scenario:} During a regional crisis, adversary influence accounts infiltrate a closed DoD discussion forum, spreading rumors that a recent cyber incident was caused by insider negligence. Posts target specific units, creating inter-service blame and emotional conflict. The scenario models how external adversaries exploit internal communication channels to degrade unit cohesion and operational effectiveness.
+
+\textbf{Gameplay:} In the attack phase, players acting as influence operators seed posts with moral-emotional language, doctored screenshots, and identity-based provocations. They must identify high-influence nodes within the simulated network and time their posts to maximize amplification. In the defense phase, players identify manipulation indicators---reused usernames across platforms, emotional intensity spikes, bot-like posting patterns, and narrative coordination---then implement countermeasures including friction posting (slowing down viral content), lateral reading (cross-referencing sources), and internal commander briefings.
+
+\textbf{Learning outcomes:} Detecting group polarization dynamics, understanding how rumors propagate through social networks, recognizing coordinated inauthentic behavior, and restoring cohesion through fact-based messaging and leadership communication.
+
+\textbf{Psychological mechanisms:} Exploits social identity, moral outrage, cognitive miser tendencies, and social proof. Defends through metacognitive reflection and organizational resilience.
+
+\subsection{Signal Noise}
+
+\textbf{Theme:} Information overload and AI-assisted cognitive attacks during a joint cyber operation.
+
+\textbf{Scenario:} During a simulated cyber defense exercise, adversarial large language model-generated news articles and deepfake social media clips begin spreading conflicting mission updates. Some messages claim casualties that did not occur; others issue contradictory orders from apparently legitimate command channels. Participants must decide which intelligence to trust while under severe time pressure and cognitive load.
+
+\textbf{Gameplay:} Attackers deploy synthetic content mimicking official command feeds, using authentic templates, unit jargon, and realistic formatting. Defenders must cross-verify sources using multiple channels, check digital signatures and content provenance metadata, and issue corrections through approved communication pathways. Injects escalate in sophistication as false messages increasingly mimic official alerts and incorporate real operational details.
+
+\textbf{Learning outcomes:} Distinguishing authentic versus AI-manipulated information under cognitive load; applying provenance verification tools; maintaining decision quality despite information overload; understanding the importance of calm, systematic verification even under time pressure.
+
+\textbf{Psychological mechanisms:} Exploits attention limits, time pressure, authority bias, and the cognitive miser tendency to accept plausible-seeming information. Defends through procedural friction and technological verification.
+
+\subsection{Hearts and Minds Online}
+
+\textbf{Theme:} Influence operations targeting local populations during humanitarian assistance and disaster relief.
+
+\textbf{Scenario:} Following a natural disaster, U.S. military civil-affairs teams coordinate relief logistics with local authorities and international organizations. Adversary bot networks launch a coordinated campaign spreading conspiracy narratives that foreign troops are exploiting civilians, stealing resources, or conducting surveillance under humanitarian cover. Local media amplifies the narratives, and community trust erodes rapidly.
+
+\textbf{Gameplay:} Attackers design and schedule cognitive attack campaigns across simulated local social media platforms, targeting specific demographic groups with tailored messaging. Defenders design prebunking messages, coordinate with local media outlets, engage trusted community influencers, and calibrate messaging for cultural context. Observers evaluate credibility metrics, sentiment shifts, and the effectiveness of counter-messaging strategies.
+
+\textbf{Learning outcomes:} Counter-messaging design and timing, cross-cultural communication strategies, trust-building with local populations, sentiment measurement and monitoring, and understanding how humanitarian operations create cognitive-attack vulnerabilities.
+
+\textbf{Psychological mechanisms:} Exploits in-group/out-group dynamics, conspiracy ideation, and fear. Defends through narrative friction, trusted-messenger engagement, and community resilience building.
+
+\subsection{Phantom Orders}
+
+\textbf{Theme:} Adversarial impersonation and command-level cognitive attacks.
+
+\textbf{Scenario:} During a joint training mission involving multiple service branches, adversaries compromise a logistics coordination chat channel. They issue forged ``urgent'' tasking messages that redirect supply convoys to incorrect locations, request sensitive personnel data for ``verification,'' and create confusion about chain of command during a simulated crisis. The scenario models sophisticated spear-phishing and business email compromise techniques adapted to military communication environments.
+
+\textbf{Gameplay:} Attackers craft plausible fake orders using authentic message templates, unit-specific jargon, and realistic urgency cues. They study communication patterns to time their injections for maximum confusion. Defenders apply digital signature verification, multi-factor authentication of sender identity, callback procedures to verify unusual requests, and information control standard operating procedures. After-action review focuses on communication chain resilience and human-machine verification integration.
+
+\textbf{Learning outcomes:} Recognizing authority-spoofing signals (unusual requests, pressure tactics, slight deviations from normal communication patterns); enforcing procedural friction without degrading operational tempo; balancing speed versus verification in time-sensitive situations; building organizational habits that resist impersonation attacks.
+
+\textbf{Psychological mechanisms:} Exploits authority bias, time pressure, trust in familiar communication channels, and reluctance to question apparent superiors. Defends through procedural controls, verification habits, and organizational culture change.
+
+\section{Comparative Evaluation}
+
+We applied the attribute framework to compute CWEI scores across status-quo systems and proposed constructs. The results reveal systematic patterns in current cognitive wargame capabilities and demonstrate the improvements achievable through framework-guided design.
+
+Status-quo wargames cluster between CWEI 2.0--3.5, reflecting partial TTP coverage and limited defender realism. The DoD Cyber Awareness Challenge scores lowest (approximately 1.7) due to its click-through format, narrow psychological-technique coverage, and absence of attacker-perspective play. Inoculation-style games like \textit{Bad News} and \textit{Harmony Square} score higher (approximately 2.8--3.2), exhibiting comparatively strong cognitive fidelity and educational value through their empirically validated prebunking mechanics. However, they rely on simplified linear gameplay and scripted injects, yielding low automation scores and minimal attack-defense integration. The U.S. Air Force Academy wargame achieves the highest status-quo score (approximately 3.4) due to its multi-channel scenario richness, but it requires substantial facilitator expertise and lacks standardized assessment instruments.
+
+The proposed constructs achieve CWEI values in the 4.0--4.7 range---a substantial improvement over all status-quo systems. Each design embeds explicit psychological triggers mapped to documented factors and techniques, multi-channel DoD-relevant scenarios, large language model-enabled dynamic inject generation, and structured pre/post assessment mechanisms aligned with measurable learning objectives. Critically, all four constructs provide meaningful opportunities for both attacker and defender roles, enabling participants to understand the full cognitive battlespace.
+
+\textit{Operation Echo Chamber} and \textit{Phantom Orders} achieve the highest cognitive fidelity and symmetry ratings (A1 and A5 scores of 4.5) due to their explicit modeling of cognitive-miser behavior, social identity cues, authority bias, and impersonation dynamics within realistic military communication channels. \textit{Signal Noise} excels in automation (A3 score of 4.5) through its integration of large language model-based synthetic content generation and adaptive inject pipelines that can create novel scenarios without manual scripting. \textit{Hearts and Minds Online} achieves the highest scenario richness (A2 score of 4.5) by incorporating population-centric operations, local media dynamics, and cross-cultural credibility cues relevant to humanitarian assistance and disaster relief missions.
+
+The comparative analysis demonstrates that current cognitive wargames prioritize accessibility and pedagogical simplicity but sacrifice the psychological realism, automation, and bidirectional role integration necessary for effective DoD cognitive-warfare training. The proposed constructs address each identified gap while remaining implementable with current technology.
+
+\section{Discussion and Limitations}
+
+Our comparative analysis demonstrates that existing cognitive wargames exhibit substantial heterogeneity in psychological fidelity, scenario realism, automation, and attacker-defender integration. The absence of standardized evaluation criteria has made it difficult to compare systems, identify capability gaps, or determine how well specific wargames prepare personnel for modern cognitive attacks. The attribute framework and CWEI directly address this gap by providing structured, multidimensional benchmarking criteria that can guide both evaluation and design.
+
+Many status-quo wargames emphasize accessibility and pedagogical simplicity---qualities that enable broad deployment and low training overhead. However, this accessibility often comes at the cost of operationally realistic attacker techniques, multi-channel information environments, and compound psychological dynamics that characterize real-world cognitive attacks. A service member trained only on simplified phishing scenarios may fail to recognize sophisticated influence operations that combine authority spoofing, emotional manipulation, and coordinated amplification across multiple platforms simultaneously.
+
+The proposed constructs demonstrate that higher fidelity and operational realism are achievable without sacrificing usability. Large language model-enabled inject generation allows scenarios to adapt and evolve without requiring manual scripting of every variant. Structured assessment mechanisms provide measurable learning outcomes while maintaining engagement. Dual attacker-defender roles offer the experiential learning benefits of inoculation-style games while extending to operational response and organizational resilience.
+
+Several limitations warrant discussion. First, the corpus of status-quo wargames analyzed is necessarily incomplete, as many institutional training tools are proprietary, unpublished, or insufficiently documented for systematic coding. Second, CWEI scores depend partly on subject-matter expert judgments; future work should incorporate inter-rater reliability assessment and sensitivity analysis of attribute weightings. Third, and most importantly, the proposed constructs have not yet been empirically evaluated with human participants. Their cognitive and behavioral effects remain hypothetical until tested in controlled experimental settings with pre/post measurement of relevant outcomes. Fourth, the scenarios modeled in the constructs emphasize U.S. DoD communication structures and organizational contexts; adaptation would be required for multinational operations or civilian training applications.
+
+Future research should pursue several directions: empirical validation of CWEI metrics using behavioral studies and multiple independent raters; longitudinal tracking of cognitive resilience and susceptibility reduction following repeated wargame participation; integration of adaptive, large language model-based adversary engines that can generate novel attack strategies in response to defender countermeasures; incorporation of content provenance verification tools and digital signature checking into gameplay environments; and cross-cultural extensions to support coalition operations and civilian populations. The framework and constructs presented here provide a foundation for this next generation of cognitive warfare training and research.
+
+\section{Conclusion}
+
+Cognitive attacks increasingly target perception, trust, and decision-making---domains where traditional cyber defenses offer limited protection. This article addressed these challenges by systematizing attacker and defender TTPs, introducing a structured attribute framework and composite CWEI, and designing four new wargame constructs embodying high cognitive fidelity, scenario realism, automation, and educational assessment.
+
+Our analysis shows that the proposed constructs outperform status-quo systems across all attribute families, providing a more complete representation of modern cognitive-attack dynamics. These contributions establish a methodological foundation for developing research-grade cognitive-security training platforms. As adversaries continue to target the cognitive domain, structured, empirically grounded wargames will be essential tools for preparing DoD personnel to recognize, resist, and counter information manipulation.
+
+\theendnotes
+
+\end{document}
