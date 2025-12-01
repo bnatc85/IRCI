@@ -10,6 +10,8 @@ import pandas as pd
 import io
 import re
 
+from irci.event_timeline import calculate_event_irci_impact
+
 
 def strip_emojis(text: str) -> str:
     """Remove emojis and other non-ASCII characters from text for PDF compatibility"""
@@ -583,7 +585,8 @@ class IRCIReport(FPDF):
             )
 
     def add_roi_section(self, ticker: str, dial_scores: Dict, dollar_per_point: float,
-                        playbook: Dict):
+                        playbook: Dict, df_composite: pd.DataFrame = None,
+                        df_val: pd.DataFrame = None, weights: Dict = None):
         """Add ROI and investment recommendation section"""
         self.chapter_title('INVESTMENT & ROI ANALYSIS')
 
@@ -643,38 +646,69 @@ class IRCIReport(FPDF):
         # Event Value Menu - What each event type is worth
         self.section_title('Event Value Menu')
 
-        # Define ALL event types with their impacts (matching app.py)
-        # Format: (Event Name, Expected CAR, IRCI Impact Range)
-        event_menu_items = [
-            # === Positive Events (sorted by impact) ===
-            ("Buyback Announcement", "+3.5%", "+0.3 to +0.5 pts"),
-            ("Dividend Initiation", "+3.4%", "+0.3 to +0.5 pts"),
-            ("Investor Day", "+2.0%", "+0.8 to +1.2 pts"),
-            ("Earnings Beat (>5%)", "+2.0%", "+0.2 to +0.4 pts"),
-            ("Guidance Raise", "+1.8%", "+0.2 to +0.3 pts"),
-            ("Analyst Day", "+1.5%", "+0.5 to +0.8 pts"),
-            ("Advertising Campaign", "+1.3%", "+0.2 to +0.3 pts"),
-            ("Strategic Partnership", "+1.2%", "+0.2 to +0.3 pts"),
-            ("Dividend Increase (>10%)", "+1.0%", "+0.1 to +0.2 pts"),
-            ("Analyst Coverage Init.", "+1.0%", "+0.4 to +0.7 pts"),
-            ("Conference Presentation", "+0.8%", "+0.2 to +0.4 pts"),
-            ("Non-Deal Roadshow", "+0.6%", "+0.1 to +0.2 pts"),
-            ("CEO Change (Inside)", "+0.5%", "+0.1 to +0.2 pts"),
-            ("Social Media Campaign", "+0.5%", "+0.1 to +0.2 pts"),
-            ("IR Website Improvement", "+0.5%", "+0.1 to +0.2 pts"),
-            ("Press Release Program", "+0.5%", "+0.1 to +0.2 pts"),
-            # === Negative Events (sorted by impact) ===
-            ("Dividend Cut", "-3.7%", "-0.3 to -0.5 pts"),
-            ("Earnings Miss (>5%)", "-2.5%", "-0.2 to -0.4 pts"),
-            ("Guidance Lower", "-2.2%", "-0.2 to -0.4 pts"),
-            ("CEO Change (Forced)", "-1.5%", "-0.2 to -0.4 pts"),
-            ("CFO Change (Forced)", "-1.0%", "-0.1 to -0.3 pts"),
-            ("M&A Announce (Acquirer)", "-1.0%", "-0.1 to -0.2 pts"),
-            ("Restructuring", "-0.8%", "-0.1 to -0.2 pts"),
-            ("CEO Change (Outside)", "-0.5%", "-0.1 to -0.2 pts"),
-            ("CFO Change (Voluntary)", "-0.3%", "-0.05 to -0.1 pts"),
-            ("Director Change", "-0.2%", "-0.05 to -0.1 pts"),
+        # Define event types with their configurations (matching app.py event_menu_items)
+        # Format: (Label, event_type, metadata, expected_car)
+        event_configs = [
+            # === Major Corporate Events ===
+            ('Investor Day', 'investor_day', {}, "+2.0%"),
+            ('Analyst Day', 'analyst_day', {}, "+1.5%"),
+            # === Leadership Changes ===
+            ('CEO Change (Inside)', 'ceo_change', {'succession_type': 'planned_inside', 'forced': False}, "+0.5%"),
+            ('CEO Change (Outside)', 'ceo_change', {'succession_type': 'outside', 'forced': False}, "-0.5%"),
+            ('CEO Change (Forced)', 'ceo_change', {'succession_type': 'unknown', 'forced': True}, "-1.5%"),
+            ('CFO Change (Voluntary)', 'cfo_change', {'forced': False}, "-0.3%"),
+            ('CFO Change (Forced)', 'cfo_change', {'forced': True}, "-1.0%"),
+            ('Director Change', 'director_change', {}, "-0.2%"),
+            # === Capital Allocation Events ===
+            ('Dividend Initiation', 'dividend_announcement', {'dividend_change_pct': 100, 'is_initiation': True}, "+3.4%"),
+            ('Dividend Increase (>10%)', 'dividend_announcement', {'dividend_change_pct': 15}, "+1.0%"),
+            ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -30}, "-3.7%"),
+            ('Buyback Announcement', 'buyback_announcement', {}, "+3.5%"),
+            # === Earnings & Guidance ===
+            ('Earnings Beat (>5%)', 'earnings_call', {'beat_pct': 0.05}, "+2.0%"),
+            ('Earnings Miss (>5%)', 'earnings_call', {'beat_pct': -0.05}, "-2.5%"),
+            ('Guidance Raise', 'strategic_announcement', {'sentiment': 0.8, 'announcement_type': 'guidance_raise'}, "+1.8%"),
+            ('Guidance Lower', 'strategic_announcement', {'sentiment': -0.8, 'announcement_type': 'guidance_lower'}, "-2.2%"),
+            # === Strategic Announcements ===
+            ('M&A Announce (Acquirer)', 'strategic_announcement', {'sentiment': 0.3, 'announcement_type': 'ma_acquirer'}, "-1.0%"),
+            ('Strategic Partnership', 'strategic_announcement', {'sentiment': 0.6, 'announcement_type': 'partnership'}, "+1.2%"),
+            ('Restructuring', 'strategic_announcement', {'sentiment': -0.4, 'announcement_type': 'restructuring'}, "-0.8%"),
+            # === Daily IR Activities ===
+            ('Advertising Campaign', 'advertising_campaign', {}, "+1.3%"),
+            ('Social Media Campaign', 'social_media_campaign', {}, "+0.5%"),
+            ('Conference Presentation', 'conference_presentation', {}, "+0.8%"),
+            ('Analyst Coverage Init.', 'analyst_coverage_initiation', {}, "+1.0%"),
+            ('IR Website Improvement', 'ir_website_improvement', {}, "+0.5%"),
+            ('Press Release Program', 'press_release_program', {}, "+0.5%"),
+            ('Non-Deal Roadshow', 'conference_presentation', {'is_roadshow': True}, "+0.6%"),
         ]
+
+        # Calculate impacts dynamically using dial weights if data available
+        event_menu_items = []
+        can_calculate = df_composite is not None and df_val is not None and weights is not None
+
+        for label, event_type, metadata, expected_car in event_configs:
+            irci_impact = 0.0
+            if can_calculate:
+                try:
+                    impact = calculate_event_irci_impact(
+                        event_date=datetime.now().strftime('%Y-%m-%d'),
+                        event_type=event_type,
+                        df_composite=df_composite,
+                        df_val=df_val,
+                        ticker=ticker,
+                        weights=weights,
+                        company_dollar_per_irci_pt=dollar_per_point,
+                        event_metadata=metadata
+                    )
+                    irci_impact = impact.get('irci_impact', 0.0)
+                except Exception:
+                    irci_impact = 0.0
+
+            event_menu_items.append((label, expected_car, irci_impact))
+
+        # Sort by IRCI impact (positive first, then negative)
+        event_menu_items.sort(key=lambda x: -x[2])
 
         # Table header - use smaller font and row height to fit all items
         self.set_font('Arial', 'B', 6)
@@ -696,43 +730,43 @@ class IRCIReport(FPDF):
             else:
                 self.set_fill_color(255, 255, 255)
 
-            # Parse IRCI impact range and calculate dollar value
-            match = re.search(r'([\+\-]?\d+\.?\d*)\s*to\s*([\+\-]?\d+\.?\d*)', irci_impact)
-            if match:
-                low_pts = float(match.group(1))
-                high_pts = float(match.group(2))
-                low_value = low_pts * dollar_per_point
-                high_value = high_pts * dollar_per_point
-
-                is_negative = low_pts < 0
-                abs_low = abs(low_value)
-                abs_high = abs(high_value)
-
-                if abs_high >= 1e9:
-                    if is_negative:
-                        value_str = f"-${abs_low/1e9:.1f}B to -${abs_high/1e9:.1f}B"
-                    else:
-                        value_str = f"${abs_low/1e9:.1f}B-${abs_high/1e9:.1f}B"
-                elif abs_high >= 1e6:
-                    if is_negative:
-                        value_str = f"-${abs_low/1e6:.0f}M to -${abs_high/1e6:.0f}M"
-                    else:
-                        value_str = f"${abs_low/1e6:.0f}M-${abs_high/1e6:.0f}M"
-                else:
-                    if is_negative:
-                        value_str = f"-${abs_low:,.0f} to -${abs_high:,.0f}"
-                    else:
-                        value_str = f"${abs_low:,.0f}-${abs_high:,.0f}"
+            # Format IRCI impact
+            if irci_impact >= 0:
+                irci_str = f"+{irci_impact:.3f} pts"
             else:
-                value_str = "N/A"
+                irci_str = f"{irci_impact:.3f} pts"
+
+            # Calculate dollar value
+            dollar_impact = irci_impact * dollar_per_point
+            is_negative = dollar_impact < 0
+            abs_value = abs(dollar_impact)
+
+            if abs_value >= 1e9:
+                if is_negative:
+                    value_str = f"-${abs_value/1e9:.2f}B"
+                else:
+                    value_str = f"${abs_value/1e9:.2f}B"
+            elif abs_value >= 1e6:
+                if is_negative:
+                    value_str = f"-${abs_value/1e6:.1f}M"
+                else:
+                    value_str = f"${abs_value/1e6:.1f}M"
+            else:
+                if is_negative:
+                    value_str = f"-${abs_value:,.0f}"
+                else:
+                    value_str = f"${abs_value:,.0f}"
 
             self.cell(50, 3.5, event_name, 1, 0, 'L', fill=True)
             self.cell(20, 3.5, car, 1, 0, 'C', fill=True)
-            self.cell(30, 3.5, irci_impact, 1, 0, 'C', fill=True)
+            self.cell(30, 3.5, irci_str, 1, 0, 'C', fill=True)
             self.cell(40, 3.5, value_str, 1, 1, 'C', fill=True)
 
         self.set_font('Arial', 'I', 6)
-        self.cell(0, 3, "CAR = Cumulative Abnormal Return. Value = IRCI Impact x $/pt.", 0, 1, 'L')
+        weight_note = ""
+        if weights:
+            weight_note = f" Weights: Val={weights.get('valuation', 0.35)*100:.0f}%, Liq={weights.get('liquidity', 0.35)*100:.0f}%, Cov={weights.get('coverage', 0.15)*100:.0f}%, Trust={weights.get('sentiment', 0.15)*100:.0f}%."
+        self.cell(0, 3, f"CAR = Cumulative Abnormal Return. IRCI Impact calculated using current dial weights.{weight_note}", 0, 1, 'L')
 
         self.ln(2)
 
@@ -1023,7 +1057,9 @@ def generate_pdf_report(
     # === PAGE 4: ROI ANALYSIS (only if dollar value available) ===
     if dollar_per_point and dollar_per_point > 0:
         pdf.add_page()
-        pdf.add_roi_section(ticker, dial_scores, dollar_per_point, playbook)
+        pdf.add_roi_section(ticker, dial_scores, dollar_per_point, playbook,
+                           df_composite=df_composite_filtered, df_val=df_valuation_filtered,
+                           weights=weights)
 
     # === PAGE 5: QUARTERLY TRENDS (only if multiple quarters) ===
     if quarterly_data and len(quarterly_data) >= 2:

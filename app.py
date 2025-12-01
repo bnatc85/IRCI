@@ -872,38 +872,28 @@ def show_intro_modal():
     st.markdown("### Quick Start Templates")
     st.caption("Click a template to pre-fill peer companies")
 
-    # Load template images
-    modal_tech_img = load_image_bytes("tech-icon.jpg")
-    modal_fin_img = load_image_bytes("finance-icon.jpg")
-    modal_health_img = load_image_bytes("health-icon.jpg")
+    template_col1, template_col2, template_col3 = st.columns(3)
 
-    # Center the template icons with padding columns
-    _, center_col, _ = st.columns([1, 2, 1])
-    with center_col:
-        tcol1, tcol2, tcol3 = st.columns(3)
-        with tcol1:
-            if modal_tech_img:
-                st.image(modal_tech_img, width=80)
-            if st.button("Select", key="modal_big_tech"):
-                st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
-                st.session_state['show_intro'] = False
-                st.rerun()
+    with template_col1:
+        st.image("assets/tech-icon.jpg", use_container_width=True)
+        if st.button("Select", key="modal_big_tech", use_container_width=True):
+            st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
+            st.session_state['show_intro'] = False
+            st.rerun()
 
-        with tcol2:
-            if modal_fin_img:
-                st.image(modal_fin_img, width=80)
-            if st.button("Select", key="modal_financials"):
-                st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
-                st.session_state['show_intro'] = False
-                st.rerun()
+    with template_col2:
+        st.image("assets/finance-icon.jpg", use_container_width=True)
+        if st.button("Select", key="modal_financials", use_container_width=True):
+            st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
+            st.session_state['show_intro'] = False
+            st.rerun()
 
-        with tcol3:
-            if modal_health_img:
-                st.image(modal_health_img, width=80)
-            if st.button("Select", key="modal_healthcare"):
-                st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
-                st.session_state['show_intro'] = False
-                st.rerun()
+    with template_col3:
+        st.image("assets/health-icon.jpg", use_container_width=True)
+        if st.button("Select", key="modal_healthcare", use_container_width=True):
+            st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
+            st.session_state['show_intro'] = False
+            st.rerun()
 
     st.markdown("---")
 
@@ -970,7 +960,7 @@ if st.session_state.get('show_disclaimer', False):
 
 # Running ticker with IRCI questions and insights
 ticker_items = [
-    "What was the value of our IR and communications efforts?",
+    "What was the value of our IR and communications efforts last quarter?",
     "Drive critical decisions with trusted, data-backed insights.",
     "Is it worth it to travel and speak at a major conference?",
     "How does our specific IR efficiency compare to peers?",
@@ -1107,26 +1097,19 @@ with st.sidebar:
 
     # Quick templates for common peer groups - icon buttons
     st.caption("Quick templates:")
-    tech_img = load_image_bytes("tech-icon.jpg")
-    fin_img = load_image_bytes("finance-icon.jpg")
-    health_img = load_image_bytes("health-icon.jpg")
-
     template_col1, template_col2, template_col3 = st.columns(3)
     with template_col1:
-        if tech_img:
-            st.image(tech_img, use_container_width=True)
+        st.image("assets/tech-icon.jpg", use_container_width=True)
         if st.button("Select", key="tmpl_tech", use_container_width=True):
             st.session_state['found_peers'] = "AAPL, MSFT, GOOGL, META, AMZN"
             st.rerun()
     with template_col2:
-        if fin_img:
-            st.image(fin_img, use_container_width=True)
+        st.image("assets/finance-icon.jpg", use_container_width=True)
         if st.button("Select", key="tmpl_fin", use_container_width=True):
             st.session_state['found_peers'] = "JPM, BAC, WFC, GS, MS"
             st.rerun()
     with template_col3:
-        if health_img:
-            st.image(health_img, use_container_width=True)
+        st.image("assets/health-icon.jpg", use_container_width=True)
         if st.button("Select", key="tmpl_health", use_container_width=True):
             st.session_state['found_peers'] = "JNJ, PFE, UNH, ABBV, LLY"
             st.rerun()
