@@ -4152,97 +4152,108 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                 # IR Contribution Value Summary
                 st.markdown("---")
-                st.markdown("#### 💰 Quarterly IR Value Contribution")
 
-                # Get previous quarter data if available
-                quarters_list = ["2025Q4", "2025Q3", "2025Q2", "2025Q1", "2024Q4", "2024Q3", "2024Q2", "2024Q1"]
-                current_q_idx = quarters_list.index(selected_quarter) if selected_quarter in quarters_list else -1
-                previous_quarter = quarters_list[current_q_idx + 1] if current_q_idx >= 0 and current_q_idx < len(quarters_list) - 1 else None
+                with st.expander("💰 Quarterly IR Value Contribution", expanded=False):
+                    # Get previous quarter data if available
+                    quarters_list = ["2025Q4", "2025Q3", "2025Q2", "2025Q1", "2024Q4", "2024Q3", "2024Q2", "2024Q1"]
+                    current_q_idx = quarters_list.index(selected_quarter) if selected_quarter in quarters_list else -1
+                    previous_quarter = quarters_list[current_q_idx + 1] if current_q_idx >= 0 and current_q_idx < len(quarters_list) - 1 else None
 
-                # Try to get previous quarter IRCI scores from session state
-                prev_quarter_key = f'df_composite_prev_{previous_quarter}'
-                has_prev_data = previous_quarter and prev_quarter_key in st.session_state and st.session_state[prev_quarter_key] is not None
-
-                if has_prev_data:
-                    # Add adjustable quarterly impact factor
-                    with st.expander("⚙️ Adjust Quarterly Impact Factor", expanded=False):
-                        st.markdown("""
-                        **Why we need a quarterly impact factor:**
-                        - The $/IRCI point is based on **cross-sectional peer comparisons** (Company A vs Company B)
-                        - These measure structural, long-term IR quality differences built over years
-                        - Quarterly changes are **marginal improvements** from 3 months of IR work
-                        - A 1-point QoQ change has less immediate impact than a structural 1-point peer gap
-
-                        **Academic backing:**
-                        - Research shows IR contributes 5-15% to firm value (Bushee & Miller 2012; Agarwal et al. 2016)
-                        - Quarterly improvements have smaller immediate impact than long-term positioning
-                        - Our default 10% factor is conservative and in line with IR literature
-
-                        **Adjust the factor based on your judgment:**
-                        """)
-
-                        quarterly_impact_factor_pct = st.slider(
-                            "Quarterly Impact Factor",
-                            min_value=1,
-                            max_value=100,
-                            value=10,
-                            step=1,
-                            format="%d%%",
-                            help="What percentage of the structural $/IRCI value applies to quarterly changes? Default 10% is conservative."
-                        )
-                        quarterly_impact_factor = quarterly_impact_factor_pct / 100.0
-
-                        st.caption(f"""
-                        **Current setting: {quarterly_impact_factor_pct}%**
-                        - 1-5%: Very conservative (assumes minimal quarterly impact)
-                        - 10%: Default/conservative (literature-backed)
-                        - 15-25%: Moderate (assumes stronger quarterly effects)
-                        - 50-100%: Aggressive (assumes QoQ = structural differences)
-                        """)
-
-                    st.caption(f"📊 Shows quarterly IR value change: (ΔIRCI × $/pt × {quarterly_impact_factor:.0%} factor). Positive = improved, Negative = declined.")
-                else:
-                    st.caption("📊 Shows IR value vs peer average: (Your IRCI - Peer Avg) × $/pt. Run previous quarter first to track QoQ changes.")
-
-                # Calculate peer average IRCI
-                peer_avg_irci = dollar_value_df['irci_composite_pct'].mean()
-
-                # Calculate IR contribution for each company
-                ir_contribution_data = []
-                for _, row in dollar_value_df.iterrows():
-                    ticker = row['ticker']
-                    irci_score = row['irci_composite_pct']
-                    dollar_per_pt = row['company_$/irci_pt']
-                    enterprise_value = row['enterprise_value']
+                    # Try to get previous quarter IRCI scores from session state
+                    prev_quarter_key = f'df_composite_prev_{previous_quarter}'
+                    has_prev_data = previous_quarter and prev_quarter_key in st.session_state and st.session_state[prev_quarter_key] is not None
 
                     if has_prev_data:
-                        # Use quarter-over-quarter change
-                        prev_df = st.session_state[prev_quarter_key]
-                        prev_row = prev_df[prev_df['ticker'] == ticker]
+                        # Add adjustable quarterly impact factor
+                        with st.expander("⚙️ Adjust Quarterly Impact Factor", expanded=False):
+                            st.markdown("""
+                            **Why we need a quarterly impact factor:**
+                            - The $/IRCI point is based on **cross-sectional peer comparisons** (Company A vs Company B)
+                            - These measure structural, long-term IR quality differences built over years
+                            - Quarterly changes are **marginal improvements** from 3 months of IR work
+                            - A 1-point QoQ change has less immediate impact than a structural 1-point peer gap
 
-                        if not prev_row.empty:
-                            prev_irci_score = prev_row['irci_composite_pct'].iloc[0]
-                            irci_change = irci_score - prev_irci_score
+                            **Academic backing:**
+                            - Research shows IR contributes 5-15% to firm value (Bushee & Miller 2012; Agarwal et al. 2016)
+                            - Quarterly improvements have smaller immediate impact than long-term positioning
+                            - Our default 10% factor is conservative and in line with IR literature
 
-                            # Apply quarterly impact factor (user-adjustable, default 10%)
-                            # Quarterly changes have much smaller immediate impact than structural peer differences
-                            # A 1-point QoQ change ≠ the same value as 1-point peer gap
-                            # This factor reflects that quarterly IR work is marginal, not structural
-                            # Factor is defined above in the expander, use it here
-                            ir_value_contribution = irci_change * dollar_per_pt * quarterly_impact_factor
+                            **Adjust the factor based on your judgment:**
+                            """)
 
-                            ir_contribution_data.append({
-                                'ticker': ticker,
-                                'irci_score': irci_score,
-                                'prev_irci_score': prev_irci_score,
-                                'irci_change': irci_change,
-                                'dollar_per_pt': dollar_per_pt,
-                                'ir_value_contribution': ir_value_contribution,
-                                'enterprise_value': enterprise_value,
-                                'comparison_type': 'qoq'
-                            })
+                            quarterly_impact_factor_pct = st.slider(
+                                "Quarterly Impact Factor",
+                                min_value=1,
+                                max_value=100,
+                                value=10,
+                                step=1,
+                                format="%d%%",
+                                help="What percentage of the structural $/IRCI value applies to quarterly changes? Default 10% is conservative."
+                            )
+                            quarterly_impact_factor = quarterly_impact_factor_pct / 100.0
+
+                            st.caption(f"""
+                            **Current setting: {quarterly_impact_factor_pct}%**
+                            - 1-5%: Very conservative (assumes minimal quarterly impact)
+                            - 10%: Default/conservative (literature-backed)
+                            - 15-25%: Moderate (assumes stronger quarterly effects)
+                            - 50-100%: Aggressive (assumes QoQ = structural differences)
+                            """)
+
+                        st.caption(f"📊 Shows quarterly IR value change: (ΔIRCI × $/pt × {quarterly_impact_factor:.0%} factor). Positive = improved, Negative = declined.")
+                    else:
+                        st.caption("📊 Shows IR value vs peer average: (Your IRCI - Peer Avg) × $/pt. Run previous quarter first to track QoQ changes.")
+
+                    # Calculate peer average IRCI
+                    peer_avg_irci = dollar_value_df['irci_composite_pct'].mean()
+
+                    # Calculate IR contribution for each company
+                    ir_contribution_data = []
+                    for _, row in dollar_value_df.iterrows():
+                        ticker = row['ticker']
+                        irci_score = row['irci_composite_pct']
+                        dollar_per_pt = row['company_$/irci_pt']
+                        enterprise_value = row['enterprise_value']
+
+                        if has_prev_data:
+                            # Use quarter-over-quarter change
+                            prev_df = st.session_state[prev_quarter_key]
+                            prev_row = prev_df[prev_df['ticker'] == ticker]
+
+                            if not prev_row.empty:
+                                prev_irci_score = prev_row['irci_composite_pct'].iloc[0]
+                                irci_change = irci_score - prev_irci_score
+
+                                # Apply quarterly impact factor (user-adjustable, default 10%)
+                                ir_value_contribution = irci_change * dollar_per_pt * quarterly_impact_factor
+
+                                ir_contribution_data.append({
+                                    'ticker': ticker,
+                                    'irci_score': irci_score,
+                                    'prev_irci_score': prev_irci_score,
+                                    'irci_change': irci_change,
+                                    'dollar_per_pt': dollar_per_pt,
+                                    'ir_value_contribution': ir_value_contribution,
+                                    'enterprise_value': enterprise_value,
+                                    'comparison_type': 'qoq'
+                                })
+                            else:
+                                # Fallback to peer average if no previous data for this ticker
+                                irci_gap_from_avg = irci_score - peer_avg_irci
+                                ir_value_contribution = irci_gap_from_avg * dollar_per_pt
+
+                                ir_contribution_data.append({
+                                    'ticker': ticker,
+                                    'irci_score': irci_score,
+                                    'peer_avg_irci': peer_avg_irci,
+                                    'irci_gap_from_avg': irci_gap_from_avg,
+                                    'dollar_per_pt': dollar_per_pt,
+                                    'ir_value_contribution': ir_value_contribution,
+                                    'enterprise_value': enterprise_value,
+                                    'comparison_type': 'peer_avg'
+                                })
                         else:
-                            # Fallback to peer average if no previous data for this ticker
+                            # Use peer average comparison
                             irci_gap_from_avg = irci_score - peer_avg_irci
                             ir_value_contribution = irci_gap_from_avg * dollar_per_pt
 
@@ -4256,99 +4267,56 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                                 'enterprise_value': enterprise_value,
                                 'comparison_type': 'peer_avg'
                             })
+
+                    ir_contrib_df = pd.DataFrame(ir_contribution_data)
+
+                    # Display as cards for each company
+                    cols = st.columns(min(len(ir_contrib_df), 3))
+                    for idx, (_, company) in enumerate(ir_contrib_df.iterrows()):
+                        col_idx = idx % 3
+                        with cols[col_idx]:
+                            delta_color = "normal" if company['ir_value_contribution'] >= 0 else "inverse"
+
+                            # Create delta text and help based on comparison type
+                            pct_of_ev = abs(company['ir_value_contribution'] / company['enterprise_value'] * 100) if company['enterprise_value'] > 0 else 0
+
+                            if company.get('comparison_type') == 'qoq':
+                                delta_text = f"{company['irci_change']:+.1f} pts vs {previous_quarter}"
+                                help_text = f"Change: {company['irci_change']:+.1f} pts ({company['prev_irci_score']:.1f}→{company['irci_score']:.1f}) × $/IRCI: ${company['dollar_per_pt']:,.0f} × {quarterly_impact_factor_pct}% factor = ${company['ir_value_contribution']:,.0f} ({pct_of_ev:.2f}% of EV)"
+                            else:
+                                delta_text = f"{company['irci_gap_from_avg']:+.1f} pts vs avg"
+                                help_text = f"**Structural positioning gap** (not quarterly contribution): {company['irci_gap_from_avg']:+.1f} pts × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f} ({pct_of_ev:.2f}% of EV)\n\nThis shows your IR position relative to peers, capped at realistic percentages."
+
+                            # Create metric label with percentage for "vs avg" case
+                            if company.get('comparison_type') == 'peer_avg':
+                                metric_label = f"{company['ticker']} IR Position Gap"
+                                metric_value = f"${company['ir_value_contribution']:,.0f}\n({pct_of_ev:.2f}% of EV)"
+                            else:
+                                metric_label = f"{company['ticker']} IR Contribution"
+                                metric_value = f"${company['ir_value_contribution']:,.0f}"
+
+                            st.metric(
+                                metric_label,
+                                metric_value,
+                                delta=delta_text,
+                                delta_color=delta_color,
+                                help=help_text
+                            )
+
+                    # Show appropriate caption based on comparison type
+                    if has_prev_data:
+                        st.caption(f"""
+                        📊 **Comparison:** {selected_quarter} vs {previous_quarter} | **Impact Factor:** {quarterly_impact_factor:.0%}
+
+                        💡 **How to interpret:** This shows the estimated value of your IR team's quarterly performance change.
+                        """)
                     else:
-                        # Use peer average comparison
-                        irci_gap_from_avg = irci_score - peer_avg_irci
-                        ir_value_contribution = irci_gap_from_avg * dollar_per_pt
+                        st.caption(f"""
+                        📊 **Peer Average IRCI:** {peer_avg_irci:.1f} points
 
-                        ir_contribution_data.append({
-                            'ticker': ticker,
-                            'irci_score': irci_score,
-                            'peer_avg_irci': peer_avg_irci,
-                            'irci_gap_from_avg': irci_gap_from_avg,
-                            'dollar_per_pt': dollar_per_pt,
-                            'ir_value_contribution': ir_value_contribution,
-                            'enterprise_value': enterprise_value,
-                            'comparison_type': 'peer_avg'
-                        })
-
-                ir_contrib_df = pd.DataFrame(ir_contribution_data)
-
-                # Display as cards for each company
-                cols = st.columns(min(len(ir_contrib_df), 3))
-                for idx, (_, company) in enumerate(ir_contrib_df.iterrows()):
-                    col_idx = idx % 3
-                    with cols[col_idx]:
-                        delta_color = "normal" if company['ir_value_contribution'] >= 0 else "inverse"
-
-                        # Create delta text and help based on comparison type
-                        pct_of_ev = abs(company['ir_value_contribution'] / company['enterprise_value'] * 100) if company['enterprise_value'] > 0 else 0
-
-                        if company.get('comparison_type') == 'qoq':
-                            delta_text = f"{company['irci_change']:+.1f} pts vs {previous_quarter}"
-                            help_text = f"Change: {company['irci_change']:+.1f} pts ({company['prev_irci_score']:.1f}→{company['irci_score']:.1f}) × $/IRCI: ${company['dollar_per_pt']:,.0f} × {quarterly_impact_factor_pct}% factor = ${company['ir_value_contribution']:,.0f} ({pct_of_ev:.2f}% of EV)"
-                        else:
-                            delta_text = f"{company['irci_gap_from_avg']:+.1f} pts vs avg"
-                            help_text = f"**Structural positioning gap** (not quarterly contribution): {company['irci_gap_from_avg']:+.1f} pts × $/IRCI: ${company['dollar_per_pt']:,.0f} = ${company['ir_value_contribution']:,.0f} ({pct_of_ev:.2f}% of EV)\n\nThis shows your IR position relative to peers, capped at realistic percentages."
-
-                        # Create metric label with percentage for "vs avg" case
-                        if company.get('comparison_type') == 'peer_avg':
-                            metric_label = f"{company['ticker']} IR Position Gap"
-                            metric_value = f"${company['ir_value_contribution']:,.0f}\n({pct_of_ev:.2f}% of EV)"
-                        else:
-                            metric_label = f"{company['ticker']} IR Contribution"
-                            metric_value = f"${company['ir_value_contribution']:,.0f}"
-
-                        st.metric(
-                            metric_label,
-                            metric_value,
-                            delta=delta_text,
-                            delta_color=delta_color,
-                            help=help_text
-                        )
-
-                # Show appropriate caption based on comparison type
-                if has_prev_data:
-                    st.caption(f"""
-                    📊 **Comparison:** {selected_quarter} vs {previous_quarter} | **Impact Factor:** {quarterly_impact_factor:.0%}
-
-                    💡 **How to interpret:** This shows the estimated value of your IR team's quarterly performance change.
-
-                    **Calculation includes {quarterly_impact_factor:.0%} quarterly impact factor:**
-                    - Quarterly IR changes have smaller immediate impact than structural peer differences
-                    - Example: +7 IRCI point improvement × \\$150M/point × {quarterly_impact_factor:.0%} = **+\\${7 * 150_000_000 * quarterly_impact_factor:,.0f}**
-                    - The {quarterly_impact_factor:.0%} factor reflects that 3 months of IR work is marginal, not structural
-
-                    **Academic support (Bushee & Miller 2012; Agarwal et al. 2016):**
-                    - IR contributes 5-15% to firm value in academic studies
-                    - Default {quarterly_impact_factor:.0%} factor is conservative and literature-backed
-                    - Adjust factor in settings above to match your assumptions
-
-                    **Why a factor at all?**
-                    - The $/IRCI point is based on cross-company comparisons (Company A vs Company B)
-                    - Those measure long-term structural differences in IR quality built over years
-                    - Quarter-over-quarter changes are short-term marginal improvements from 3 months
-                    - Cross-sectional ≠ time-series valuation
-
-                    This gives a realistic estimate of quarterly IR contribution while avoiding overstated values.
-                    """)
-                else:
-                    st.caption(f"""
-                    📊 **Peer Average IRCI:** {peer_avg_irci:.1f} points
-
-                    ⚠️ **IMPORTANT:** These values show **structural positioning gaps** relative to peers, NOT quarterly contributions.
-                    - Values are capped at **max 1% of EV per IRCI point** (scaled by R²) based on academic research
-                    - Example: \\$43B gap for \\$3.9T company MSFT = 1.1% of EV (realistic structural positioning difference)
-                    - This represents long-term IR quality differences built over years, not quarterly achievements
-
-                    💡 **To see quarterly contributions:** Run analysis for {previous_quarter if previous_quarter else 'previous quarter'} first,
-                    then run for {selected_quarter}. The system will automatically calculate quarter-over-quarter changes.
-
-                    **Understanding these numbers:**
-                    - **Positive values:** Your IR positioning is above peer average (structural advantage)
-                    - **Negative values:** Your IR positioning is below peer average (improvement opportunity)
-                    - **As % of EV:** Shows the gap is capped at realistic academic bounds (5-15% of firm value over long term)
-                    """)
+                        ⚠️ These values show **structural positioning gaps** relative to peers, NOT quarterly contributions.
+                        Run previous quarter first to see QoQ changes.
+                        """)
 
                 st.markdown("---")
                 # Per-Ticker $/IRCI Point Table (Most Important)
