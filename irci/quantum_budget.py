@@ -94,7 +94,7 @@ STANDARD_INITIATIVES = {
             description="Develop quantified growth story with TAM analysis"
         ),
         IRInitiative(
-            name="Peer Set Optimization",
+            name="Peer Group Clarification",
             dial="valuation",
             cost=15000,
             time_hours=20,
@@ -102,7 +102,7 @@ STANDARD_INITIATIVES = {
             timeframe_months=4,
             confidence=0.80,
             quick_win=True,
-            description="Work with analysts to establish favorable peer comparisons"
+            description="Educate analysts on appropriate peer comparisons through investor materials and outreach, ensuring your company is benchmarked against relevant competitors rather than mismatched industry averages"
         ),
         IRInitiative(
             name="SOTP Disclosure Enhancement",
