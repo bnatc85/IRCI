@@ -653,31 +653,33 @@ class QuantumBudgetOptimizer:
         if n == 0:
             return {'selected': [], 'total_cost': 0, 'expected_improvement': 0}
 
-        # Discretize budget into cents for DP
-        budget_cents = int(self.budget * 100)
+        # Discretize budget into $1000 units (not cents!) to keep DP table manageable
+        # For a $200K budget, this creates a table of ~200 columns instead of 20M
+        scale = 1000  # $1000 units
+        budget_units = int(self.budget / scale) + 1
 
-        # Value = confidence * improvement * $/pt (scaled)
-        values = [int(init.confidence * init.expected_improvement * self.dollar_per_point / 100)
+        # Value = confidence * improvement * $/pt (scaled to reasonable integers)
+        # Scale down to avoid integer overflow
+        value_scale = max(1, self.dollar_per_point / 1e6)
+        values = [int(init.confidence * init.expected_improvement * value_scale)
                   for init in self.initiatives]
-        costs = [int(init.cost * 100) for init in self.initiatives]
+        costs = [max(1, int(init.cost / scale)) for init in self.initiatives]  # At least 1 unit
 
-        # DP table
-        dp = [[0] * (budget_cents + 1) for _ in range(n + 1)]
+        # DP table - space optimized to use 1D array
+        dp = [0] * (budget_units + 1)
+        # Track which items are selected at each capacity
+        selected_at = [[] for _ in range(budget_units + 1)]
 
-        for i in range(1, n + 1):
-            for w in range(budget_cents + 1):
-                if costs[i-1] <= w:
-                    dp[i][w] = max(dp[i-1][w], dp[i-1][w - costs[i-1]] + values[i-1])
-                else:
-                    dp[i][w] = dp[i-1][w]
+        for i in range(n):
+            # Traverse backwards to avoid using same item twice
+            for w in range(budget_units, costs[i] - 1, -1):
+                new_value = dp[w - costs[i]] + values[i]
+                if new_value > dp[w]:
+                    dp[w] = new_value
+                    selected_at[w] = selected_at[w - costs[i]] + [i]
 
-        # Backtrack to find selected items
-        selected_idx = []
-        w = budget_cents
-        for i in range(n, 0, -1):
-            if dp[i][w] != dp[i-1][w]:
-                selected_idx.append(i-1)
-                w -= costs[i-1]
+        # Get selected items from best capacity
+        selected_idx = selected_at[budget_units]
 
         selected = [self.initiatives[i] for i in selected_idx]
         total_cost = sum(init.cost for init in selected)
