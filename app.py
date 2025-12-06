@@ -6165,7 +6165,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     for imp in improvements:
                         color = "🔴" if imp['classification'] == 'critical' else "🟠" if imp['classification'] == 'low' else "🟡" if imp['classification'] == 'medium' else "🟢"
     
-                        with st.expander(f"{color} **{imp['dial']}** — **\${imp['min_value']/1e6:.0f}M to \${imp['max_value']/1e6:.0f}M** potential value", expanded=imp['priority'] == 1):
+                        with st.expander(f"{color} **{imp['dial']}** — **${imp['min_value']/1e6:.0f}M to ${imp['max_value']/1e6:.0f}M** potential value", expanded=imp['priority'] == 1):
                             col_left, col_right = st.columns([1, 1])
     
                             with col_left:
@@ -6184,13 +6184,13 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                             st.markdown(f"""
                             **What this means:**
                             - By focusing on {imp['dial'].lower()} improvement initiatives next quarter, you could realistically gain **{imp['min_improvement']:.1f}-{imp['max_improvement']:.1f} points**
-                            - This translates to an estimated **\${imp['min_value']/1e6:.0f}M - \${imp['max_value']/1e6:.0f}M** in enterprise value impact
+                            - This translates to an estimated **${imp['min_value']/1e6:.0f}M - ${imp['max_value']/1e6:.0f}M** in enterprise value impact
                             - Review the **{imp['dial'].split()[1]}** recommendations below for specific actions
                             """)
     
                     st.caption(f"""
                     💡 **About these estimates:**
-                    - $/IRCI Point for {playbook_ticker}: \${company_dollar_per_point:,.0f}
+                    - $/IRCI Point for {playbook_ticker}: ${company_dollar_per_point:,.0f}
                     - Improvement ranges based on peer analysis and classification severity
                     - Critical/low scoring dials have higher improvement potential
                     - Values are R²-scaled to reflect IR's partial influence on enterprise value
