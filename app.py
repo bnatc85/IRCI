@@ -40,6 +40,7 @@ from irci.media_fetchers.worldnews_api import worldnews_api_fetcher
 from irci.media_fetchers.newsapi_fetcher import newsapi_fetcher
 from irci.media_fetchers.finnhub_fetcher import finnhub_fetcher
 from irci.peers import find_peers_simple, find_peers_optimized
+from irci.quantum_budget import optimize_ir_budget, DWAVE_AVAILABLE as QUANTUM_BUDGET_AVAILABLE
 from irci.playbook import generate_playbook
 from irci.chatbot import chat_with_context, get_suggested_questions
 from irci.yahoo_metrics import get_yahoo_metrics_batch
@@ -6300,6 +6301,196 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 st.error(f"Error generating playbook: {str(e)}")
                 import traceback
                 st.code(traceback.format_exc())
+
+            # Budget Optimizer Section (within Playbook)
+            st.markdown("---")
+            st.markdown("#### 💰 IR Budget Optimizer")
+            st.caption("Quantum-ready optimization to maximize IRCI improvement within your budget")
+
+            with st.expander("🔮 **Optimize IR Budget Allocation**", expanded=False):
+                st.markdown("""
+                This tool uses **QUBO (Quadratic Unconstrained Binary Optimization)** to find the optimal
+                combination of IR initiatives that maximizes expected IRCI improvement within your budget.
+
+                The optimizer considers:
+                - **Expected IRCI improvement** per initiative
+                - **Cost** and **staff hours** required
+                - **Confidence levels** based on academic research
+                - **Diminishing returns** for already-strong dials
+                """)
+
+                # Budget inputs
+                budget_col1, budget_col2 = st.columns(2)
+                with budget_col1:
+                    ir_budget = st.number_input(
+                        "IR Budget ($)",
+                        min_value=10000,
+                        max_value=5000000,
+                        value=200000,
+                        step=25000,
+                        help="Total budget available for IR initiatives"
+                    )
+                with budget_col2:
+                    max_hours = st.number_input(
+                        "Max Staff Hours (optional)",
+                        min_value=0,
+                        max_value=5000,
+                        value=0,
+                        step=50,
+                        help="Maximum staff hours available. Set to 0 for no limit."
+                    )
+
+                # Company selector
+                budget_ticker = st.selectbox(
+                    "Select company to optimize:",
+                    df_composite['ticker'].unique(),
+                    key="budget_ticker_select"
+                )
+
+                # Optimization method
+                opt_method = st.radio(
+                    "Optimization Method",
+                    ["Auto (Recommended)", "Greedy by ROI", "Simulated Annealing", "Dynamic Programming"],
+                    horizontal=True,
+                    help="Auto selects the best method based on problem size"
+                )
+                method_map = {
+                    "Auto (Recommended)": "auto",
+                    "Greedy by ROI": "greedy_roi",
+                    "Simulated Annealing": "simulated_annealing",
+                    "Dynamic Programming": "dynamic_programming"
+                }
+
+                if st.button("🚀 Optimize Budget", type="primary", use_container_width=True):
+                    with st.spinner("🔮 Optimizing IR budget allocation..."):
+                        try:
+                            # Get dollar value data if available
+                            dollar_value_df = st.session_state.get('dollar_value_df', None)
+
+                            result = optimize_ir_budget(
+                                ticker=budget_ticker,
+                                budget=ir_budget,
+                                df_composite=df_composite,
+                                df_valuation=df_val,
+                                dollar_value_df=dollar_value_df,
+                                max_hours=max_hours if max_hours > 0 else None,
+                                method=method_map[opt_method]
+                            )
+
+                            # Display results
+                            st.success(f"✓ Optimization complete using {result['method']} method")
+
+                            # Key metrics
+                            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+                            with metric_col1:
+                                st.metric(
+                                    "Current IRCI",
+                                    f"{result['current_irci']:.1f}",
+                                    help="Current IRCI composite score"
+                                )
+                            with metric_col2:
+                                st.metric(
+                                    "Projected IRCI",
+                                    f"{result['projected_irci']:.1f}",
+                                    f"+{result['expected_improvement']:.1f} pts",
+                                    help="Expected IRCI after implementing selected initiatives"
+                                )
+                            with metric_col3:
+                                st.metric(
+                                    "Budget Used",
+                                    f"${result['total_cost']:,.0f}",
+                                    f"{result['budget_utilization']*100:.0f}%",
+                                    help="Total cost of selected initiatives"
+                                )
+                            with metric_col4:
+                                st.metric(
+                                    "Expected Value",
+                                    f"${result['expected_value']/1e6:.0f}M",
+                                    help="Expected enterprise value creation"
+                                )
+
+                            # Gap analysis
+                            if result['gap_to_leader'] > 0:
+                                st.progress(
+                                    min(result['gap_closed_pct'] / 100, 1.0),
+                                    text=f"Gap to Leader: Closing {result['gap_closed_pct']:.0f}% of {result['gap_to_leader']:.1f} pt gap"
+                                )
+
+                            # Selected initiatives table
+                            st.markdown("##### 📋 Recommended Initiatives")
+
+                            if result['selected']:
+                                init_data = []
+                                for init in result['selected']:
+                                    init_data.append({
+                                        'Initiative': init.name,
+                                        'Dial': init.dial.title(),
+                                        'Cost': f"${init.cost:,}",
+                                        'Hours': init.time_hours,
+                                        'Impact': f"+{init.expected_improvement:.1f} pts",
+                                        'Confidence': f"{init.confidence*100:.0f}%",
+                                        'Timeframe': f"{init.timeframe_months} mo",
+                                        'Quick Win': "✓" if init.quick_win else ""
+                                    })
+
+                                init_df = pd.DataFrame(init_data)
+                                st.dataframe(init_df, hide_index=True, use_container_width=True)
+
+                                # Breakdown by dial
+                                st.markdown("##### 📊 Investment by Dial")
+                                dial_spend = {}
+                                dial_impact = {}
+                                for init in result['selected']:
+                                    dial = init.dial.title()
+                                    dial_spend[dial] = dial_spend.get(dial, 0) + init.cost
+                                    dial_impact[dial] = dial_impact.get(dial, 0) + init.expected_improvement * init.confidence
+
+                                dial_df = pd.DataFrame({
+                                    'Dial': list(dial_spend.keys()),
+                                    'Investment': [f"${v:,.0f}" for v in dial_spend.values()],
+                                    'Expected Impact': [f"+{v:.1f} pts" for v in dial_impact.values()]
+                                })
+                                st.dataframe(dial_df, hide_index=True)
+
+                                # Timeline view
+                                st.markdown("##### 📅 Implementation Timeline")
+                                quick_wins = [i for i in result['selected'] if i.quick_win]
+                                medium_term = [i for i in result['selected'] if not i.quick_win and i.timeframe_months <= 6]
+                                long_term = [i for i in result['selected'] if not i.quick_win and i.timeframe_months > 6]
+
+                                timeline_col1, timeline_col2, timeline_col3 = st.columns(3)
+                                with timeline_col1:
+                                    st.markdown("**🚀 Quick Wins (1-3 mo)**")
+                                    for init in quick_wins:
+                                        st.caption(f"• {init.name}")
+                                    if not quick_wins:
+                                        st.caption("_None selected_")
+                                with timeline_col2:
+                                    st.markdown("**📈 Medium Term (3-6 mo)**")
+                                    for init in medium_term:
+                                        st.caption(f"• {init.name}")
+                                    if not medium_term:
+                                        st.caption("_None selected_")
+                                with timeline_col3:
+                                    st.markdown("**🎯 Long Term (6+ mo)**")
+                                    for init in long_term:
+                                        st.caption(f"• {init.name}")
+                                    if not long_term:
+                                        st.caption("_None selected_")
+
+                            else:
+                                st.warning("No initiatives selected within budget constraints.")
+
+                            # Quantum status
+                            if QUANTUM_BUDGET_AVAILABLE:
+                                st.info("🔮 **Quantum Computing**: D-Wave solver available for large-scale optimization")
+                            else:
+                                st.caption("💡 _Quantum optimization available with D-Wave Leap API access_")
+
+                        except Exception as e:
+                            st.error(f"Error optimizing budget: {str(e)}")
+                            import traceback
+                            st.code(traceback.format_exc())
 
     # SECTION 5 (or SECTION 4 if not multi-quarter): AI Assistant
     if selected_section == "💬 AI Assistant":
