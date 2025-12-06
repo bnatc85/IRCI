@@ -1,10 +1,15 @@
 # irci/peers.py
 """
-Peer company discovery - curated peer groups for common tickers
+Peer company discovery - curated peer groups and quantum-optimized selection
+
+Supports three modes:
+1. Curated: Hand-picked peer groups for common tickers
+2. Industry: API-based sector/market-cap matching
+3. Quantum-Optimized: Multi-dimensional QUBO optimization (classical or D-Wave)
 """
 import requests
 import pandas as pd
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 # Curated peer groups by industry/sector
 PEER_GROUPS = {
@@ -178,3 +183,133 @@ def find_peers_simple(ticker: str, api_key: str, max_peers: int = 5) -> List[str
     # If not in curated list, inform user
     print(f"No curated peers for {ticker_upper}. Add to PEER_GROUPS in irci/peers.py for this ticker.")
     return []
+
+
+def find_peers_optimized(
+    ticker: str,
+    api_key: str,
+    num_peers: int = 10,
+    weights: Optional[Dict[str, float]] = None,
+    use_quantum: bool = False,
+    method: str = 'auto'
+) -> Dict:
+    """
+    Find optimal peers using quantum-ready multi-dimensional optimization.
+
+    This uses QUBO (Quadratic Unconstrained Binary Optimization) to select
+    peers that maximize analytical value across multiple dimensions:
+    - Market cap similarity
+    - Sector/industry match
+    - Analyst coverage ratio
+    - Liquidity profile
+    - Trading volume patterns
+    - Institutional ownership
+    - Return correlation diversity
+
+    Args:
+        ticker: Target ticker symbol
+        api_key: FMP API key for fetching candidates
+        num_peers: Number of peers to select (default: 10)
+        weights: Optional dict of dimension weights, e.g.:
+            {
+                'market_cap_log': 0.20,
+                'sector_match': 0.25,
+                'analyst_coverage_ratio': 0.10,
+                'liquidity_score': 0.15,
+                'trading_volume_pattern': 0.10,
+                'geographic_exposure': 0.05,
+                'institutional_ownership': 0.10,
+                'correlation_penalty': 0.05
+            }
+        use_quantum: If True and D-Wave SDK available, use quantum solver
+        method: 'auto', 'quantum', 'simulated_annealing', 'greedy', 'exhaustive'
+
+    Returns:
+        Dict with:
+            - selected_peers: List of optimal peer tickers
+            - peer_details: List of dicts with peer features and similarity scores
+            - method: Optimization method used
+            - weights: Dimension weights applied
+            - quantum_available: Whether D-Wave SDK is installed
+    """
+    from .quantum_peers import find_optimal_peers, PeerSelectionWeights
+    from .config import Settings
+
+    settings = Settings.load()
+    settings.fmp_api_key = api_key
+
+    # Get initial candidates from industry
+    candidates = find_peers_by_industry(ticker, api_key, max_peers=50)
+
+    # Add curated peers if available (ensures known good peers are considered)
+    ticker_upper = ticker.upper()
+    if ticker_upper in PEER_GROUPS:
+        curated = PEER_GROUPS[ticker_upper]
+        candidates = list(set(candidates + curated))
+
+    if not candidates:
+        return {
+            'target': ticker,
+            'selected_peers': [],
+            'error': 'No candidate peers found'
+        }
+
+    # Run quantum-ready optimization
+    result = find_optimal_peers(
+        ticker=ticker,
+        candidates=candidates,
+        num_peers=num_peers,
+        weights=weights,
+        settings=settings,
+        use_quantum=use_quantum
+    )
+
+    return result
+
+
+def find_peers(
+    ticker: str,
+    api_key: str,
+    max_peers: int = 10,
+    mode: str = 'curated',
+    optimize_weights: Optional[Dict[str, float]] = None,
+    use_quantum: bool = False
+) -> List[str]:
+    """
+    Unified peer finder with multiple modes.
+
+    Args:
+        ticker: Target ticker symbol
+        api_key: FMP API key
+        max_peers: Number of peers to return
+        mode: Selection mode:
+            - 'curated': Use hand-picked peer groups (fast, reliable)
+            - 'industry': Use sector/market-cap matching via API
+            - 'optimized': Use quantum-ready multi-dimensional optimization
+        optimize_weights: Dimension weights for 'optimized' mode
+        use_quantum: Use D-Wave quantum solver (requires API access)
+
+    Returns:
+        List of peer ticker symbols
+    """
+    ticker_upper = ticker.upper()
+
+    if mode == 'curated':
+        return find_peers_simple(ticker, api_key, max_peers)
+
+    elif mode == 'industry':
+        return find_peers_by_industry(ticker, api_key, max_peers)
+
+    elif mode == 'optimized':
+        result = find_peers_optimized(
+            ticker=ticker,
+            api_key=api_key,
+            num_peers=max_peers,
+            weights=optimize_weights,
+            use_quantum=use_quantum
+        )
+        return result.get('selected_peers', [])
+
+    else:
+        print(f"Unknown mode '{mode}', falling back to curated")
+        return find_peers_simple(ticker, api_key, max_peers)

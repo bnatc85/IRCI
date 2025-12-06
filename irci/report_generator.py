@@ -335,12 +335,12 @@ class IRCIReport(FPDF):
         """Add competitive positioning matrix with dial breakdown"""
         self.chapter_title('COMPETITIVE POSITIONING & DIAL ANALYSIS')
 
-        # Get top 3 peers plus the company
+        # Get top 10 peers (or top 9 plus the company if not in top 10)
         df_sorted = df_composite.sort_values('irci_composite_pct', ascending=False)
-        top_peers = df_sorted.head(5)['ticker'].tolist()
+        top_peers = df_sorted.head(10)['ticker'].tolist()
 
         if ticker not in top_peers:
-            top_peers = top_peers[:4] + [ticker]
+            top_peers = top_peers[:9] + [ticker]
 
         # Table header
         self.set_font('Arial', 'B', 9)
@@ -358,7 +358,7 @@ class IRCIReport(FPDF):
 
         # Table rows
         for rank, (_, row) in enumerate(df_sorted.iterrows(), 1):
-            if row['ticker'] not in top_peers and rank > 5:
+            if row['ticker'] not in top_peers and rank > 10:
                 continue
 
             is_target = row['ticker'] == ticker
