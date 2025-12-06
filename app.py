@@ -4614,19 +4614,67 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
         # Section 4: IR Budget Optimizer
         st.markdown("---")
-        st.markdown("#### 💰 IR Budget Optimizer")
+
+        # Company selector first
+        budget_ticker = st.selectbox(
+            "Select company for budget optimization:",
+            df_composite['ticker'].unique(),
+            key="value_budget_ticker_select"
+        )
+
+        # Get company-specific data for display
+        company_data = df_composite[df_composite['ticker'] == budget_ticker].iloc[0]
+        company_irci = company_data.get('irci_composite_pct', 50)
+        company_val = company_data.get('valuation_pct', 50)
+        company_liq = company_data.get('liquidity_pct', 50)
+        company_cov = company_data.get('coverage_pct', 50)
+        company_trust = company_data.get('sentiment_pct', 50)
+
+        # Find weakest dial
+        dial_scores = {'Valuation': company_val, 'Liquidity': company_liq, 'Coverage': company_cov, 'Trust': company_trust}
+        weakest_dial = min(dial_scores, key=dial_scores.get)
+        weakest_score = dial_scores[weakest_dial]
+
+        # Get $/IRCI point if available
+        company_dollar_pt = None
+        if 'dollar_value_df' in st.session_state and st.session_state['dollar_value_df'] is not None:
+            dv_df = st.session_state['dollar_value_df']
+            if budget_ticker in dv_df['ticker'].values:
+                company_dollar_pt = dv_df[dv_df['ticker'] == budget_ticker]['company_$/irci_pt'].iloc[0]
+
+        # Gap to leader
+        leader_irci = df_composite['irci_composite_pct'].max()
+        gap_to_leader = leader_irci - company_irci
+
+        st.markdown(f"#### 💰 IR Budget Optimizer for {budget_ticker}")
         st.caption("Quantum-ready optimization to maximize IRCI improvement within your budget")
 
-        with st.expander("🔮 **Optimize IR Budget Allocation**", expanded=False):
-            st.markdown("""
-            This tool uses **QUBO (Quadratic Unconstrained Binary Optimization)** to find the optimal
-            combination of IR initiatives that maximizes expected IRCI improvement within your budget.
+        with st.expander(f"🔮 **Optimize {budget_ticker}'s IR Budget Allocation**", expanded=False):
+            # Company context
+            st.markdown(f"##### 📊 {budget_ticker} Current Profile")
 
-            The optimizer considers:
-            - **Expected IRCI improvement** per initiative
+            ctx_col1, ctx_col2, ctx_col3, ctx_col4 = st.columns(4)
+            with ctx_col1:
+                st.metric("Current IRCI", f"{company_irci:.1f}")
+            with ctx_col2:
+                st.metric("Gap to Leader", f"{gap_to_leader:.1f} pts")
+            with ctx_col3:
+                st.metric("Weakest Dial", f"{weakest_dial}", delta=f"{weakest_score:.0f}%", delta_color="inverse")
+            with ctx_col4:
+                if company_dollar_pt:
+                    st.metric("$/IRCI Point", f"${company_dollar_pt/1e6:.1f}M")
+                else:
+                    st.metric("$/IRCI Point", "Est. from EV")
+
+            st.markdown("---")
+
+            st.markdown("""
+            This optimizer uses **QUBO (Quadratic Unconstrained Binary Optimization)** to find the optimal
+            combination of IR initiatives for your company, considering:
+            - Your company's **current dial scores** (weaker dials have more improvement potential)
+            - **Expected IRCI improvement** per initiative adjusted for diminishing returns
             - **Cost** and **staff hours** required
             - **Confidence levels** based on academic research
-            - **Diminishing returns** for already-strong dials
             """)
 
             # Budget inputs
@@ -4651,13 +4699,6 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     help="Maximum staff hours available. Set to 0 for no limit.",
                     key="value_max_hours"
                 )
-
-            # Company selector
-            budget_ticker = st.selectbox(
-                "Select company to optimize:",
-                df_composite['ticker'].unique(),
-                key="value_budget_ticker_select"
-            )
 
             # Optimization method
             opt_method = st.radio(
