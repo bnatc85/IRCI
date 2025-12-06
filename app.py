@@ -4478,109 +4478,87 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             )
 
             # Detailed contribution table
-            st.markdown("**Detailed Contribution Breakdown:**")
+            with st.expander("📊 Detailed Contribution Breakdown", expanded=False):
+                # Build column list conditionally to include quarter if present
+                contrib_cols = ['ticker']
+                contrib_rename = {'ticker': 'Ticker'}
+                contrib_format = {}
 
-            # Build column list conditionally to include quarter if present
-            contrib_cols = ['ticker']
-            contrib_rename = {'ticker': 'Ticker'}
-            contrib_format = {}
+                if 'quarter' in contrib_df.columns:
+                    contrib_cols.append('quarter')
+                    contrib_rename['quarter'] = 'Quarter'
 
-            if 'quarter' in contrib_df.columns:
-                contrib_cols.append('quarter')
-                contrib_rename['quarter'] = 'Quarter'
-
-            contrib_cols.extend(['irci_composite_pct', 'val_contrib_abs', 'liq_contrib_abs', 'cov_contrib_abs', 'sent_contrib_abs', 'dominant_dial', 'weakest_dial'])
-            contrib_rename.update({
-                'irci_composite_pct': 'Composite %',
-                'val_contrib_abs': 'Val Points',
-                'liq_contrib_abs': 'Liq Points',
-                'cov_contrib_abs': 'Cov Points',
-                'sent_contrib_abs': 'Trust Points',
-                'dominant_dial': 'Strongest Dial',
-                'weakest_dial': 'Weakest Dial'
-            })
-            contrib_format = {
-                'Composite %': '{:.1f}%',
-                'Val Points': '{:.1f}',
-                'Liq Points': '{:.1f}',
-                'Cov Points': '{:.1f}',
-                'Trust Points': '{:.1f}'
-            }
-
-            st.dataframe(
-                contrib_df[contrib_cols].rename(columns=contrib_rename).style.format(contrib_format),
-                use_container_width=True,
-                hide_index=True
-            )
-
-            # Stacked bar chart showing composition
-            st.markdown("**Composite Score Composition by Dial:**")
-
-            # Prepare data for stacked bar
-            chart_data = contrib_df[['ticker', 'val_contrib_abs', 'liq_contrib_abs', 'cov_contrib_abs', 'sent_contrib_abs']].copy()
-            chart_data = chart_data.melt(id_vars=['ticker'], var_name='Dial', value_name='Contribution')
-            chart_data['Dial'] = chart_data['Dial'].map({
-                'val_contrib_abs': 'Valuation',
-                'liq_contrib_abs': 'Liquidity',
-                'cov_contrib_abs': 'Coverage',
-                'sent_contrib_abs': 'Trust'
-            })
-
-            fig = px.bar(
-                chart_data,
-                x='ticker',
-                y='Contribution',
-                color='Dial',
-                title='Dial Contributions to Composite Score',
-                labels={'Contribution': 'Contribution (points)', 'ticker': 'Company'},
-                color_discrete_map={
-                    'Valuation': '#00d4ff',
-                    'Liquidity': '#00ff88',
-                    'Coverage': '#ff9500',
-                    'Trust': '#ff0066'
+                contrib_cols.extend(['irci_composite_pct', 'val_contrib_abs', 'liq_contrib_abs', 'cov_contrib_abs', 'sent_contrib_abs', 'dominant_dial', 'weakest_dial'])
+                contrib_rename.update({
+                    'irci_composite_pct': 'Composite %',
+                    'val_contrib_abs': 'Val Points',
+                    'liq_contrib_abs': 'Liq Points',
+                    'cov_contrib_abs': 'Cov Points',
+                    'sent_contrib_abs': 'Trust Points',
+                    'dominant_dial': 'Strongest Dial',
+                    'weakest_dial': 'Weakest Dial'
+                })
+                contrib_format = {
+                    'Composite %': '{:.1f}%',
+                    'Val Points': '{:.1f}',
+                    'Liq Points': '{:.1f}',
+                    'Cov Points': '{:.1f}',
+                    'Trust Points': '{:.1f}'
                 }
-            )
-            fig.update_layout(
-                barmode='stack',
-                height=400,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(30,33,48,0.5)',
-                font=dict(color='#fafafa'),
-                title_font=dict(color='#00d4ff'),
-                xaxis=dict(gridcolor='#2e3440'),
-                yaxis=dict(gridcolor='#2e3440'),
-                legend=dict(
-                    bgcolor='rgba(30,33,48,0.8)',
-                    bordercolor='#2e3440',
-                    borderwidth=1
+
+                st.dataframe(
+                    contrib_df[contrib_cols].rename(columns=contrib_rename).style.format(contrib_format),
+                    use_container_width=True,
+                    hide_index=True
                 )
-            )
-            st.plotly_chart(fig, use_container_width=True)
+
+                # Stacked bar chart showing composition
+                st.markdown("**Composite Score Composition by Dial:**")
+
+                # Prepare data for stacked bar
+                chart_data = contrib_df[['ticker', 'val_contrib_abs', 'liq_contrib_abs', 'cov_contrib_abs', 'sent_contrib_abs']].copy()
+                chart_data = chart_data.melt(id_vars=['ticker'], var_name='Dial', value_name='Contribution')
+                chart_data['Dial'] = chart_data['Dial'].map({
+                    'val_contrib_abs': 'Valuation',
+                    'liq_contrib_abs': 'Liquidity',
+                    'cov_contrib_abs': 'Coverage',
+                    'sent_contrib_abs': 'Trust'
+                })
+
+                fig = px.bar(
+                    chart_data,
+                    x='ticker',
+                    y='Contribution',
+                    color='Dial',
+                    title='Dial Contributions to Composite Score',
+                    labels={'Contribution': 'Contribution (points)', 'ticker': 'Company'},
+                    color_discrete_map={
+                        'Valuation': '#00d4ff',
+                        'Liquidity': '#00ff88',
+                        'Coverage': '#ff9500',
+                        'Trust': '#ff0066'
+                    }
+                )
+                fig.update_layout(
+                    barmode='stack',
+                    height=400,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(30,33,48,0.5)',
+                    font=dict(color='#fafafa'),
+                    title_font=dict(color='#00d4ff'),
+                    xaxis=dict(gridcolor='#2e3440'),
+                    yaxis=dict(gridcolor='#2e3440'),
+                    legend=dict(
+                        bgcolor='rgba(30,33,48,0.8)',
+                        bordercolor='#2e3440',
+                        borderwidth=1
+                    )
+                )
+                st.plotly_chart(fig, use_container_width=True)
 
         except Exception as e:
             st.warning(f"Could not compute dial contribution: {str(e)}")
 
-        st.markdown("---")
-
-        # Section 3: Applied Weights
-        st.markdown("#### ⚖️ Applied Weights")
-
-        # Show applied weights with auto-optimization status
-        if st.session_state.get('weights_auto_optimized', False):
-            r2 = st.session_state.get('optimization_r2', 0)
-            st.success(f"✓ Weights auto-optimized based on peer group variance")
-
-        weights_df = pd.DataFrame([
-            {'Dial': 'Valuation', 'Weight': f"{current_weights['valuation']*100:.1f}%"},
-            {'Dial': 'Liquidity', 'Weight': f"{current_weights['liquidity']*100:.1f}%"},
-            {'Dial': 'Coverage', 'Weight': f"{current_weights['coverage']*100:.1f}%"},
-            {'Dial': 'Trust', 'Weight': f"{current_weights['sentiment']*100:.1f}%"}
-        ])
-        st.dataframe(weights_df, use_container_width=True, hide_index=True)
-
-        st.caption("Weights are auto-optimized on each analysis run based on peer group variance. Adjust manually in the sidebar if needed.")
-
-        # Section 4: IR Budget Optimizer
         st.markdown("---")
 
         # Company selector first
@@ -4813,6 +4791,23 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         st.error(f"Error optimizing budget: {str(e)}")
                         import traceback
                         st.code(traceback.format_exc())
+
+        # Section: Applied Weights (at bottom of Value Analysis)
+        st.markdown("---")
+        with st.expander("⚖️ Applied Weights", expanded=False):
+            # Show applied weights with auto-optimization status
+            if st.session_state.get('weights_auto_optimized', False):
+                st.success(f"✓ Weights auto-optimized based on peer group variance")
+
+            weights_df = pd.DataFrame([
+                {'Dial': 'Valuation', 'Weight': f"{current_weights['valuation']*100:.1f}%"},
+                {'Dial': 'Liquidity', 'Weight': f"{current_weights['liquidity']*100:.1f}%"},
+                {'Dial': 'Coverage', 'Weight': f"{current_weights['coverage']*100:.1f}%"},
+                {'Dial': 'Trust', 'Weight': f"{current_weights['sentiment']*100:.1f}%"}
+            ])
+            st.dataframe(weights_df, use_container_width=True, hide_index=True)
+
+            st.caption("Weights are auto-optimized on each analysis run based on peer group variance. Adjust manually in the sidebar if needed.")
 
     # SECTION 4 (or SECTION 3 if not multi-quarter): Playbook & Events
     if selected_section == "🎯 Playbook & Events":
