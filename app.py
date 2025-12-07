@@ -1942,41 +1942,8 @@ elif run_analysis:
 
     st.caption(f"⏱️ Estimated time: ~{time_display} | Analyzing {len(tickers)} companies across {len(selected_quarters)} quarter(s)")
 
-    # === WHILE YOU WAIT: AI vs IRCI Info Box ===
-    with st.expander("📖 **While You Wait: Why IRCI in an AI World?**", expanded=True):
-        st.markdown("""
-<div style="font-size: 0.95em;">
-
-**AI Chatbots vs. IRCI**
-
-| Capability | AI Chatbots | IRCI |
-|------------|-------------|------|
-| Generate plausible text | ✅ | — |
-| Know your specific peer group | ❌ | ✅ Custom peer benchmarking |
-| Calculate your \$/IRCI point | ❌ | ✅ Regression on actual market data |
-| **Quantify IR event ROI** | ❌ | ✅ **Academic-backed event impact values** |
-| Factor-adjust event volatility | ❌ | ✅ Fama-French model integration |
-| Track progress over time | ❌ | ✅ Quarter-over-quarter comparison |
-| Access real-time SEC EDGAR filings | ❌ | ✅ Live data pipeline |
-| Benchmark against competitors | ❌ | ✅ Peer-relative percentiles |
-| Verify claims with sources | ❌ | ✅ Every metric auditable |
-
-**Plan Your IR Activities with Confidence**
-
-IRCI transforms guesswork into strategy:
-- **Event Simulator**: Model the impact of investor days, earnings calls, analyst coverage before you commit budget
-- **Academic-Backed Values**: Event impacts draw from peer-reviewed research
-- **Dollar Translation**: See exactly how much value each IR initiative could add in your company's terms
-- **Prioritized Recommendations**: Data-driven playbook tells you where to focus for maximum ROI
-
-**The Bottom Line**
-
-AI can write your press release. It can't tell you how readers reacted, whether it moved your stock, or how you truly compare to competitors. IRCI answers those questions with data, not guesses—and helps you **plan what to do next**.
-
-*Your expertise + IRCI's measurement = Defensible, repeatable IR strategy*
-
-</div>
-        """, unsafe_allow_html=True)
+    # === WHILE YOU WAIT tip ===
+    st.caption("💡 **Tip:** Expand 📚 **About IRCI** above to learn how IRCI quantifies IR impact while AI chatbots can only generate text.")
 
     # Store results for all quarters
     all_quarters_results = {}
@@ -2625,112 +2592,13 @@ else:
 
     with st.expander("🔮 **Quantum-Ready Peer Selection** (Coming Soon!)"):
         st.markdown("""
-        ### Multi-Dimensional Optimal Peer Selection
+        **Multi-dimensional peer optimization using QUBO formulation** — the same math that runs on D-Wave quantum computers.
 
-        Our peer selection uses **QUBO (Quadratic Unconstrained Binary Optimization)** — the same
-        mathematical formulation that runs on D-Wave quantum computers.
+        Selects optimal peers by balancing market cap similarity, sector match, analyst coverage, liquidity, and ownership structure while ensuring diversity.
 
-        #### How It Works
+        **Currently Available:** Classical solvers (greedy, simulated annealing) via sidebar → "🧠 Optimized" mode
 
-        **Step 1: Fetch Multi-Dimensional Features**
-
-        For each candidate peer, we collect:
-        | Dimension | Source | Why It Matters |
-        |-----------|--------|----------------|
-        | Market Cap | Yahoo Finance | Similar-sized companies face similar IR challenges |
-        | Sector/Industry | Company profile | Same-sector peers have comparable metrics |
-        | Analyst Coverage | Financial APIs | Similar visibility = better benchmarking |
-        | Liquidity Profile | Trading data | Comparable trading characteristics |
-        | Volume Patterns | 3-month history | Similar investor attention |
-        | Institutional % | 13F filings | Similar ownership structures |
-        | Return Correlation | 60-day returns | For diversity optimization |
-
-        **Step 2: Compute Similarity Scores**
-
-        Each candidate gets a weighted similarity score vs your target:
-        ```
-        Similarity[i] = Σ (weight[d] × score[d])
-        ```
-
-        **Step 3: Build QUBO Matrix**
-
-        The optimization problem becomes:
-        ```
-        MINIMIZE: E(x) = Σᵢ (-similarity[i])·xᵢ + Σᵢⱼ (correlation[i,j]·penalty)·xᵢ·xⱼ
-
-        Where:
-          • xᵢ ∈ {0,1} = include stock i in peer set?
-          • Linear terms = maximize similarity to target
-          • Quadratic terms = penalize correlated pairs (ensure diversity)
-
-        CONSTRAINT: Select exactly N peers
-        ```
-
-        **Step 4: Solve**
-
-        | Method | How It Works | Best For |
-        |--------|--------------|----------|
-        | **Greedy** | Pick best remaining stock iteratively | Quick approximation |
-        | **Simulated Annealing** | Random swaps with cooling schedule (10K iterations) | Near-optimal solution |
-        | **Exhaustive** | Check all combinations | Small pools (≤20) |
-        | **Quantum** ⚡ | D-Wave quantum annealing | Large pools, guaranteed optimal |
-
-        ---
-
-        #### Why Quantum Computing?
-
-        **Classical Limitation:** Checking all combinations of 10 peers from 500 candidates =
-        **2.6 × 10²⁰ possibilities** — impossible to solve exactly.
-
-        **Quantum Advantage:**
-
-        | Problem Size | Classical (Sim. Annealing) | Quantum (D-Wave) |
-        |--------------|---------------------------|------------------|
-        | 25 candidates | ~50ms | ~100ms |
-        | 100 candidates | ~200ms | ~100ms |
-        | 500 candidates | ~2 seconds | ~100ms |
-        | S&P 500 | May not converge | ~100ms |
-
-        **How Quantum Works:**
-        - **Superposition**: Evaluates ALL solutions simultaneously
-        - **Quantum Tunneling**: Escapes local minima that trap classical solvers
-        - **Guaranteed Optimal**: Finds true global minimum, not just "good enough"
-
-        ---
-
-        #### Academic References
-
-        The QUBO formulation for portfolio optimization is well-established in quantum computing research:
-
-        1. **Venturelli et al. (2019)** - "Reverse quantum annealing approach to portfolio optimization"
-           — *Quantum Science and Technology* — [arXiv:1810.08584](https://arxiv.org/abs/1810.08584)
-
-        2. **Mugel et al. (2022)** - "Dynamic portfolio optimization with real datasets using quantum processors"
-           — *Physical Review Research* — [arXiv:2007.00017](https://arxiv.org/abs/2007.00017)
-
-        3. **Grant et al. (2021)** - "Benchmarking quantum annealing for portfolio optimization"
-           — *Quantum Machine Intelligence* — [DOI:10.1007/s42484-021-00052-w](https://doi.org/10.1007/s42484-021-00052-w)
-
-        4. **D-Wave Systems** - "Portfolio Optimization of 60 Stocks Using Classical and Quantum Algorithms"
-           — [arXiv:2008.08669](https://arxiv.org/abs/2008.08669)
-
-        ---
-
-        #### Try It Now (Classical Mode)
-
-        In the sidebar under **🔍 Find Companies**, select **🧠 Optimized (AI-Powered)** to use
-        multi-dimensional peer selection with simulated annealing. Quantum mode will be enabled
-        when D-Wave Leap API integration is complete.
-
-        **Configurable Weights:**
-        - Market Cap Similarity (default: 20%)
-        - Sector Match (default: 25%)
-        - Analyst Coverage (default: 10%)
-        - Liquidity Profile (default: 15%)
-        - Volume Pattern (default: 10%)
-        - Institutional Ownership (default: 10%)
-        - Geography (default: 5%)
-        - Diversity Bonus (default: 5%)
+        **Coming Soon:** D-Wave quantum annealing for instant optimization across 500+ candidates
         """)
 
     st.info("**Get Started:** Select companies and quarters in the sidebar, then click **🚀 Run Analysis**")
@@ -3266,13 +3134,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 hide_index=True
             )
 
-            st.caption("""
-💡 **Metric Definitions:**
-• **Amihud (×10⁶)** = Price impact measure. Lower = more liquid. Shows how much price moves per dollar of volume.
-• **Spread (bps)** = Bid-ask spread in basis points. Lower = tighter spreads = better liquidity.
-• **Turnover** = Trading volume ÷ shares outstanding. Higher = more actively traded.
-• **Inst. Ownership %** = Percentage of shares held by institutional investors (from Yahoo Finance). Higher = more institutional interest.
-""")
+            st.caption("💡 **Amihud**: price impact (lower=better) | **Spread**: bid-ask in bps (lower=better) | **Turnover**: volume/shares (higher=better) | **Inst. %**: institutional ownership")
 
         with st.expander("📰 Coverage Details", expanded=False):
             # Calculate high-quality article counts
@@ -3386,12 +3248,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         })
                         st.dataframe(analyst_display, use_container_width=True, hide_index=True)
 
-            st.caption("""
-💡 **Metric Definitions:**
-• **8-K Count** = Number of 8-K filings (material events) in the quarter. More filings = more disclosure activity.
-• **Days to 10-Q/K** = Days after quarter-end until 10-Q (or 10-K) was filed. Fewer days = faster reporting.
-• **Transcript Score** = Quality score (0-100) for earnings call transcripts based on forward-looking statements and guidance coverage.
-""")
+            st.caption("💡 **8-K Count**: material event filings | **Days to 10-Q/K**: filing speed (lower=faster) | **Transcript Score**: earnings call quality (0-100)")
             if 'high_quality_articles' in df_cov_display.columns:
                 st.caption("• **High-Quality Articles** = Articles from top-tier sources (weight ≥ 0.7): WSJ, Bloomberg, Reuters, CNBC, Forbes, Barron's, MarketWatch, Motley Fool, Benzinga, etc.")
 
@@ -3504,17 +3361,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         })
                         st.dataframe(short_display, use_container_width=True, hide_index=True)
 
-            st.caption("""
-💡 **Metric Definitions:**
-• **Event Calm %** = Measures price stability around earnings and 8-K filings. Higher % = stock price moved LESS than peers during event windows (good for investor confidence).
-• **Baseline Calm %** = Measures day-to-day price volatility vs peers. Higher % = LOWER volatility than peers (more predictable stock).
-• **Media Tone %** = Sentiment score from news coverage. Higher = more positive coverage.
-• **Social Sentiment %** = Retail investor sentiment from Reddit (r/wallstreetbets). Higher = more bullish momentum.
-• **Short % Float** = Percentage of tradeable shares sold short. Lower = less bearish sentiment (higher trust).
-• **Days to Cover** = Number of days for shorts to cover based on avg volume. Higher = more crowded short trade.
-• **Events** = Number of corporate events (earnings, 8-K filings) analyzed.
-• **Articles** = Number of news articles analyzed for sentiment.
-""")
+            st.caption("💡 **Event/Baseline Calm**: price stability vs peers (higher=calmer) | **Media Tone**: news sentiment | **Short %**: bearish pressure (lower=better)")
 
     # SECTION 2: Trend Analysis (only for multi-quarter data)
     if is_multi_quarter and selected_section == "📈 Trends":
@@ -4166,20 +4013,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     if has_prev_data:
                         # Add adjustable quarterly impact factor
                         with st.expander("⚙️ Adjust Quarterly Impact Factor", expanded=False):
-                            st.markdown("""
-                            **Why we need a quarterly impact factor:**
-                            - The $/IRCI point is based on **cross-sectional peer comparisons** (Company A vs Company B)
-                            - These measure structural, long-term IR quality differences built over years
-                            - Quarterly changes are **marginal improvements** from 3 months of IR work
-                            - A 1-point QoQ change has less immediate impact than a structural 1-point peer gap
-
-                            **Academic backing:**
-                            - Research shows IR contributes 5-15% to firm value (Bushee & Miller 2012; Agarwal et al. 2016)
-                            - Quarterly improvements have smaller immediate impact than long-term positioning
-                            - Our default 10% factor is conservative and in line with IR literature
-
-                            **Adjust the factor based on your judgment:**
-                            """)
+                            st.caption("Quarterly changes have smaller impact than structural peer differences. Default 10% factor is conservative (Bushee & Miller 2012).")
 
                             quarterly_impact_factor_pct = st.slider(
                                 "Quarterly Impact Factor",
@@ -4188,19 +4022,11 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                                 value=10,
                                 step=1,
                                 format="%d%%",
-                                help="What percentage of the structural $/IRCI value applies to quarterly changes? Default 10% is conservative."
+                                help="1-5%: Very conservative | 10%: Default | 15-25%: Moderate | 50-100%: Aggressive"
                             )
                             quarterly_impact_factor = quarterly_impact_factor_pct / 100.0
 
-                            st.caption(f"""
-                            **Current setting: {quarterly_impact_factor_pct}%**
-                            - 1-5%: Very conservative (assumes minimal quarterly impact)
-                            - 10%: Default/conservative (literature-backed)
-                            - 15-25%: Moderate (assumes stronger quarterly effects)
-                            - 50-100%: Aggressive (assumes QoQ = structural differences)
-                            """)
-
-                        st.caption(f"📊 Shows quarterly IR value change: (ΔIRCI × $/pt × {quarterly_impact_factor:.0%} factor). Positive = improved, Negative = declined.")
+                        st.caption(f"📊 Quarterly value: ΔIRCI × $/pt × {quarterly_impact_factor:.0%} factor")
                     else:
                         st.caption("📊 Shows IR value vs peer average: (Your IRCI - Peer Avg) × $/pt. Run previous quarter first to track QoQ changes.")
 
