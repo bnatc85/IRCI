@@ -6188,7 +6188,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     for imp in improvements:
                         color = "🔴" if imp['classification'] == 'critical' else "🟠" if imp['classification'] == 'low' else "🟡" if imp['classification'] == 'medium' else "🟢"
     
-                        with st.expander(f"{color} **{imp['dial']}** — **${imp['min_value']/1e6:.0f}M to ${imp['max_value']/1e6:.0f}M** potential value", expanded=False):
+                        min_val = f"${imp['min_value']/1e6:.0f}M"
+                        max_val = f"${imp['max_value']/1e6:.0f}M"
+                        with st.expander(f"{color} {imp['dial']} — {min_val} to {max_val} potential value", expanded=False):
                             col_left, col_right = st.columns([1, 1])
     
                             with col_left:
