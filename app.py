@@ -6628,18 +6628,26 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
             st.session_state['pdf_just_generated'] = False
 
+        pdf_data = st.session_state['pdf_report']
         pdf_filename = f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf"
 
-        # Download button
-        st.download_button(
-            label=f"⬇️ Download {pdf_ticker} Report (PDF)",
-            data=st.session_state['pdf_report'],
-            file_name=pdf_filename,
-            mime="application/pdf",
-            key=f"pdf_download_{pdf_ticker}",
-            type="primary"
-        )
-        st.caption("💡 If download doesn't work, try disabling ad blockers for this site, or use the Email Report option below.")
+        # Debug: show PDF size
+        pdf_size_kb = len(pdf_data) / 1024
+        st.caption(f"📊 Report size: {pdf_size_kb:.1f} KB")
+
+        # Download button - ensure data is bytes
+        if isinstance(pdf_data, bytes):
+            st.download_button(
+                label=f"⬇️ Download {pdf_ticker} Report (PDF)",
+                data=pdf_data,
+                file_name=pdf_filename,
+                mime="application/pdf",
+                key=f"pdf_download_{pdf_ticker}"
+            )
+        else:
+            st.error(f"PDF data is not bytes, it's {type(pdf_data)}")
+
+        st.caption("💡 If download doesn't work, check your browser's Downloads folder or try a different browser.")
 
     # Email Report Section
     st.markdown("---")
