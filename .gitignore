@@ -13,3 +13,5 @@ data/
 outputs/
 # Streamlit secrets (DO NOT COMMIT)
 .streamlit/secrets.toml
+# Cache
+.cache/
