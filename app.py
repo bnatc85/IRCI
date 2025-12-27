@@ -6623,19 +6623,21 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     with st.expander("Error details"):
                         st.code(traceback.format_exc())
 
-    # Show download button if PDF was generated (OUTSIDE fragment for proper download)
+    # Show download button if PDF was generated
     if 'pdf_report' in st.session_state and st.session_state.get('pdf_ticker') == pdf_ticker:
         # Show success message after rerun
         if st.session_state.pop('pdf_just_generated', False):
             st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
-        with col_pdf3:
-            st.download_button(
-                label=f"⬇️ Download {pdf_ticker} Report",
-                data=st.session_state['pdf_report'],
-                file_name=f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
+
+        # Download button on its own line for better visibility
+        st.download_button(
+            label=f"⬇️ Download {pdf_ticker} Report (PDF)",
+            data=st.session_state['pdf_report'],
+            file_name=f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            key="pdf_download_btn"
+        )
 
     # Email Report Section
     st.markdown("---")
