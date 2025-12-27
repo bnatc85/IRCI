@@ -6626,18 +6626,16 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     # Show download button if PDF was generated
     if 'pdf_report' in st.session_state and st.session_state.get('pdf_ticker') == pdf_ticker:
         # Show success message after rerun
-        if st.session_state.pop('pdf_just_generated', False):
+        if st.session_state.get('pdf_just_generated', False):
             st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
+            st.session_state['pdf_just_generated'] = False
 
-        # Download button on its own line for better visibility
-        st.download_button(
-            label=f"⬇️ Download {pdf_ticker} Report (PDF)",
-            data=st.session_state['pdf_report'],
-            file_name=f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-            key="pdf_download_btn"
-        )
+        # Use base64 HTML link for reliable download (st.download_button has issues)
+        import base64
+        pdf_b64 = base64.b64encode(st.session_state['pdf_report']).decode()
+        pdf_filename = f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf"
+        href = f'<a href="data:application/pdf;base64,{pdf_b64}" download="{pdf_filename}" style="display: inline-block; padding: 0.5rem 1rem; background-color: #FF4B4B; color: white; text-decoration: none; border-radius: 0.5rem; font-weight: 500; text-align: center; width: 100%;">⬇️ Download {pdf_ticker} Report (PDF)</a>'
+        st.markdown(href, unsafe_allow_html=True)
 
     # Email Report Section
     st.markdown("---")
