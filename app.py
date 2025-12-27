@@ -6630,23 +6630,26 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
         pdf_filename = f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf"
 
-        # Create base64 link to open PDF in new tab
+        # Create base64 for embedding
         import base64
         pdf_b64 = base64.b64encode(st.session_state['pdf_report']).decode()
 
-        # Button-styled link that opens PDF in new tab
-        st.markdown(
-            f'''<a href="data:application/pdf;base64,{pdf_b64}" target="_blank"
-            style="display: inline-block; padding: 0.5rem 1rem; background-color: #FF4B4B;
-            color: white; text-decoration: none; border-radius: 0.5rem; font-weight: 600;
-            font-size: 1rem; text-align: center;">
-            📄 Open {pdf_ticker} Report (PDF) in New Tab
-            </a>
-            <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
-            PDF will open in a new tab. Use Ctrl+S (or Cmd+S on Mac) to save it.
-            </p>''',
-            unsafe_allow_html=True
+        # Download button (primary method)
+        st.download_button(
+            label=f"⬇️ Download {pdf_ticker} Report (PDF)",
+            data=st.session_state['pdf_report'],
+            file_name=pdf_filename,
+            mime="application/pdf",
+            key=f"pdf_download_{pdf_ticker}",
+            type="primary"
         )
+
+        # Show embedded PDF preview with print/save option
+        with st.expander("📄 Preview & Print Report", expanded=False):
+            st.markdown("*Use your browser's print function (Ctrl+P / Cmd+P) to save as PDF if download doesn't work.*")
+            # Embed PDF in iframe
+            pdf_display = f'<iframe src="data:application/pdf;base64,{pdf_b64}" width="100%" height="600" type="application/pdf"></iframe>'
+            st.markdown(pdf_display, unsafe_allow_html=True)
 
     # Email Report Section
     st.markdown("---")
