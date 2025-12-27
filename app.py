@@ -6505,144 +6505,137 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         )
 
     # PDF Report Download (company-specific)
-    # Using st.fragment to prevent scroll-to-top on interaction
     st.markdown("---")
     st.markdown("#### 📄 Comprehensive PDF Report")
     st.markdown("*Generate a complete analysis report for a specific company*")
 
-    @st.fragment
-    def pdf_report_section():
-        """Fragment to handle PDF generation without full page rerun"""
-        col_pdf1, col_pdf2, col_pdf3 = st.columns([2, 2, 4])
+    col_pdf1, col_pdf2, col_pdf3 = st.columns([2, 2, 4])
 
-        with col_pdf1:
-            pdf_ticker = st.selectbox(
-                "Select company for PDF report:",
-                df_composite['ticker'].unique(),
-                key="pdf_ticker_select_fragment"
-            )
+    with col_pdf1:
+        pdf_ticker = st.selectbox(
+            "Select company for PDF report:",
+            df_composite['ticker'].unique(),
+            key="pdf_ticker_select"
+        )
 
-        with col_pdf2:
-            if st.button("📄 Generate PDF Report", type="primary", use_container_width=True):
-                with st.spinner(f"Generating comprehensive PDF report for {pdf_ticker}..."):
+    with col_pdf2:
+        if st.button("📄 Generate PDF Report", type="primary", use_container_width=True):
+            with st.spinner(f"Generating comprehensive PDF report for {pdf_ticker}..."):
+                try:
+                    # Get playbook for the selected ticker
+                    company_row = df_composite[df_composite['ticker'] == pdf_ticker].iloc[0]
+                    dial_scores = {
+                        'valuation': company_row.get('valuation_pct', 50),
+                        'liquidity': company_row.get('liquidity_pct', 50),
+                        'coverage': company_row.get('coverage_pct', 50),
+                        'trust': company_row.get('sentiment_pct', 50)
+                    }
+                    pdf_playbook = generate_playbook(dial_scores, df_composite, pdf_ticker)
+
+                    # Get timeline data if available
                     try:
-                        # Get playbook for the selected ticker
-                        company_row = df_composite[df_composite['ticker'] == pdf_ticker].iloc[0]
-                        dial_scores = {
-                            'valuation': company_row.get('valuation_pct', 50),
-                            'liquidity': company_row.get('liquidity_pct', 50),
-                            'coverage': company_row.get('coverage_pct', 50),
-                            'trust': company_row.get('sentiment_pct', 50)
-                        }
-                        pdf_playbook = generate_playbook(dial_scores, df_composite, pdf_ticker)
+                        from irci.event_timeline import aggregate_timeline_events
+                        from irci.coverage import _company_submissions, _cik_for_ticker
 
-                        # Get timeline data if available
-                        try:
-                            from irci.event_timeline import aggregate_timeline_events
-                            from irci.coverage import _company_submissions, _cik_for_ticker
+                        cik = _cik_for_ticker(pdf_ticker)
+                        if cik:
+                            filings_df = _company_submissions(cik, q_start, q_end)
+                        else:
+                            filings_df = pd.DataFrame()
 
-                            cik = _cik_for_ticker(pdf_ticker)
-                            if cik:
-                                filings_df = _company_submissions(cik, q_start, q_end)
-                            else:
-                                filings_df = pd.DataFrame()
-
-                            # Get news data (simplified - just use what's available)
-                            timeline_data = aggregate_timeline_events(
-                                ticker=pdf_ticker,
-                                df_trust=df_trust,
-                                filings_df=filings_df,
-                                q_start=q_start,
-                                q_end=q_end,
-                                df_composite=df_composite
-                            )
-                        except:
-                            timeline_data = None
-
-                        # Get news data for sentiment analysis
-                        pdf_news_df = st.session_state.get('news_df', None)
-
-                        # Get dollar value data if available
-                        pdf_dollar_value_df = None
-                        pdf_weights = None
-                        try:
-                            from irci.dial_insights import compute_dollar_value_per_irci_point
-                            pdf_dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
-                            # Get current weights from session state
-                            pdf_weights = {
-                                'valuation': st.session_state.weight_valuation / 100,
-                                'liquidity': st.session_state.weight_liquidity / 100,
-                                'coverage': st.session_state.weight_coverage / 100,
-                                'sentiment': st.session_state.weight_trust / 100
-                            }
-                        except:
-                            pass
-
-                        # Extract quarterly data for multi-quarter reports
-                        quarterly_data = None
-                        if 'quarter' in df_composite.columns:
-                            quarters = df_composite['quarter'].unique()
-                            if len(quarters) >= 2:
-                                quarterly_data = []
-                                for q in sorted(quarters):
-                                    q_data = df_composite[(df_composite['quarter'] == q) & (df_composite['ticker'] == pdf_ticker)]
-                                    if not q_data.empty:
-                                        row = q_data.iloc[0]
-                                        quarterly_data.append({
-                                            'quarter': q,
-                                            'irci_score': row.get('irci_composite_pct', 0) or 0,
-                                            'valuation': row.get('valuation_pct', 0) or 0,
-                                            'liquidity': row.get('liquidity_pct', 0) or 0,
-                                            'coverage': row.get('coverage_pct', 0) or 0,
-                                            'trust': row.get('sentiment_pct', 0) or 0
-                                        })
-
-                        # Generate PDF
-                        pdf_bytes = generate_pdf_report(
+                        # Get news data (simplified - just use what's available)
+                        timeline_data = aggregate_timeline_events(
                             ticker=pdf_ticker,
-                            quarter=selected_quarter,
-                            df_composite=df_composite,
-                            df_valuation=df_val,
-                            df_liquidity=df_liq,
-                            df_coverage=df_cov,
                             df_trust=df_trust,
-                            playbook=pdf_playbook,
-                            timeline_df=timeline_data,
-                            news_df=pdf_news_df,
-                            dollar_value_df=pdf_dollar_value_df,
-                            weights=pdf_weights,
-                            quarterly_data=quarterly_data
+                            filings_df=filings_df,
+                            q_start=q_start,
+                            q_end=q_end,
+                            df_composite=df_composite
                         )
+                    except:
+                        timeline_data = None
 
-                        # Store in session state for download
-                        st.session_state['pdf_report'] = pdf_bytes
-                        st.session_state['pdf_ticker'] = pdf_ticker
-                        st.session_state['pdf_quarter'] = selected_quarter
-                        st.session_state['pdf_just_generated'] = True
-                        st.rerun()  # Rerun to update email section
+                    # Get news data for sentiment analysis
+                    pdf_news_df = st.session_state.get('news_df', None)
 
-                    except Exception as e:
-                        st.error(f"Error generating PDF report: {str(e)}")
-                        import traceback
-                        with st.expander("Error details"):
-                            st.code(traceback.format_exc())
+                    # Get dollar value data if available
+                    pdf_dollar_value_df = None
+                    pdf_weights = None
+                    try:
+                        from irci.dial_insights import compute_dollar_value_per_irci_point
+                        pdf_dollar_value_df = compute_dollar_value_per_irci_point(df_composite, df_val)
+                        # Get current weights from session state
+                        pdf_weights = {
+                            'valuation': st.session_state.weight_valuation / 100,
+                            'liquidity': st.session_state.weight_liquidity / 100,
+                            'coverage': st.session_state.weight_coverage / 100,
+                            'sentiment': st.session_state.weight_trust / 100
+                        }
+                    except:
+                        pass
 
-        # Show download button if PDF was generated
-        if 'pdf_report' in st.session_state and st.session_state.get('pdf_ticker') == pdf_ticker:
-            # Show success message after rerun
-            if st.session_state.pop('pdf_just_generated', False):
-                st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
-            with col_pdf3:
-                st.download_button(
-                    label=f"⬇️ Download {pdf_ticker} Report",
-                    data=st.session_state['pdf_report'],
-                    file_name=f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
+                    # Extract quarterly data for multi-quarter reports
+                    quarterly_data = None
+                    if 'quarter' in df_composite.columns:
+                        quarters = df_composite['quarter'].unique()
+                        if len(quarters) >= 2:
+                            quarterly_data = []
+                            for q in sorted(quarters):
+                                q_data = df_composite[(df_composite['quarter'] == q) & (df_composite['ticker'] == pdf_ticker)]
+                                if not q_data.empty:
+                                    row = q_data.iloc[0]
+                                    quarterly_data.append({
+                                        'quarter': q,
+                                        'irci_score': row.get('irci_composite_pct', 0) or 0,
+                                        'valuation': row.get('valuation_pct', 0) or 0,
+                                        'liquidity': row.get('liquidity_pct', 0) or 0,
+                                        'coverage': row.get('coverage_pct', 0) or 0,
+                                        'trust': row.get('sentiment_pct', 0) or 0
+                                    })
 
-    # Call the fragment
-    pdf_report_section()
+                    # Generate PDF
+                    pdf_bytes = generate_pdf_report(
+                        ticker=pdf_ticker,
+                        quarter=selected_quarter,
+                        df_composite=df_composite,
+                        df_valuation=df_val,
+                        df_liquidity=df_liq,
+                        df_coverage=df_cov,
+                        df_trust=df_trust,
+                        playbook=pdf_playbook,
+                        timeline_df=timeline_data,
+                        news_df=pdf_news_df,
+                        dollar_value_df=pdf_dollar_value_df,
+                        weights=pdf_weights,
+                        quarterly_data=quarterly_data
+                    )
+
+                    # Store in session state for download
+                    st.session_state['pdf_report'] = pdf_bytes
+                    st.session_state['pdf_ticker'] = pdf_ticker
+                    st.session_state['pdf_quarter'] = selected_quarter
+                    st.session_state['pdf_just_generated'] = True
+                    st.rerun()  # Rerun to show download button
+
+                except Exception as e:
+                    st.error(f"Error generating PDF report: {str(e)}")
+                    import traceback
+                    with st.expander("Error details"):
+                        st.code(traceback.format_exc())
+
+    # Show download button if PDF was generated (OUTSIDE fragment for proper download)
+    if 'pdf_report' in st.session_state and st.session_state.get('pdf_ticker') == pdf_ticker:
+        # Show success message after rerun
+        if st.session_state.pop('pdf_just_generated', False):
+            st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
+        with col_pdf3:
+            st.download_button(
+                label=f"⬇️ Download {pdf_ticker} Report",
+                data=st.session_state['pdf_report'],
+                file_name=f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
 
     # Email Report Section
     st.markdown("---")
