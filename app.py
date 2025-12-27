@@ -475,34 +475,32 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Scroll to top - runs once on page load (not modals)
-import time
-scroll_timestamp = int(time.time() * 1000)
+# Scroll to top - only when explicitly requested via session state
+if st.session_state.get('scroll_to_top', False):
+    st.session_state['scroll_to_top'] = False  # Reset immediately
+    components.html(
+        """
+        <script>
+            const scrollToTop = () => {
+                // Skip if a modal is open (don't interfere with modal scrolling)
+                const modalOpen = window.parent.document.querySelector('[data-testid="stModal"]');
+                if (modalOpen) return;
 
-components.html(
-    f"""
-    <!-- Unique ID to force re-render: {scroll_timestamp} -->
-    <script>
-        const scrollToTop = () => {{
-            // Skip if a modal is open (don't interfere with modal scrolling)
-            const modalOpen = window.parent.document.querySelector('[data-testid="stModal"]');
-            if (modalOpen) return;
+                // Reset all scrolled elements except those inside modals
+                window.parent.document.querySelectorAll('*').forEach(el => {
+                    if (el.scrollTop > 0 && !el.closest('[data-testid="stModal"]') && !el.closest('[role="dialog"]')) {
+                        el.scrollTop = 0;
+                    }
+                });
+            };
 
-            // Reset all scrolled elements except those inside modals
-            window.parent.document.querySelectorAll('*').forEach(el => {{
-                if (el.scrollTop > 0 && !el.closest('[data-testid="stModal"]') && !el.closest('[role="dialog"]')) {{
-                    el.scrollTop = 0;
-                }}
-            }});
-        }};
-
-        // Run once immediately, then once more after a short delay
-        scrollToTop();
-        setTimeout(scrollToTop, 150);
-    </script>
-    """,
-    height=0
-)
+            // Run once immediately, then once more after a short delay
+            scrollToTop();
+            setTimeout(scrollToTop, 150);
+        </script>
+        """,
+        height=0
+    )
 
 # Mobile sidebar indicator - JavaScript injection for reliable mobile menu hint
 components.html(
