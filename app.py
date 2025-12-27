@@ -6630,8 +6630,12 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
         pdf_filename = f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf"
 
-        # Use native st.download_button
-        downloaded = st.download_button(
+        # Create base64 for fallback link
+        import base64
+        pdf_b64 = base64.b64encode(st.session_state['pdf_report']).decode()
+
+        # Primary download button
+        st.download_button(
             label=f"⬇️ Download {pdf_ticker} Report (PDF)",
             data=st.session_state['pdf_report'],
             file_name=pdf_filename,
@@ -6639,8 +6643,15 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             key=f"pdf_download_{pdf_ticker}",
             type="primary"
         )
-        if downloaded:
-            st.success("Download started!")
+
+        # Fallback: direct link that opens PDF in new tab
+        st.markdown(
+            f'<p style="font-size: 0.85rem; color: #666;">If download doesn\'t start, '
+            f'<a href="data:application/pdf;base64,{pdf_b64}" target="_blank" '
+            f'download="{pdf_filename}">click here to open PDF in new tab</a> '
+            f'and save from there.</p>',
+            unsafe_allow_html=True
+        )
 
     # Email Report Section
     st.markdown("---")
