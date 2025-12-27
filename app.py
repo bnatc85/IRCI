@@ -1023,27 +1023,6 @@ with st.sidebar:
     with col2:
         st.image("IRCI_icon_primary.png", width=200)
 
-    # About IRCI - always visible in sidebar
-    with st.expander("📚 About IRCI", expanded=False):
-        st.markdown("""
-**IRCI** (Investor Relations Composite Index) quantifies IR effectiveness with a 0-100 score.
-
-**Four Dials:**
-- 📰 **Coverage** — Visibility & disclosure
-- 💭 **Trust** — Market stability & sentiment
-- 💧 **Liquidity** — Trading ease
-- 💰 **Valuation** — Market multiples
-
-**Why IRCI vs. AI chatbots?**
-- Chatbots generate text; IRCI calculates *your* metrics
-- Peer-relative benchmarking with real data
-- $/IRCI point estimates for ROI planning
-
-**Data:** SEC EDGAR, Yahoo Finance, news APIs, NLP sentiment
-
-[Learn more →](https://www.thebonnierushing.com)
-        """)
-
     # Navigation at the top (only show after analysis is run)
     if st.session_state.get('df_composite') is not None:
         st.markdown("### 🧭 Navigation")
