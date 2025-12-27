@@ -6630,11 +6630,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
         pdf_filename = f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf"
 
-        # Create base64 for embedding
-        import base64
-        pdf_b64 = base64.b64encode(st.session_state['pdf_report']).decode()
-
-        # Download button (primary method)
+        # Download button
         st.download_button(
             label=f"⬇️ Download {pdf_ticker} Report (PDF)",
             data=st.session_state['pdf_report'],
@@ -6643,13 +6639,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             key=f"pdf_download_{pdf_ticker}",
             type="primary"
         )
-
-        # Show embedded PDF preview with print/save option
-        with st.expander("📄 Preview & Print Report", expanded=False):
-            st.markdown("*Use your browser's print function (Ctrl+P / Cmd+P) to save as PDF if download doesn't work.*")
-            # Embed PDF in iframe
-            pdf_display = f'<iframe src="data:application/pdf;base64,{pdf_b64}" width="100%" height="600" type="application/pdf"></iframe>'
-            st.markdown(pdf_display, unsafe_allow_html=True)
+        st.caption("💡 If download doesn't work, try disabling ad blockers for this site, or use the Email Report option below.")
 
     # Email Report Section
     st.markdown("---")
