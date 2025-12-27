@@ -6628,12 +6628,38 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             st.success(f"✅ PDF report generated successfully for {pdf_ticker}!")
             st.session_state['pdf_just_generated'] = False
 
-        # Use base64 HTML link for reliable download (st.download_button has issues)
+        # Use JavaScript Blob for reliable large file download
         import base64
         pdf_b64 = base64.b64encode(st.session_state['pdf_report']).decode()
         pdf_filename = f"IRCI_Report_{pdf_ticker}_{st.session_state.get('pdf_quarter', 'report')}.pdf"
-        href = f'<a href="data:application/pdf;base64,{pdf_b64}" download="{pdf_filename}" style="display: inline-block; padding: 0.5rem 1rem; background-color: #FF4B4B; color: white; text-decoration: none; border-radius: 0.5rem; font-weight: 500; text-align: center; width: 100%;">⬇️ Download {pdf_ticker} Report (PDF)</a>'
-        st.markdown(href, unsafe_allow_html=True)
+
+        # JavaScript to create blob and trigger download
+        download_js = f"""
+        <script>
+        function downloadPDF() {{
+            const b64Data = "{pdf_b64}";
+            const byteCharacters = atob(b64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {{
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }}
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], {{type: 'application/pdf'}});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "{pdf_filename}";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }}
+        </script>
+        <button onclick="downloadPDF()" style="display: inline-block; padding: 0.75rem 1.5rem; background-color: #FF4B4B; color: white; border: none; border-radius: 0.5rem; font-weight: 600; font-size: 1rem; cursor: pointer; width: 100%;">
+            ⬇️ Download {pdf_ticker} Report (PDF)
+        </button>
+        """
+        st.components.v1.html(download_js, height=50)
 
     # Email Report Section
     st.markdown("---")
