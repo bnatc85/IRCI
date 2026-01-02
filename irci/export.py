@@ -364,10 +364,14 @@ def _add_score_table(slide, latest_df: pd.DataFrame, left: float, top: float):
         # Data
         for row_idx, (ticker, row) in enumerate(latest_df.head(10).iterrows()):
             table.cell(row_idx + 1, 0).text = str(ticker)
-            table.cell(row_idx + 1, 1).text = f"{row.get('irci_composite_pct', 0):.0f}%"
-            table.cell(row_idx + 1, 2).text = f"{row.get('valuation_pct', 0):.0f}%"
-            table.cell(row_idx + 1, 3).text = f"{row.get('liquidity_pct', 0):.0f}%"
-            table.cell(row_idx + 1, 4).text = f"{row.get('coverage_pct', 0):.0f}%"
+            irci_val = row.get('irci_composite_pct', 0)
+            val_val = row.get('valuation_pct', 0)
+            liq_val = row.get('liquidity_pct', 0)
+            cov_val = row.get('coverage_pct', 0)
+            table.cell(row_idx + 1, 1).text = 'N/A' if pd.isna(irci_val) else f"{irci_val:.0f}%"
+            table.cell(row_idx + 1, 2).text = 'N/A' if pd.isna(val_val) else f"{val_val:.0f}%"
+            table.cell(row_idx + 1, 3).text = 'N/A' if pd.isna(liq_val) else f"{liq_val:.0f}%"
+            table.cell(row_idx + 1, 4).text = 'N/A' if pd.isna(cov_val) else f"{cov_val:.0f}%"
 
     except Exception as e:
         log.warning(f"Could not add table to PowerPoint: {e}")

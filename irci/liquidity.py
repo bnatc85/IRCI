@@ -53,7 +53,12 @@ def _market_cap_series(symbol: str, s: Settings, df_prices: pd.DataFrame, end: s
     except Exception as e:
         log.warning(f"market-cap lookup failed for {symbol}: {e}; fallback to price×shares via SEC")
         as_of_ts = pd.to_datetime(end, utc=True) if end else pd.Timestamp.utcnow(tz="UTC")
-        so = shares_outstanding_from_sec(symbol, as_of_ts, s=s).get("shares_outstanding")
+        try:
+            so = shares_outstanding_from_sec(symbol, as_of_ts, s=s).get("shares_outstanding")
+        except ValueError as sec_e:
+            # Foreign ADRs (e.g., HEINY) won't be in SEC mapping
+            log.warning(f"SEC shares lookup failed for {symbol}: {sec_e}")
+            so = None
         if not so or so <= 0:
             log.warning(f"shares outstanding missing for {symbol}; trying Yahoo Finance as final backup")
             # Try Yahoo Finance as final backup

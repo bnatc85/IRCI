@@ -274,8 +274,13 @@ def market_cap_from_price_and_shares(symbol: str, apikey: str, as_of_ts: pd.Time
     px_date = px.index[-1]
     price = float(px.loc[px_date, "adj_close"])
 
-    so = shares_outstanding_from_sec(symbol, as_of_ts, s=s)
-    shares = so.get("shares_outstanding")
+    try:
+        so = shares_outstanding_from_sec(symbol, as_of_ts, s=s)
+        shares = so.get("shares_outstanding")
+    except ValueError as e:
+        # Foreign ADRs (e.g., HEINY) won't be in SEC mapping
+        log.warning(f"SEC shares lookup failed for {symbol}: {e}")
+        shares = None
     if shares is None or shares <= 0:
         log.warning(f"Shares outstanding unavailable for {symbol}; cannot compute price×shares market cap.")
         raise ValueError("shares outstanding unavailable")
@@ -333,11 +338,19 @@ def estimate_ev_from_components(symbol: str, apikey: str, as_of_ts: pd.Timestamp
         bs_method = "FMP balance-sheet"
     except (HTTPError, ValueError) as e:
         log.warning(f"balance-sheet-statement unavailable for {symbol}; fallback to SEC facts: {e}")
-        sec_bs = debt_and_cash_from_sec(symbol, as_of_ts, s=s)
-        debt = float(sec_bs["total_debt"])
-        cash = float(sec_bs["cash_eq"])
-        bs_date = sec_bs["as_of"] or as_of_ts
-        bs_method = f"SEC facts ({sec_bs['method']})"
+        try:
+            sec_bs = debt_and_cash_from_sec(symbol, as_of_ts, s=s)
+            debt = float(sec_bs["total_debt"])
+            cash = float(sec_bs["cash_eq"])
+            bs_date = sec_bs["as_of"] or as_of_ts
+            bs_method = f"SEC facts ({sec_bs['method']})"
+        except ValueError as sec_e:
+            # Foreign ADRs (e.g., HEINY) won't be in SEC mapping
+            log.warning(f"SEC debt/cash lookup also failed for {symbol}: {sec_e}; using 0 for debt/cash")
+            debt = 0.0
+            cash = 0.0
+            bs_date = as_of_ts
+            bs_method = "debt/cash unavailable"
 
     ev = mc_val + debt - cash
     as_of_used = max(mc_date, bs_date)
@@ -514,9 +527,15 @@ def valuation_snapshot(symbols: List[str], as_of: Optional[str] = None, source: 
                 ev_date, ev_val = asof, np.nan
 
         # 2) EBITDA (SEC TTM first, then FMP backup, then Yahoo Finance) as of ev_date
-        sec = ttm_ebitda_from_sec(sym, as_of=ev_date, s=s)
-        ebitda = sec["ttm_ebitda"]
-        ebitda_method = sec["method"]
+        try:
+            sec = ttm_ebitda_from_sec(sym, as_of=ev_date, s=s)
+            ebitda = sec["ttm_ebitda"]
+            ebitda_method = sec["method"]
+        except ValueError as e:
+            # Foreign ADRs (e.g., HEINY) won't be in SEC mapping - fall back to other sources
+            log.info(f"SEC lookup failed for {sym}: {e}")
+            ebitda = np.nan
+            ebitda_method = "SEC unavailable"
 
         # If SEC EBITDA failed or returned NaN, try FMP as backup
         if pd.isna(ebitda) or ebitda == 0.0:

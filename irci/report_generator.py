@@ -194,7 +194,8 @@ class IRCIReport(FPDF):
         self.set_font('Arial', 'B', 36)
         self.set_text_color(0, 0, 0)
         self.set_xy(center_x, y)
-        self.cell(60, 22, f'{score:.0f}%', 0, 1, 'C')
+        score_display = 'N/A' if pd.isna(score) else f'{score:.0f}%'
+        self.cell(60, 22, score_display, 0, 1, 'C')
 
         # Label
         self.set_font('Arial', 'B', 10)
@@ -250,7 +251,8 @@ class IRCIReport(FPDF):
             # Score - smaller
             self.set_font('Arial', 'B', 16)
             self.set_xy(x, start_y + 7)
-            self.cell(width - 2, 10, f'{score:.0f}%', 0, 0, 'C')
+            score_display = 'N/A' if pd.isna(score) else f'{score:.0f}%'
+            self.cell(width - 2, 10, score_display, 0, 0, 'C')
 
             # Classification
             self.set_font('Arial', '', 7)
@@ -263,6 +265,8 @@ class IRCIReport(FPDF):
 
     def _get_score_color(self, score: float) -> tuple:
         """Get color based on score (RGB)"""
+        if pd.isna(score):
+            return (128, 128, 128)  # Gray for unavailable data
         if score >= 70:
             return (34, 139, 34)   # Forest green
         elif score >= 50:
@@ -274,6 +278,8 @@ class IRCIReport(FPDF):
 
     def _classify_score_label(self, score: float) -> str:
         """Get classification label for score"""
+        if pd.isna(score):
+            return "N/A"
         if score >= 70:
             return "Strong"
         elif score >= 50:
@@ -386,7 +392,8 @@ class IRCIReport(FPDF):
                 color = self._get_score_color(score)
                 self.set_fill_color(*color)
                 self.set_text_color(255, 255, 255)
-                self.cell(col_widths[i + 1], 6, f'{score:.0f}%', 1, 0, 'C', fill=True)
+                display_val = 'N/A' if pd.isna(score) else f'{score:.0f}%'
+                self.cell(col_widths[i + 1], 6, display_val, 1, 0, 'C', fill=True)
 
             # Rank
             self.set_fill_color(255, 255, 255) if not is_target else self.set_fill_color(230, 240, 255)
@@ -914,8 +921,8 @@ class IRCIReport(FPDF):
             trust = qdata.get('trust', 0)
 
             # Format IRCI with change indicator
-            irci_str = f"{irci:.1f}%"
-            if prev_irci is not None:
+            irci_str = 'N/A' if pd.isna(irci) else f"{irci:.1f}%"
+            if prev_irci is not None and not pd.isna(irci) and not pd.isna(prev_irci):
                 change = irci - prev_irci
                 if change > 0:
                     irci_str = f"{irci:.1f}% (+{change:.1f})"
@@ -924,10 +931,10 @@ class IRCIReport(FPDF):
 
             self.cell(col_widths[0], 6, quarter, 1, 0, 'C', fill=True)
             self.cell(col_widths[1], 6, irci_str, 1, 0, 'C', fill=True)
-            self.cell(col_widths[2], 6, f"{val:.0f}%", 1, 0, 'C', fill=True)
-            self.cell(col_widths[3], 6, f"{liq:.0f}%", 1, 0, 'C', fill=True)
-            self.cell(col_widths[4], 6, f"{cov:.0f}%", 1, 0, 'C', fill=True)
-            self.cell(col_widths[5], 6, f"{trust:.0f}%", 1, 0, 'C', fill=True)
+            self.cell(col_widths[2], 6, 'N/A' if pd.isna(val) else f"{val:.0f}%", 1, 0, 'C', fill=True)
+            self.cell(col_widths[3], 6, 'N/A' if pd.isna(liq) else f"{liq:.0f}%", 1, 0, 'C', fill=True)
+            self.cell(col_widths[4], 6, 'N/A' if pd.isna(cov) else f"{cov:.0f}%", 1, 0, 'C', fill=True)
+            self.cell(col_widths[5], 6, 'N/A' if pd.isna(trust) else f"{trust:.0f}%", 1, 0, 'C', fill=True)
 
             if dollar_per_point:
                 # Calculate quarter-over-quarter value change

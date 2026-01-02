@@ -3081,17 +3081,22 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             )
 
             # Check peer count to show appropriate note
-            peer_count = df_val['peer_count'].iloc[0] if 'peer_count' in df_val.columns else len(df_val)
+            # peer_count from valuation module counts companies with valid EV/EBITDA data
+            valid_peer_count = df_val['peer_count'].iloc[0] if 'peer_count' in df_val.columns else len(df_val)
+            total_companies = len(df_val)
 
-            if peer_count <= 5:
-                if peer_count <= 2:
+            # Use valid peer count for score range logic, but show total companies in message
+            display_count = max(valid_peer_count, total_companies)
+
+            if display_count <= 5:
+                if display_count <= 2:
                     score_range = "30-70%"
                 else:
                     score_range = "15-85%"
                 st.caption(f"""
 💡 **Quick Guide:** EV/EBITDA compares value to earnings (lower = cheaper). PEG adjusts P/E for growth (below 1.0 = potentially undervalued). Scores show peer percentile ranking.
 
-📊 **Small Peer Group Note:** With only {peer_count} peers, percentile scores are compressed to {score_range} to avoid statistically unreliable extremes. Expand peer group for full 0-100% range.
+📊 **Small Peer Group Note:** With only {display_count} peers, percentile scores are compressed to {score_range} to avoid statistically unreliable extremes. Expand peer group for full 0-100% range.
 """)
             else:
                 st.caption("""
