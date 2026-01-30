@@ -4593,8 +4593,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         with metric_col2:
                             st.metric(
                                 "Projected IRCI",
-                                f"{result['projected_irci']:.1f}",
-                                f"+{result['expected_improvement']:.1f} pts",
+                                f"{result['projected_irci']:.2f}",
+                                f"+{result['expected_improvement']:.2f} pts",
                                 help="Expected IRCI after implementing selected initiatives"
                             )
                         with metric_col3:
@@ -4629,7 +4629,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                                     'Dial': init.dial.title(),
                                     'Cost': f"${init.cost:,}",
                                     'Hours': init.time_hours,
-                                    'Impact': f"+{init.expected_improvement:.1f} pts",
+                                    'Impact': f"+{init.expected_improvement:.2f} pts",
                                     'Confidence': f"{init.confidence*100:.0f}%",
                                     'Timeframe': f"{init.timeframe_months} mo",
                                     'Quick Win': "✓" if init.quick_win else ""
@@ -4650,7 +4650,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                             dial_df = pd.DataFrame({
                                 'Dial': list(dial_spend.keys()),
                                 'Investment': [f"${v:,.0f}" for v in dial_spend.values()],
-                                'Expected Impact': [f"+{v:.1f} pts" for v in dial_impact.values()]
+                                'Expected Impact': [f"+{v:.2f} pts" for v in dial_impact.values()]
                             })
                             st.dataframe(dial_df, hide_index=True)
 
