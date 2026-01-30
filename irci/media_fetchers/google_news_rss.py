@@ -13,35 +13,84 @@ import re
 
 
 # Map of ticker to company names for better search results
+# This enables searching by company name which finds more articles than ticker-only searches
 TICKER_TO_COMPANY = {
+    # Private Equity / Asset Management
     "BX": "Blackstone",
     "KKR": "KKR",
     "APO": "Apollo Global Management",
     "CG": "Carlyle Group",
     "ARES": "Ares Management",
+    "BLK": "BlackRock",
+    "BAM": "Brookfield Asset Management",
+    "OWL": "Blue Owl Capital",
+    "TPG": "TPG Inc",
+    # Tech Giants
     "AAPL": "Apple",
     "MSFT": "Microsoft",
     "GOOGL": "Google Alphabet",
+    "GOOG": "Google Alphabet",
     "AMZN": "Amazon",
     "META": "Meta Facebook",
     "NVDA": "NVIDIA",
     "TSLA": "Tesla",
+    "NFLX": "Netflix",
+    "CRM": "Salesforce",
+    "ORCL": "Oracle",
+    "ADBE": "Adobe",
+    "INTC": "Intel",
+    "AMD": "AMD",
+    # Financial Services
     "JPM": "JPMorgan Chase",
     "BAC": "Bank of America",
     "WFC": "Wells Fargo",
     "GS": "Goldman Sachs",
     "MS": "Morgan Stanley",
+    "C": "Citigroup",
+    "SCHW": "Charles Schwab",
+    "BRK.A": "Berkshire Hathaway",
+    "BRK.B": "Berkshire Hathaway",
+    # Payments
     "V": "Visa",
     "MA": "Mastercard",
+    "PYPL": "PayPal",
+    "SQ": "Block Square",
+    # Healthcare
     "UNH": "UnitedHealth",
     "JNJ": "Johnson Johnson",
     "PFE": "Pfizer",
     "ABBV": "AbbVie",
     "LLY": "Eli Lilly",
     "MRK": "Merck",
+    "TMO": "Thermo Fisher",
+    "ABT": "Abbott",
+    # Energy
     "XOM": "ExxonMobil",
     "CVX": "Chevron",
     "COP": "ConocoPhillips",
+    "SLB": "Schlumberger",
+    # Consumer
+    "WMT": "Walmart",
+    "COST": "Costco",
+    "HD": "Home Depot",
+    "NKE": "Nike",
+    "SBUX": "Starbucks",
+    "MCD": "McDonald's",
+    "DIS": "Disney",
+    "PG": "Procter Gamble",
+    "KO": "Coca-Cola",
+    "PEP": "PepsiCo",
+    # Industrial
+    "BA": "Boeing",
+    "CAT": "Caterpillar",
+    "GE": "General Electric",
+    "HON": "Honeywell",
+    "UPS": "UPS",
+    "FDX": "FedEx",
+    # Telecom
+    "T": "AT&T",
+    "VZ": "Verizon",
+    "TMUS": "T-Mobile",
 }
 
 

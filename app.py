@@ -1414,9 +1414,25 @@ with st.sidebar:
         if st.session_state.get('weights_auto_optimized', False):
             st.caption("✓ Weights auto-optimized on last analysis")
 
-    # News file upload
+    # News file upload and settings
     with st.expander("📰 Advanced: News Data", expanded=False):
-        st.info("News articles are automatically fetched from FMP API for sentiment analysis")
+        st.info("News articles are automatically fetched from multiple APIs for sentiment analysis")
+
+        # Multi-source aggregation toggle
+        aggregate_news_sources = st.checkbox(
+            "🔄 Aggregate from ALL news sources",
+            value=True,
+            help="Combine news from FMP, World News, Alpha Vantage, NewsAPI, Finnhub, Yahoo, Google News, and Seeking Alpha. More comprehensive but slower."
+        )
+
+        # Custom keyword search
+        news_keywords = st.text_input(
+            "🔍 Additional news search keywords (optional)",
+            placeholder="e.g., AppleCart, acquisition, partnership",
+            help="Enter keywords to search for in addition to company ticker/name. Separate multiple keywords with commas."
+        )
+
+        st.markdown("---")
         uploaded_news = st.file_uploader(
             "Or upload custom News CSV (optional override)",
             type=["csv"],
@@ -1980,7 +1996,7 @@ elif run_analysis:
             # Load settings
             s = Settings.load()
 
-            # Prepare news data - automatically fetch from FMP API
+            # Prepare news data - automatically fetch from multiple APIs
             news_df = None
             if uploaded_news is not None:
                 # User uploaded news file
@@ -1988,182 +2004,159 @@ elif run_analysis:
                 news_df = news_df[(news_df['date'] >= start_date) & (news_df['date'] <= end_date)]
                 st.success(f"✓ Loaded {len(news_df)} news articles from upload for {selected_quarter}")
             else:
-                # Automatically fetch news for all tickers using API (FMP → World News → Alpha Vantage fallback)
+                # Automatically fetch news for all tickers
                 status_text.text(f"Fetching news articles for {selected_quarter}...")
                 news_list = []
                 news_counts = {}
-                news_sources_used = {}  # Track which source was used for each ticker
+                news_sources_used = {}  # Track which sources were used for each ticker
                 q_start = pd.to_datetime(start_date, utc=True)
                 q_end = pd.to_datetime(end_date, utc=True)
+
+                # Parse custom keywords if provided
+                custom_keywords = []
+                if news_keywords and news_keywords.strip():
+                    custom_keywords = [kw.strip() for kw in news_keywords.split(',') if kw.strip()]
+                    print(f"Custom news keywords: {custom_keywords}")
 
             # Track errors for display
             news_errors = {}
 
+            # Define news fetchers with their names
+            # Order: Financial APIs first (more reliable), then RSS feeds (broader coverage)
+            news_fetchers = [
+                ("FMP", fmp_news_media_fetcher),
+                ("World News API", worldnews_api_fetcher),
+                ("Alpha Vantage", alpha_vantage_news_fetcher),
+                ("NewsAPI.org", newsapi_fetcher),
+                ("Finnhub.io", finnhub_fetcher),
+                ("Yahoo RSS", yahoo_rss_news_fetcher),
+                ("Google News RSS", google_news_rss_fetcher),
+                ("Seeking Alpha RSS", seeking_alpha_rss_fetcher),
+            ]
+
             for ticker_idx, ticker in enumerate(tickers):
-                ticker_got_news = False
+                ticker_articles = []
+                ticker_sources = []
                 ticker_errors = []
 
                 # Show per-ticker progress
                 ticker_progress.markdown(f"**News:** `{ticker}` ({ticker_idx + 1}/{len(tickers)})")
 
-                try:
-                    # Try FMP first
-                    status_text.text(f"Fetching news for {ticker} from FMP...")
-                    ticker_news = fmp_news_media_fetcher(ticker, q_start, q_end, s)
-                    if not ticker_news.empty:
-                        ticker_news['ticker'] = ticker
-                        news_list.append(ticker_news)
-                        news_counts[ticker] = len(ticker_news)
-                        news_sources_used[ticker] = "FMP"
-                        ticker_got_news = True
-                        print(f"✓ FMP returned {len(ticker_news)} articles for {ticker}")
-                    else:
-                        ticker_errors.append("FMP: No articles found")
-                except Exception as e:
-                    error_msg = f"FMP: {str(e)}"
-                    ticker_errors.append(error_msg)
-                    print(f"FMP news fetch failed for {ticker}: {e}")
-
-                # If FMP failed or returned no results, try World News API
-                if not ticker_got_news:
+                for source_name, fetcher_func in news_fetchers:
                     try:
-                        status_text.text(f"Fetching news for {ticker} from World News API...")
-                        ticker_news = worldnews_api_fetcher(ticker, q_start, q_end, s)
+                        status_text.text(f"Fetching news for {ticker} from {source_name}...")
+                        ticker_news = fetcher_func(ticker, q_start, q_end, s)
                         if not ticker_news.empty:
                             ticker_news['ticker'] = ticker
-                            news_list.append(ticker_news)
-                            news_counts[ticker] = len(ticker_news)
-                            news_sources_used[ticker] = "World News API"
-                            ticker_got_news = True
-                            print(f"✓ World News API returned {len(ticker_news)} articles for {ticker}")
-                        else:
-                            ticker_errors.append("World News API: No articles found")
-                    except Exception as e:
-                        error_msg = f"World News API: {str(e)}"
-                        ticker_errors.append(error_msg)
-                        print(f"World News API fetch failed for {ticker}: {e}")
+                            ticker_news['news_source'] = source_name
+                            ticker_articles.append(ticker_news)
+                            ticker_sources.append(source_name)
+                            print(f"✓ {source_name} returned {len(ticker_news)} articles for {ticker}")
 
-                # If both FMP and World News failed, try Alpha Vantage
-                if not ticker_got_news:
-                    try:
-                        status_text.text(f"Fetching news for {ticker} from Alpha Vantage...")
-                        ticker_news = alpha_vantage_news_fetcher(ticker, q_start, q_end, s)
-                        if not ticker_news.empty:
-                            ticker_news['ticker'] = ticker
-                            news_list.append(ticker_news)
-                            news_counts[ticker] = len(ticker_news)
-                            news_sources_used[ticker] = "Alpha Vantage"
-                            ticker_got_news = True
-                            print(f"✓ Alpha Vantage returned {len(ticker_news)} articles for {ticker}")
+                            # If NOT aggregating, stop after first success
+                            if not aggregate_news_sources:
+                                break
                         else:
-                            ticker_errors.append("Alpha Vantage: No articles found")
+                            ticker_errors.append(f"{source_name}: No articles found")
                     except Exception as e:
-                        error_msg = f"Alpha Vantage: {str(e)}"
-                        ticker_errors.append(error_msg)
-                        print(f"Alpha Vantage news fetch failed for {ticker}: {e}")
+                        ticker_errors.append(f"{source_name}: {str(e)}")
+                        print(f"{source_name} news fetch failed for {ticker}: {e}")
 
-                # If FMP, World News, and Alpha Vantage failed, try NewsAPI.org
-                if not ticker_got_news:
-                    try:
-                        status_text.text(f"Fetching news for {ticker} from NewsAPI.org...")
-                        ticker_news = newsapi_fetcher(ticker, q_start, q_end, s)
-                        if not ticker_news.empty:
-                            ticker_news['ticker'] = ticker
-                            news_list.append(ticker_news)
-                            news_counts[ticker] = len(ticker_news)
-                            news_sources_used[ticker] = "NewsAPI.org"
-                            ticker_got_news = True
-                            print(f"✓ NewsAPI.org returned {len(ticker_news)} articles for {ticker}")
-                        else:
-                            ticker_errors.append("NewsAPI.org: No articles found")
-                    except Exception as e:
-                        error_msg = f"NewsAPI.org: {str(e)}"
-                        ticker_errors.append(error_msg)
-                        print(f"NewsAPI.org news fetch failed for {ticker}: {e}")
-
-                # If all previous sources failed, try Finnhub.io
-                if not ticker_got_news:
-                    try:
-                        status_text.text(f"Fetching news for {ticker} from Finnhub.io...")
-                        ticker_news = finnhub_fetcher(ticker, q_start, q_end, s)
-                        if not ticker_news.empty:
-                            ticker_news['ticker'] = ticker
-                            news_list.append(ticker_news)
-                            news_counts[ticker] = len(ticker_news)
-                            news_sources_used[ticker] = "Finnhub.io"
-                            ticker_got_news = True
-                            print(f"✓ Finnhub.io returned {len(ticker_news)} articles for {ticker}")
-                        else:
-                            ticker_errors.append("Finnhub.io: No articles found")
-                    except Exception as e:
-                        error_msg = f"Finnhub.io: {str(e)}"
-                        ticker_errors.append(error_msg)
-                        print(f"Finnhub.io news fetch failed for {ticker}: {e}")
-
-                # If still no news, try Yahoo Finance RSS
-                if not ticker_got_news:
-                    try:
-                        status_text.text(f"Fetching news for {ticker} from Yahoo Finance RSS...")
-                        ticker_news = yahoo_rss_news_fetcher(ticker, q_start, q_end, s)
-                        if not ticker_news.empty:
-                            ticker_news['ticker'] = ticker
-                            news_list.append(ticker_news)
-                            news_counts[ticker] = len(ticker_news)
-                            news_sources_used[ticker] = "Yahoo Finance RSS"
-                            ticker_got_news = True
-                            print(f"✓ Yahoo Finance RSS returned {len(ticker_news)} articles for {ticker}")
-                        else:
-                            ticker_errors.append("Yahoo Finance RSS: No articles found")
-                    except Exception as e:
-                        error_msg = f"Yahoo Finance RSS: {str(e)}"
-                        ticker_errors.append(error_msg)
-                        print(f"Yahoo Finance RSS news fetch failed for {ticker}: {e}")
-
-                # If still no news, try Google News RSS
-                if not ticker_got_news:
-                    try:
-                        status_text.text(f"Fetching news for {ticker} from Google News RSS...")
-                        ticker_news = google_news_rss_fetcher(ticker, q_start, q_end, s)
-                        if not ticker_news.empty:
-                            ticker_news['ticker'] = ticker
-                            news_list.append(ticker_news)
-                            news_counts[ticker] = len(ticker_news)
-                            news_sources_used[ticker] = "Google News RSS"
-                            ticker_got_news = True
-                            print(f"✓ Google News RSS returned {len(ticker_news)} articles for {ticker}")
-                        else:
-                            ticker_errors.append("Google News RSS: No articles found")
-                    except Exception as e:
-                        error_msg = f"Google News RSS: {str(e)}"
-                        ticker_errors.append(error_msg)
-                        print(f"Google News RSS news fetch failed for {ticker}: {e}")
-
-                # If still no news, try Seeking Alpha RSS
-                if not ticker_got_news:
-                    try:
-                        status_text.text(f"Fetching news for {ticker} from Seeking Alpha RSS...")
-                        ticker_news = seeking_alpha_rss_fetcher(ticker, q_start, q_end, s)
-                        if not ticker_news.empty:
-                            ticker_news['ticker'] = ticker
-                            news_list.append(ticker_news)
-                            news_counts[ticker] = len(ticker_news)
-                            news_sources_used[ticker] = "Seeking Alpha RSS"
-                            ticker_got_news = True
-                            print(f"✓ Seeking Alpha RSS returned {len(ticker_news)} articles for {ticker}")
-                        else:
-                            ticker_errors.append("Seeking Alpha RSS: No articles found")
-                    except Exception as e:
-                        error_msg = f"Seeking Alpha RSS: {str(e)}"
-                        ticker_errors.append(error_msg)
-                        print(f"Seeking Alpha RSS news fetch failed for {ticker}: {e}")
-
-                if not ticker_got_news:
+                # Combine all articles for this ticker
+                if ticker_articles:
+                    combined_ticker_news = pd.concat(ticker_articles, ignore_index=True)
+                    # Deduplicate by headline (keep first occurrence)
+                    combined_ticker_news = combined_ticker_news.drop_duplicates(subset=['headline'], keep='first')
+                    news_list.append(combined_ticker_news)
+                    news_counts[ticker] = len(combined_ticker_news)
+                    news_sources_used[ticker] = ", ".join(ticker_sources)
+                    print(f"✓ Total {len(combined_ticker_news)} unique articles for {ticker} from {len(ticker_sources)} sources")
+                else:
                     news_counts[ticker] = 0
                     news_errors[ticker] = ticker_errors
                     print(f"No news found for {ticker} in period {start_date} to {end_date}")
 
+            # Search for custom keywords via Google News RSS
+            if custom_keywords:
+                from irci.media_fetchers.google_news_rss import google_news_rss_fetcher
+                from irci.media_fetchers.google_news_rss import TICKER_TO_COMPANY
+
+                for keyword in custom_keywords:
+                    status_text.text(f"Searching news for keyword: {keyword}...")
+                    try:
+                        # Create a custom search by temporarily adding keyword to company mapping
+                        # We'll search Google News with this keyword + first ticker's company name
+                        primary_ticker = tickers[0] if tickers else "BX"
+                        company_name = TICKER_TO_COMPANY.get(primary_ticker, primary_ticker)
+                        search_term = f"{company_name} {keyword}"
+
+                        # Use Google News RSS with custom search
+                        from urllib.parse import quote
+                        import xml.etree.ElementTree as ET
+                        import requests as req
+
+                        rss_url = f"https://news.google.com/rss/search?q={quote(search_term)}&hl=en-US&gl=US&ceid=US:en"
+                        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                        response = req.get(rss_url, headers=headers, timeout=15)
+                        response.raise_for_status()
+
+                        root = ET.fromstring(response.content)
+                        keyword_articles = []
+
+                        for item in root.findall(".//item"):
+                            title = item.find("title")
+                            link = item.find("link")
+                            pub_date = item.find("pubDate")
+                            source_elem = item.find("source")
+
+                            if title is None or link is None:
+                                continue
+
+                            headline = title.text or ""
+                            url = link.text or ""
+                            source = source_elem.text if source_elem is not None else "Google News"
+
+                            # Parse headline (Google format: "Headline - Source")
+                            if " - " in headline and source == "Google News":
+                                parts = headline.rsplit(" - ", 1)
+                                if len(parts) == 2:
+                                    source = parts[1]
+                                    headline = parts[0]
+
+                            # Parse date
+                            published_at = pd.Timestamp.now(tz='UTC')
+                            if pub_date is not None and pub_date.text:
+                                try:
+                                    from email.utils import parsedate_to_datetime
+                                    published_at = pd.Timestamp(parsedate_to_datetime(pub_date.text), tz='UTC')
+                                except Exception:
+                                    pass
+
+                            # Filter by date range
+                            if q_start <= published_at <= q_end:
+                                keyword_articles.append({
+                                    "published_at": published_at,
+                                    "url": url,
+                                    "domain": source.lower().replace(" ", "") + ".com" if source else "news.google.com",
+                                    "lang": "en",
+                                    "headline": headline,
+                                    "source": source,
+                                    "ticker": primary_ticker,  # Associate with primary ticker
+                                    "news_source": f"Keyword: {keyword}"
+                                })
+
+                        if keyword_articles:
+                            keyword_df = pd.DataFrame(keyword_articles)
+                            news_list.append(keyword_df)
+                            print(f"✓ Found {len(keyword_articles)} articles for keyword '{keyword}'")
+                            st.info(f"🔍 Found {len(keyword_articles)} articles for keyword '{keyword}'")
+                    except Exception as e:
+                        print(f"Keyword search failed for '{keyword}': {e}")
+
             if news_list:
                 news_df = pd.concat(news_list, ignore_index=True)
+                # Final deduplication across all sources
+                news_df = news_df.drop_duplicates(subset=['headline'], keep='first')
 
                 # Add sentiment scores to each article using FinBERT or VADER
                 status_text.text("Analyzing sentiment for news articles...")
@@ -2215,14 +2208,25 @@ elif run_analysis:
                 failed_tickers = [t for t, c in news_counts.items() if c == 0]
 
                 # Determine which sources were used
-                sources_used = list(set(news_sources_used.values()))
-                sources_str = ", ".join(sources_used) if sources_used else "API"
+                all_sources = []
+                for sources in news_sources_used.values():
+                    all_sources.extend(sources.split(", "))
+                unique_sources = list(set(all_sources))
+                sources_str = ", ".join(unique_sources) if unique_sources else "API"
 
-                msg = f"✓ Fetched {len(news_df)} articles from {sources_str}"
+                # Build success message
+                mode_str = "🔄 AGGREGATED" if aggregate_news_sources else "First-match"
+                msg = f"✓ Fetched {len(news_df)} unique articles ({mode_str} mode)"
+                msg += f"\n   Sources: {sources_str}"
+
+                if custom_keywords:
+                    msg += f"\n   Keywords: {', '.join(custom_keywords)}"
+
                 if success_tickers:
-                    # Show each ticker with count and source
-                    ticker_details = [f'{t} ({news_counts[t]} from {news_sources_used.get(t, "API")})' for t in success_tickers]
-                    msg += f"\n   Success: {', '.join(ticker_details)}"
+                    # Show each ticker with count
+                    ticker_counts_str = ", ".join([f'{t}: {news_counts[t]}' for t in success_tickers])
+                    msg += f"\n   Per ticker: {ticker_counts_str}"
+
                 st.success(msg)
 
                 # Show detailed errors for failed tickers
