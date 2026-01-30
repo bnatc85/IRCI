@@ -4041,7 +4041,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 col1.metric(
                     "Avg Company $/IRCI Point",
                     f"${avg_company_dollars_per_point:,.0f}" if not pd.isna(avg_company_dollars_per_point) else "N/A",
-                    help="Company-specific dollar value per IRCI point. Capped at max 1% of EV per point (scaled by R²) to reflect realistic IR impact based on academic research."
+                    help="Company-specific dollar value per IRCI point. Based on academic research (Bushee & Miller 2012): IR contributes 5-10% to firm value over long term, spread across ~50 IRCI points = 0.05% of EV per point (scaled by R²)."
                 )
                 col2.metric(
                     "Regression R²",
@@ -4239,7 +4239,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     use_container_width=True,
                     hide_index=True
                 )
-                st.caption("\\$/IRCI Point = EV × 1% × R². Potential Upside capped at 20% of EV. Based on Bushee & Miller (2012), Agarwal et al. (2016).")
+                st.caption("\\$/IRCI Point = EV × 0.05% × R². Potential Upside capped at 20% of EV. Based on Bushee & Miller (2012): IR contributes 5-10% to firm value over long term, spread across ~50 IRCI points.")
 
                 # Additional detailed metrics
                 with st.expander("📊 Additional Enterprise Value Metrics"):

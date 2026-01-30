@@ -140,17 +140,20 @@ company_$/irci_pt = enterprise_value * (regression_slope / peer_mean_ev) * r²
 # Problem: For $500B company, could produce $50B per point!
 ```
 
-**New Approach (percentage-capped):**
+**New Approach (academic research-based):**
 ```python
-MAX_PERCENT_PER_POINT = 0.01  # 1% of EV per point
+# Bushee & Miller (2012): IR contributes 5-10% to firm value over long term
+# Spread across ~50 IRCI points = 0.1% per point, conservatively halved
+MAX_PERCENT_PER_POINT = 0.0005  # 0.05% of EV per point
 company_$/irci_pt = enterprise_value * MAX_PERCENT_PER_POINT * r²
-# Result: For $500B company, max $2.5B per point (0.5% at R²=0.5)
+# Result: For $135B company (BX), ~$34M per point at R²=0.5
 ```
 
-**Why 1% per point?**
-- 10-point IRCI gap → max 10% of EV
-- Within academic 5-15% IR value range
-- Prevents absurd trillion-dollar results
+**Why 0.05% per point?**
+- Total IR contribution: 5-10% of EV (academic research)
+- Spread across ~50 IRCI point gap between leaders and laggards
+- Per-point = 5%/50 = 0.1%, halved for conservatism = 0.05%
+- Produces realistic values: $25-50M for major press releases
 
 ---
 

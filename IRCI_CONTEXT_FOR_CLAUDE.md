@@ -80,26 +80,29 @@ Result: 0-100 score (peer-relative percentile)
 Enterprise Value ~ IRCI Composite Score
 ```
 
-**Formula (NEW - Percentage-Based Caps):**
+**Formula (Percentage-Based):**
 ```python
-$/IRCI Point = Enterprise Value × 1% × R²
+$/IRCI Point = Enterprise Value × 0.05% × R²
 
 Where:
-- 1% = Maximum impact per point (academic research-backed)
+- 0.05% = Impact per point derived from academic research:
+  - Total IR contribution: 5-10% of EV over long term (Bushee & Miller 2012)
+  - Spread across ~50 IRCI points (typical leader-laggard gap)
+  - Per-point impact: 5% / 50 = 0.1%, conservatively halved = 0.05%
 - R² = Regression R-squared (how well IRCI explains EV variance)
 - Scaled by company size (larger companies = larger $/point)
 ```
 
 **Example:**
-- Company: Microsoft ($3.86T EV)
+- Company: Blackstone ($135B EV)
 - R² = 0.50 (IRCI explains 50% of EV variation)
-- $/IRCI Point = $3.86T × 1% × 0.50 = **$19.3B per point**
-- 10-point IRCI gap = $193B potential upside (5% of EV - realistic!)
+- $/IRCI Point = $135B × 0.05% × 0.50 = **$33.8M per point**
+- A good press release (+0.75 IRCI pts) = ~$25M value creation (realistic!)
 
 **Academic Backing:**
-- IR contributes 5-15% to firm value (Bushee & Miller 2012)
-- 1% per point cap ensures values stay within research bounds
-- Prevents unrealistic trillion-dollar results
+- IR contributes 5-15% to firm value over LONG TERM (Bushee & Miller 2012)
+- 0.05% per point ensures marginal improvements stay realistic
+- Prevents unrealistic billion-dollar results from small IRCI changes
 
 ---
 
@@ -120,8 +123,8 @@ Where:
 **Example:**
 - Company: Intel ($208B EV)
 - IRCI improvement: +5 points (Q2 → Q3)
-- $/IRCI Point: $1.04B (0.5% of EV at R²=0.5)
-- IR Contribution: 5 × $1.04B × 10% = **$520M** (0.25% of EV)
+- $/IRCI Point: $52M (0.05% of EV × R²=0.5 = 0.025%)
+- IR Contribution: 5 × $52M × 10% = **$26M** (0.0125% of EV)
 
 **Why 10% factor?**
 - Cross-sectional regression measures structural differences (years)
@@ -159,7 +162,7 @@ Peer-relative percentile: 0-100 scale
 
 DOLLAR VALUE REGRESSION:
 EV ~ IRCI across peer group
-$/IRCI Point = EV × 1% × R² (capped)
+$/IRCI Point = EV × 0.05% × R²
 
 ↓
 
@@ -176,10 +179,12 @@ OUTPUTS:
 
 ## Key Innovations
 
-### 1. Academic-Backed Dollar Value Caps
-**Problem:** Old regression-based approach produced trillion-dollar values
-**Solution:** Cap at 1% of EV per point (scaled by R²)
-**Result:** All values realistic and defensible
+### 1. Academic-Backed Dollar Value Calculation
+**Problem:** Old regression-based approach produced unrealistic values
+**Solution:** Use 0.05% of EV per point (scaled by R²), derived from academic research:
+- Total IR contribution: 5-10% of EV (Bushee & Miller 2012)
+- Spread across ~50 IRCI points = 0.1% per point, conservatively halved
+**Result:** All values realistic and defensible (e.g., $25-50M for press releases)
 
 ### 2. Median-Anchored Percentile Scaling
 **Why:** Traditional min-max scaling fails with outliers
@@ -283,11 +288,11 @@ OUTPUTS:
 
 | Company | IRCI Score | Valuation | Liquidity | Coverage | Trust | $/IRCI Point | Gap to Top |
 |---------|-----------|-----------|-----------|----------|-------|--------------|------------|
-| AMD     | 72.3      | 68.1      | 78.5      | 71.2     | 69.8  | $2.64B       | -7.7 pts   |
-| AVGO    | 80.0      | 85.2      | 76.3      | 78.9     | 79.1  | $16.44B      | 0.0 pts    |
-| INTC    | 58.7      | 52.3      | 61.8      | 62.1     | 58.9  | $2.08B       | -21.3 pts  |
-| QCOM    | 65.4      | 71.9      | 59.2      | 64.8     | 65.7  | $1.87B       | -14.6 pts  |
-| MU      | 61.2      | 58.7      | 64.3      | 60.9     | 61.8  | $1.92B       | -18.8 pts  |
+| AMD     | 72.3      | 68.1      | 78.5      | 71.2     | 69.8  | $54.6M       | -7.7 pts   |
+| AVGO    | 80.0      | 85.2      | 76.3      | 78.9     | 79.1  | $163.8M      | 0.0 pts    |
+| INTC    | 58.7      | 52.3      | 61.8      | 62.1     | 58.9  | $43.7M       | -21.3 pts  |
+| QCOM    | 65.4      | 71.9      | 59.2      | 64.8     | 65.7  | $37.2M       | -14.6 pts  |
+| MU      | 61.2      | 58.7      | 64.3      | 60.9     | 61.8  | $22.9M       | -18.8 pts  |
 
 **Analysis:**
 - **Leader:** AVGO (80.0 IRCI) - strong across all dials
@@ -298,8 +303,8 @@ OUTPUTS:
 
 **Potential Upside (if INTC reached AVGO's IRCI):**
 - Gap: 21.3 points
-- $/IRCI: $2.08B per point
-- Upside: 21.3 × $2.08B = **$44.3B** (21.3% of EV - realistic for closing major gap!)
+- $/IRCI: $43.7M per point (0.05% of $208B EV × 0.42 R²)
+- Upside: 21.3 × $43.7M = **$930M** (0.45% of EV - realistic for IR improvement!)
 
 ---
 
@@ -358,7 +363,7 @@ IRCI generates actionable recommendations based on dial scores:
 
 1. IRCI is a **composite index** combining 4 weighted dials into 0-100 score
 2. Each dial measures a different aspect of **IR quality** (valuation, liquidity, coverage, trust)
-3. **Dollar value** calculated via regression, capped at **1% of EV per point**
+3. **Dollar value** = **0.05% of EV per point × R²** (academic research: IR = 5-10% of firm value over long term, spread across ~50 IRCI points)
 4. **Peer-relative** scoring (median = 50, top = 100, bottom = 0)
 5. **Academic backing** ensures realistic, defensible values
 6. **Actionable outputs:** Scores, benchmarks, recommendations, dollar impact

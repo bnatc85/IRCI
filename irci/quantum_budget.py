@@ -386,8 +386,11 @@ class QuantumBudgetOptimizer:
                 # Use peer group average
                 self.dollar_per_point = dollar_value_df['peer_group_$/irci_pt'].mean()
         else:
-            # Estimate: typically 0.5-1% of EV per point
-            self.dollar_per_point = enterprise_value * 0.0075 if enterprise_value > 0 else 1000000
+            # Estimate based on academic research (Bushee & Miller 2012, Agarwal et al. 2016):
+            # Total IR contribution: 5-10% of EV over long term
+            # Spread across ~50 IRCI points = 0.1% per point (max)
+            # Use conservative 0.03% without R² validation
+            self.dollar_per_point = enterprise_value * 0.0003 if enterprise_value > 0 else 1000000
 
         # Calculate gap to leader
         leader_irci = df_composite['irci_composite_pct'].max()

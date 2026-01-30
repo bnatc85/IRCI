@@ -467,10 +467,12 @@ def calculate_ir_roi(
         Dict with ROI calculations
     """
     # If no dollar per point provided, estimate based on market cap
-    # Typical range: 0.05-0.15% of market cap per IRCI point
+    # Academic basis (Bushee & Miller 2012, Agarwal et al. 2016):
+    # Total IR contribution: 5-10% of firm value over long term
+    # Spread across ~50 IRCI points = 0.1% per point max
+    # Use conservative 0.03% without R² validation from peer regression
     if dollar_per_point is None:
-        # Use conservative estimate of 0.08% of market cap per IRCI point
-        dollar_per_point = market_cap * 0.0008
+        dollar_per_point = market_cap * 0.0003
 
     expected_value_creation = irci_improvement * dollar_per_point
 

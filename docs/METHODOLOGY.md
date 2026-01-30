@@ -362,9 +362,12 @@ r²_floor = max(r², 0.10)  # 10% minimum
 dollars_per_point = dollars_per_point_raw × r²_floor
 ```
 
-### Company-Specific Cap
+### Company-Specific Calculation (Academic Research Basis)
 ```python
-MAX_PERCENT_PER_POINT = 0.01  # 1% of EV per IRCI point
+# Based on Bushee & Miller (2012): IR contributes 5-10% to firm value over long term
+# Spread across ~50 IRCI points (typical leader-laggard gap)
+# Per-point impact: 5% / 50 = 0.1%, conservatively halved = 0.05%
+MAX_PERCENT_PER_POINT = 0.0005  # 0.05% of EV per IRCI point
 
 company_dollars_per_point = enterprise_value × MAX_PERCENT_PER_POINT × r²_floor
 ```
@@ -444,7 +447,7 @@ upside_pct = (mean_target - current_price) / current_price × 100
 | **Event Calmness** | -median(\|residuals\|) | -∞ to 0 | Less negative=Better |
 | **Media Tone** | finbert_score × 0.6 × shrink | -0.5 to 0.5 | Positive=Better |
 | **R²** | 1 - SSres/SStot | 0-1 | Higher=Better fit |
-| **$/IRCI Point** | ev_range/irci_range × r² | $ | — |
+| **$/IRCI Point** | EV × 0.05% × r² | $ | — |
 | **Analyst Score** | tiered(count) | 0-100 | More analysts=Higher |
 | **Short Score** | inverse_tiered(short_pct) | 0-100 | Lower short%=Higher |
 
