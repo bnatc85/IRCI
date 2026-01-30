@@ -4723,15 +4723,18 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         from irci.coverage import _company_submissions, _cik_for_ticker
     
         # Get start/end dates for the selected quarter (for filtering events)
-        if len(selected_quarters) == 1:
-            timeline_start_date, timeline_end_date = quarter_to_dates(selected_quarters[0])
+        # Use the currently selected quarter (from the quarter selector), not selected_quarters[0]
+        viewing_quarter = st.session_state.get('current_viewing_quarter', selected_quarters[0] if selected_quarters else None)
+        if viewing_quarter:
+            timeline_start_date, timeline_end_date = quarter_to_dates(viewing_quarter)
         else:
-            # Multi-quarter mode: use the first quarter for timeline display
+            # Fallback to first quarter if no viewing quarter set
             timeline_start_date, timeline_end_date = quarter_to_dates(selected_quarters[0])
-    
+
         # Use the timeline dates for event filtering
         start_date = timeline_start_date
         end_date = timeline_end_date
+        st.caption(f"📅 Showing events from {viewing_quarter}: {start_date} to {end_date}")
     
         st.markdown("#### 📅 Event Timeline & Calendar")
         st.markdown("*Track events, filings, news, and their impact on IRCI scores*")
@@ -4883,8 +4886,64 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             sec_filings_df = None
     
             # Get news data from session state (fetched during analysis)
-            news_df = st.session_state.get('news_df', None)
-    
+            news_df_all = st.session_state.get('news_df', None)
+
+            # Filter news_df for the viewing quarter if in multi-quarter mode
+            news_df = None
+            if news_df_all is not None and not news_df_all.empty:
+                if 'quarter' in news_df_all.columns and viewing_quarter:
+                    # Multi-quarter mode: filter for viewing quarter
+                    news_df = news_df_all[news_df_all['quarter'] == viewing_quarter].copy()
+                else:
+                    # Single quarter mode or no quarter column
+                    news_df = news_df_all.copy()
+
+            # Debug: Show news data status
+            with st.expander("🔧 Debug: News Data Status", expanded=False):
+                # Show all quarters' news first
+                st.write(f"**Viewing Quarter:** {viewing_quarter}")
+                if news_df_all is not None:
+                    st.write(f"**Total news (all quarters):** {len(news_df_all)}")
+                    if 'quarter' in news_df_all.columns:
+                        quarter_counts = news_df_all['quarter'].value_counts().to_dict()
+                        st.write(f"**News by quarter:** {quarter_counts}")
+                else:
+                    st.warning("news_df_all is None - no news data in session")
+
+                st.markdown("---")
+
+                if news_df is None:
+                    st.warning("news_df is None - no news data available for this quarter")
+                elif news_df.empty:
+                    st.warning("news_df is empty - no articles for this quarter")
+                else:
+                    st.success(f"news_df has {len(news_df)} articles for {viewing_quarter}")
+                    st.write(f"**Columns:** {list(news_df.columns)}")
+
+                    # Show tickers in news_df
+                    if 'ticker' in news_df.columns:
+                        ticker_counts = news_df['ticker'].value_counts()
+                        st.write(f"**Articles per ticker:** {ticker_counts.to_dict()}")
+
+                        # Check for selected ticker
+                        ticker_news = news_df[news_df['ticker'] == selected_timeline_ticker]
+                        st.write(f"**Articles for {selected_timeline_ticker}:** {len(ticker_news)}")
+                    else:
+                        st.warning("'ticker' column not in news_df")
+
+                    # Show date column info
+                    date_col = 'published_at' if 'published_at' in news_df.columns else 'date'
+                    if date_col in news_df.columns:
+                        st.write(f"**Date column:** {date_col}")
+                        st.write(f"**Date range in news:** {news_df[date_col].min()} to {news_df[date_col].max()}")
+                        st.write(f"**Date dtype:** {news_df[date_col].dtype}")
+
+                    st.write(f"**Timeline filter dates:** {start_date} to {end_date}")
+
+                    # Show sample of news_df
+                    st.write("**Sample articles:**")
+                    st.dataframe(news_df.head(5))
+
             if cik:
                 try:
                     subs = _company_submissions(cik, s)
@@ -4961,7 +5020,24 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 weights=current_weights,
                 company_dollar_per_irci_pt=company_dollar_per_irci_pt
             )
-    
+
+            # Debug: Show what events were found
+            with st.expander("🔧 Debug: Timeline Events Found", expanded=False):
+                if timeline_df.empty:
+                    st.warning("timeline_df is empty - no events found")
+                else:
+                    st.success(f"timeline_df has {len(timeline_df)} events")
+                    event_counts = timeline_df['event_type'].value_counts()
+                    st.write(f"**Events by type:** {event_counts.to_dict()}")
+
+                    # Count news events specifically
+                    news_count = len(timeline_df[timeline_df['event_type'] == 'news'])
+                    st.write(f"**News events:** {news_count}")
+
+                    if news_count == 0:
+                        st.warning("No news events in timeline! Check debug info above for news_df status.")
+
+
             # Merge custom events from session state
             if 'custom_events' in st.session_state and st.session_state['custom_events']:
                 from irci.event_timeline import calculate_event_irci_impact

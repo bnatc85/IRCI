@@ -11,6 +11,7 @@ import io
 import re
 
 from irci.event_timeline import calculate_event_irci_impact
+import os
 
 
 def strip_emojis(text: str) -> str:
@@ -129,15 +130,28 @@ class IRCIReport(FPDF):
         self.set_fill_color(20, 40, 80)
         self.rect(0, 0, 210, 55, 'F')
 
+        # IRCI Icon - try to load from project root
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'IRCI_icon_primary.png')
+        if os.path.exists(icon_path):
+            try:
+                # Add icon (12mm x 12mm) at top left of header
+                self.image(icon_path, 15, 10, 12, 12)
+                text_x = 30  # Shift text to right of icon
+            except Exception as e:
+                print(f"Warning: Could not add icon to PDF: {e}")
+                text_x = 15
+        else:
+            text_x = 15
+
         # IRCI Logo/Title
         self.set_font('Arial', 'B', 22)
         self.set_text_color(255, 255, 255)
-        self.set_xy(15, 12)
+        self.set_xy(text_x, 12)
         self.cell(0, 10, 'IRCI', 0, 1, 'L')
 
         self.set_font('Arial', '', 11)
-        self.set_xy(15, 24)
-        self.cell(0, 6, 'Investor Relations Composite Index', 0, 1, 'L')
+        self.set_xy(text_x, 24)
+        self.cell(0, 6, 'Investor Relations Contribution Index', 0, 1, 'L')
 
         # Company and Quarter
         self.set_font('Arial', 'B', 16)
