@@ -310,23 +310,28 @@ OUTPUTS:
 
 ## Playbook Recommendations (AI-Generated)
 
-IRCI generates actionable recommendations based on dial scores:
+IRCI generates actionable recommendations based on dial scores.
+
+**Note on Expected Impacts:**
+- Playbook impacts are expressed as **dial points** (improvement on the specific 0-100 dial)
+- To convert to composite IRCI: dial points × dial weight × ~10% effectiveness factor
+- Example: 10 liquidity dial pts × 35% weight × 10% = 0.35 composite IRCI points
 
 **Example: Company with Low Liquidity Score (35/100)**
 1. **Priority: HIGH** - Improve price discovery
    - **What:** Narrow bid-ask spreads by increasing market transparency
    - **How:** More frequent updates, engage additional market makers
-   - **Expected Impact:** 10-15 point liquidity improvement
+   - **Expected Impact:** 10-15 point liquidity dial improvement (≈0.35-0.5 composite)
 
 2. **Priority: MEDIUM** - Increase institutional ownership
    - **What:** Target institutional investors through NDR programs
    - **How:** Host investor days, one-on-one meetings, conferences
-   - **Expected Impact:** 5-10 point liquidity improvement
+   - **Expected Impact:** 5-10 point liquidity dial improvement (≈0.18-0.35 composite)
 
 3. **Quick Win** - Improve sell-side coverage
    - **What:** Add 2-3 analysts to expand research coverage
    - **How:** Targeted outreach to regional/boutique firms
-   - **Expected Impact:** 3-5 point coverage improvement
+   - **Expected Impact:** 3-5 point coverage dial improvement (≈0.05-0.08 composite)
 
 ---
 

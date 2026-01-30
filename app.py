@@ -5144,7 +5144,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 📊 **Calendar Note**: Each row shows the SUM of all events on that day.
                 - If 20 news articles occur on one day, their impacts are added together
                 - Individual events have tiny impacts (~0.00001-0.0005 IRCI points each)
-                - For large companies, even tiny IRCI impacts can translate to \\$100K-\\$1M due to high \\$/IRCI point
+                - For large companies ($200B+ EV), impacts translate to \\$500-\\$25K per event
                 - This shows why quarterly aggregate analysis matters more than individual events
                 """)
             else:
@@ -5284,10 +5284,11 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     - Example: +0.0003 Trust points × 0.15 weight = **+0.000045 IRCI points**
     
                     **Step 4: Dollar Impact (R²-Scaled)**
-                    - Use company-specific \\$/IRCI point (already R²-scaled from regression)
-                    - Example (mid-cap): +0.000045 IRCI pts × \\$150M/point = **\\$6,750**
-                    - Example (large-cap): +0.000045 IRCI pts × \\$4B/point = **\\$180,000**
-                    - R² scaling already applied (if R²=0.3, the \\$/point was reduced by 70%)
+                    - Use company-specific \\$/IRCI point: EV × 0.05% × R²
+                    - Example (mid-cap $10B EV, R²=0.5): \\$/pt = $10B × 0.05% × 0.5 = **\\$2.5M/point**
+                    - Example (large-cap $200B EV, R²=0.5): \\$/pt = $200B × 0.05% × 0.5 = **\\$50M/point**
+                    - Dollar impact: +0.000045 IRCI pts × \\$2.5M = **\\$113** (mid-cap)
+                    - Dollar impact: +0.000045 IRCI pts × \\$50M = **\\$2,250** (large-cap)
     
                     ---
     
@@ -5296,14 +5297,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     **8-K Filing:**
                     - Dial impact: 0.001 points on Coverage dial (0.1% of dial)
                     - IRCI impact: 0.001 × 0.15 (coverage weight) = **0.00015 IRCI points**
-                    - Dollar impact (mid-cap): 0.00015 × \\$150M/point = **\\$22,500**
-                    - Dollar impact (large-cap): 0.00015 × \\$4B/point = **\\$600,000**
-    
+                    - Dollar impact (mid-cap): 0.00015 × \\$2.5M/point = **\\$375**
+                    - Dollar impact (large-cap): 0.00015 × \\$50M/point = **\\$7,500**
+
                     **10-Q or 10-K Filing:**
                     - Dial impact: 0.003 points on Coverage dial (0.3% of dial)
                     - IRCI impact: 0.003 × 0.15 = **0.00045 IRCI points**
-                    - Dollar impact (mid-cap): 0.00045 × \\$150M/point = **\\$67,500**
-                    - Dollar impact (large-cap): 0.00045 × \\$4B/point = **\\$1.8M**
+                    - Dollar impact (mid-cap): 0.00045 × \\$2.5M/point = **\\$1,125**
+                    - Dollar impact (large-cap): 0.00045 × \\$50M/point = **\\$22,500**
     
                     **Why these values?** Coverage dial measures aggregate quarterly filing activity,
                     not individual filings. A typical company has 5-20 8-Ks per quarter.
@@ -5387,35 +5388,39 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     ---
     
                     ### 💰 R² Scaling: Why Dollar Impacts Are Conservative
-    
-                    **Regression Analysis:** We regress Enterprise Value ~ IRCI Score across peer group
-    
-                    **Example Calculation:**
-                    - Raw regression slope: \\$500M per IRCI point
+
+                    **Formula:** $/IRCI Point = Enterprise Value × 0.05% × R²
+
+                    Based on academic research (Bushee & Miller 2012): IR contributes 5-10% to firm
+                    value over long term, spread across ~50 IRCI points = 0.1% per point, halved
+                    for conservatism = 0.05% per point.
+
+                    **Example Calculation (mid-cap $10B EV):**
+                    - Base rate: \\$10B × 0.05% = \\$5M per IRCI point
                     - R² value: 0.30 (IRCI explains 30% of EV variance)
-                    - **R²-scaled slope**: \\$500M × 0.30 = **\\$150M per IRCI point**
-    
+                    - **R²-scaled**: \\$5M × 0.30 = **\\$1.5M per IRCI point**
+
                     **What This Means:**
                     - IR/IRCI is ONE of MANY factors affecting enterprise value
                     - Business fundamentals (revenue, earnings, growth) drive most value
                     - R² scaling ensures we don't overstate IR's contribution
                     - If R²=0.30, we reduce dollar estimates by 70% to be realistic
-    
+
                     **Individual Event Example:**
                     - Event IRCI impact: +0.000045 points (single positive news article)
-                    - Company \\$/IRCI: \\$150M/point (R²-scaled)
-                    - Event dollar impact: +0.000045 × \\$150M = **\\$6,750**
-                    - Without R² scaling: +0.000045 × \\$500M = \\$22,500 (OVERSTATED by 3.3x)
+                    - Company \\$/IRCI: \\$1.5M/point (mid-cap, R²-scaled)
+                    - Event dollar impact: +0.000045 × \\$1.5M = **\\$68**
+                    - For large-cap (\\$50M/pt): +0.000045 × \\$50M = **\\$2,250**
     
                     ---
     
                     ### ✅ Bottom Line
-    
-                    1. **Individual events = Tiny impacts** (~0.00001-0.0005 IRCI points, \\$1K-\\$100K for mid-caps, \\$50K-\\$2M for large-caps)
+
+                    1. **Individual events = Tiny impacts** (~0.00001-0.0005 IRCI points, \\$15-\\$750 for mid-caps, \\$500-\\$25K for large-caps)
                     2. **Quarterly aggregates = Large impacts** (full dial scores determine total IRCI)
                     3. **R² scaling = Realistic estimates** (accounts for IR being one of many factors)
                     4. **Dollar impacts are planning ranges**, not guarantees
-    
+
                     Individual events show what's happening day-to-day, but quarterly aggregate
                     metrics determine your final IRCI scores and relative peer ranking.
                     """)
@@ -6337,6 +6342,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                         with col_a:
                             if rec.get('expected_impact'):
                                 st.markdown(f"**📈 Expected Impact:** {rec['expected_impact']}")
+                                st.caption("*Impact is on the specific dial. Composite IRCI impact = dial pts × dial weight (15-35%) × ~10% effectiveness factor.*")
                             if rec.get('timeframe'):
                                 st.markdown(f"**⏱️ Timeframe:** {rec['timeframe']}")
     

@@ -792,10 +792,16 @@ class IRCIReport(FPDF):
             per_point_str = f'${dollar_per_point/1e6:.1f}M'
 
         self.set_font('Arial', '', 9)
+        # Realistic quarterly improvement: 0.3-0.8 composite IRCI points
+        min_improvement = 0.3
+        max_improvement = 0.8
+        min_value = min_improvement * dollar_per_point
+        max_value = max_improvement * dollar_per_point
+        value_range = f"${min_value/1e6:.1f}M - ${max_value/1e6:.1f}M" if max_value < 1e9 else f"${min_value/1e6:.0f}M - ${max_value/1e9:.1f}B"
         self.safe_multi_cell(0, 4,
             f"Primary Focus: {weakest_dial.upper()} Dial ({weakest_score:.1f}%). "
             f"Every 1-pt IRCI improvement = ~{per_point_str}. "
-            f"With focused effort, +3-5 pts achievable = {per_point_str} to {f'${(5 * dollar_per_point)/1e9:.2f}B' if 5*dollar_per_point >= 1e9 else f'${(5 * dollar_per_point)/1e6:.0f}M'} potential value."
+            f"Quarterly target: +0.3-0.8 pts = {value_range} potential value."
         )
         self.ln(1)
         self.set_font('Arial', 'I', 7)
