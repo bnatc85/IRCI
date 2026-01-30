@@ -164,7 +164,9 @@ def compute_dollar_value_per_irci_point(
     max_total_upside = df['enterprise_value'] * 0.20
     df['market_cap_gap_regression'] = np.minimum(uncapped_upside, max_total_upside)
 
-    df['market_cap_gap_group'] = df['irci_gap_to_top'] * group_dollars_per_point
+    # Cap market_cap_gap_group at 20% of EV to match regression cap
+    uncapped_group = df['irci_gap_to_top'] * group_dollars_per_point
+    df['market_cap_gap_group'] = np.minimum(uncapped_group, max_total_upside)
 
     # Valuation efficiency: How much EV per IRCI point for this specific company?
     # Companies with low EV but high IRCI are "efficient"

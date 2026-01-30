@@ -39,6 +39,9 @@ from irci.media_fetchers.alpha_vantage_news import alpha_vantage_news_fetcher
 from irci.media_fetchers.worldnews_api import worldnews_api_fetcher
 from irci.media_fetchers.newsapi_fetcher import newsapi_fetcher
 from irci.media_fetchers.finnhub_fetcher import finnhub_fetcher
+from irci.media_fetchers.yahoo_rss_news import yahoo_rss_news_fetcher
+from irci.media_fetchers.google_news_rss import google_news_rss_fetcher
+from irci.media_fetchers.seeking_alpha_rss import seeking_alpha_rss_fetcher
 from irci.peers import find_peers_simple, find_peers_optimized
 from irci.quantum_budget import optimize_ir_budget, DWAVE_AVAILABLE as QUANTUM_BUDGET_AVAILABLE
 from irci.playbook import generate_playbook
@@ -2097,6 +2100,63 @@ elif run_analysis:
                         ticker_errors.append(error_msg)
                         print(f"Finnhub.io news fetch failed for {ticker}: {e}")
 
+                # If still no news, try Yahoo Finance RSS
+                if not ticker_got_news:
+                    try:
+                        status_text.text(f"Fetching news for {ticker} from Yahoo Finance RSS...")
+                        ticker_news = yahoo_rss_news_fetcher(ticker, q_start, q_end, s)
+                        if not ticker_news.empty:
+                            ticker_news['ticker'] = ticker
+                            news_list.append(ticker_news)
+                            news_counts[ticker] = len(ticker_news)
+                            news_sources_used[ticker] = "Yahoo Finance RSS"
+                            ticker_got_news = True
+                            print(f"✓ Yahoo Finance RSS returned {len(ticker_news)} articles for {ticker}")
+                        else:
+                            ticker_errors.append("Yahoo Finance RSS: No articles found")
+                    except Exception as e:
+                        error_msg = f"Yahoo Finance RSS: {str(e)}"
+                        ticker_errors.append(error_msg)
+                        print(f"Yahoo Finance RSS news fetch failed for {ticker}: {e}")
+
+                # If still no news, try Google News RSS
+                if not ticker_got_news:
+                    try:
+                        status_text.text(f"Fetching news for {ticker} from Google News RSS...")
+                        ticker_news = google_news_rss_fetcher(ticker, q_start, q_end, s)
+                        if not ticker_news.empty:
+                            ticker_news['ticker'] = ticker
+                            news_list.append(ticker_news)
+                            news_counts[ticker] = len(ticker_news)
+                            news_sources_used[ticker] = "Google News RSS"
+                            ticker_got_news = True
+                            print(f"✓ Google News RSS returned {len(ticker_news)} articles for {ticker}")
+                        else:
+                            ticker_errors.append("Google News RSS: No articles found")
+                    except Exception as e:
+                        error_msg = f"Google News RSS: {str(e)}"
+                        ticker_errors.append(error_msg)
+                        print(f"Google News RSS news fetch failed for {ticker}: {e}")
+
+                # If still no news, try Seeking Alpha RSS
+                if not ticker_got_news:
+                    try:
+                        status_text.text(f"Fetching news for {ticker} from Seeking Alpha RSS...")
+                        ticker_news = seeking_alpha_rss_fetcher(ticker, q_start, q_end, s)
+                        if not ticker_news.empty:
+                            ticker_news['ticker'] = ticker
+                            news_list.append(ticker_news)
+                            news_counts[ticker] = len(ticker_news)
+                            news_sources_used[ticker] = "Seeking Alpha RSS"
+                            ticker_got_news = True
+                            print(f"✓ Seeking Alpha RSS returned {len(ticker_news)} articles for {ticker}")
+                        else:
+                            ticker_errors.append("Seeking Alpha RSS: No articles found")
+                    except Exception as e:
+                        error_msg = f"Seeking Alpha RSS: {str(e)}"
+                        ticker_errors.append(error_msg)
+                        print(f"Seeking Alpha RSS news fetch failed for {ticker}: {e}")
+
                 if not ticker_got_news:
                     news_counts[ticker] = 0
                     news_errors[ticker] = ticker_errors
@@ -4049,7 +4109,10 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                                 irci_change = irci_score - prev_irci_score
 
                                 # Apply quarterly impact factor (user-adjustable, default 10%)
+                                # Cap at 5% of EV per quarter to avoid unrealistic values
                                 ir_value_contribution = irci_change * dollar_per_pt * quarterly_impact_factor
+                                max_quarterly_contribution = enterprise_value * 0.05  # 5% cap per quarter
+                                ir_value_contribution = max(min(ir_value_contribution, max_quarterly_contribution), -max_quarterly_contribution)
 
                                 ir_contribution_data.append({
                                     'ticker': ticker,
@@ -4065,6 +4128,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                                 # Fallback to peer average if no previous data for this ticker
                                 irci_gap_from_avg = irci_score - peer_avg_irci
                                 ir_value_contribution = irci_gap_from_avg * dollar_per_pt
+                                # Cap at 20% of EV for structural positioning
+                                max_structural_gap = enterprise_value * 0.20
+                                ir_value_contribution = max(min(ir_value_contribution, max_structural_gap), -max_structural_gap)
 
                                 ir_contribution_data.append({
                                     'ticker': ticker,
@@ -4080,6 +4146,9 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                             # Use peer average comparison
                             irci_gap_from_avg = irci_score - peer_avg_irci
                             ir_value_contribution = irci_gap_from_avg * dollar_per_pt
+                            # Cap at 20% of EV for structural positioning
+                            max_structural_gap = enterprise_value * 0.20
+                            ir_value_contribution = max(min(ir_value_contribution, max_structural_gap), -max_structural_gap)
 
                             ir_contribution_data.append({
                                 'ticker': ticker,
