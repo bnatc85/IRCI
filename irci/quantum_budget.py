@@ -488,6 +488,21 @@ class QuantumBudgetOptimizer:
         else:
             return self._solve_greedy_roi()
 
+    def _cap_expected_value(self, uncapped_value: float) -> float:
+        """
+        Cap expected value at 20% of enterprise value based on academic research.
+
+        Academic basis for 20% cap:
+          - Bushee & Miller (2012): IR contributes 5-15% to long-term firm value
+          - Agarwal et al. (2016): Upper bound ~20% for exceptional IR programs
+          - This cap prevents unrealistic value projections while allowing
+            for optimistic but plausible outcomes
+        """
+        if self.company_profile and self.company_profile.enterprise_value > 0:
+            max_value = self.company_profile.enterprise_value * 0.20
+            return min(uncapped_value, max_value)
+        return uncapped_value
+
     def _solve_greedy_roi(self) -> Dict:
         """Greedy selection by ROI."""
         # Sort by ROI descending
@@ -519,6 +534,9 @@ class QuantumBudgetOptimizer:
             total_hours += init.time_hours
             total_improvement += init.expected_improvement * init.confidence
             total_value += init.expected_improvement * init.confidence * self.dollar_per_point
+
+        # Cap expected value at 20% of EV (academic research basis)
+        total_value = self._cap_expected_value(total_value)
 
         return {
             'selected': selected,
@@ -558,6 +576,9 @@ class QuantumBudgetOptimizer:
             total_hours += init.time_hours
             total_improvement += init.expected_improvement * init.confidence
             total_value += init.expected_improvement * init.confidence * self.dollar_per_point
+
+        # Cap expected value at 20% of EV (academic research basis)
+        total_value = self._cap_expected_value(total_value)
 
         return {
             'selected': selected,
@@ -635,6 +656,9 @@ class QuantumBudgetOptimizer:
         total_improvement = sum(init.expected_improvement * init.confidence for init in selected)
         total_value = total_improvement * self.dollar_per_point
 
+        # Cap expected value at 20% of EV (academic research basis)
+        total_value = self._cap_expected_value(total_value)
+
         return {
             'selected': selected,
             'selected_indices': selected_idx,
@@ -686,6 +710,9 @@ class QuantumBudgetOptimizer:
         total_hours = sum(init.time_hours for init in selected)
         total_improvement = sum(init.expected_improvement * init.confidence for init in selected)
         total_value = total_improvement * self.dollar_per_point
+
+        # Cap expected value at 20% of EV (academic research basis)
+        total_value = self._cap_expected_value(total_value)
 
         return {
             'selected': selected,
@@ -753,6 +780,9 @@ class QuantumBudgetOptimizer:
         total_hours = sum(init.time_hours for init in selected)
         total_improvement = sum(init.expected_improvement * init.confidence for init in selected)
         total_value = total_improvement * self.dollar_per_point
+
+        # Cap expected value at 20% of EV (academic research basis)
+        total_value = self._cap_expected_value(total_value)
 
         return {
             'selected': selected,
