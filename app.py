@@ -1239,7 +1239,7 @@ with st.sidebar:
         st.caption(f"✓ {len(tickers)} companies selected")
 
     # Quarter selection - support multiple quarters for trend analysis
-    quarters = ["2025Q4", "2025Q3", "2025Q2", "2025Q1", "2024Q4", "2024Q3", "2024Q2", "2024Q1"]
+    quarters = ["2026Q1", "2025Q4", "2025Q3", "2025Q2", "2025Q1", "2024Q4", "2024Q3", "2024Q2", "2024Q1"]
     selected_quarters = st.multiselect(
         "Select Quarter(s)",
         quarters,
@@ -4000,7 +4000,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                 with st.expander("💰 Quarterly IR Value Contribution", expanded=False):
                     # Get previous quarter data if available
-                    quarters_list = ["2025Q4", "2025Q3", "2025Q2", "2025Q1", "2024Q4", "2024Q3", "2024Q2", "2024Q1"]
+                    quarters_list = ["2026Q1", "2025Q4", "2025Q3", "2025Q2", "2025Q1", "2024Q4", "2024Q3", "2024Q2", "2024Q1"]
                     current_q_idx = quarters_list.index(selected_quarter) if selected_quarter in quarters_list else -1
                     previous_quarter = quarters_list[current_q_idx + 1] if current_q_idx >= 0 and current_q_idx < len(quarters_list) - 1 else None
 
