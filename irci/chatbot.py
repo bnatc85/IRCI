@@ -1,10 +1,28 @@
 # irci/chatbot.py
 """
 IRCI Chatbot - AI assistant to help interpret results and provide IR guidance
+Supports multiple AI backends: Google Gemini 3.1 Pro (default) and OpenAI GPT-5
+Updated March 2026
 """
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Literal
 import pandas as pd
 import os
+
+# Supported AI providers and models
+AI_PROVIDERS = {
+    "gemini": {
+        "name": "Google Gemini",
+        "model": "gemini-3.1-pro",
+        "env_key": "GEMINI_API_KEY"
+    },
+    "openai": {
+        "name": "OpenAI GPT-5",
+        "model": "gpt-5",
+        "env_key": "OPENAI_API_KEY"
+    }
+}
+
+DEFAULT_PROVIDER = "gemini"
 
 
 def build_context_prompt(
@@ -136,29 +154,13 @@ Keep responses professional, concise, and actionable.
     return context
 
 
-def chat_with_context(
+def _chat_with_gemini(
     user_message: str,
-    df_composite: pd.DataFrame,
-    ticker: str = None,
-    conversation_history: List[Dict[str, str]] = None,
-    api_key: str = None
+    system_prompt: str,
+    conversation_history: List[Dict[str, str]],
+    api_key: str
 ) -> str:
-    """
-    Generate chatbot response using Google Gemini API with IRCI context
-
-    Args:
-        user_message: User's question or message
-        df_composite: Composite dataframe with analysis results
-        ticker: Optional ticker for company-specific context
-        conversation_history: Previous conversation messages
-        api_key: Google Gemini API key
-
-    Returns:
-        Assistant's response
-    """
-    if not api_key:
-        return "⚠️ Gemini API key not configured. Please add GEMINI_API_KEY to your .env file or Streamlit secrets."
-
+    """Generate response using Google Gemini 3.1 Pro"""
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
@@ -166,9 +168,6 @@ def chat_with_context(
         return "⚠️ Google Generative AI library not installed. Run: pip install google-generativeai"
     except Exception as e:
         return f"⚠️ Error initializing Gemini client: {str(e)}"
-
-    # Build context
-    system_prompt = build_context_prompt(df_composite, ticker, conversation_history)
 
     # Build conversation history for Gemini
     history = []
@@ -178,9 +177,9 @@ def chat_with_context(
             history.append({"role": role, "parts": [msg["content"]]})
 
     try:
-        # Initialize Gemini model
+        # Initialize Gemini 3.1 Pro model (March 2026)
         model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
+            model_name="gemini-3.1-pro",
             system_instruction=system_prompt
         )
 
@@ -193,7 +192,105 @@ def chat_with_context(
         return response.text
 
     except Exception as e:
-        return f"⚠️ Error generating response: {str(e)}"
+        return f"⚠️ Error generating Gemini response: {str(e)}"
+
+
+def _chat_with_openai(
+    user_message: str,
+    system_prompt: str,
+    conversation_history: List[Dict[str, str]],
+    api_key: str
+) -> str:
+    """Generate response using OpenAI GPT-5"""
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+    except ImportError:
+        return "⚠️ OpenAI library not installed. Run: pip install openai"
+    except Exception as e:
+        return f"⚠️ Error initializing OpenAI client: {str(e)}"
+
+    # Build messages list for OpenAI
+    messages = [{"role": "system", "content": system_prompt}]
+
+    if conversation_history:
+        for msg in conversation_history:
+            messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
+
+    messages.append({"role": "user", "content": user_message})
+
+    try:
+        # Use GPT-5 model (March 2026)
+        response = client.chat.completions.create(
+            model="gpt-5",
+            messages=messages,
+            temperature=0.7,
+            max_tokens=2048
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return f"⚠️ Error generating OpenAI response: {str(e)}"
+
+
+def chat_with_context(
+    user_message: str,
+    df_composite: pd.DataFrame,
+    ticker: str = None,
+    conversation_history: List[Dict[str, str]] = None,
+    api_key: str = None,
+    provider: Literal["gemini", "openai"] = "gemini"
+) -> str:
+    """
+    Generate chatbot response using specified AI provider with IRCI context
+
+    Args:
+        user_message: User's question or message
+        df_composite: Composite dataframe with analysis results
+        ticker: Optional ticker for company-specific context
+        conversation_history: Previous conversation messages
+        api_key: API key for the selected provider
+        provider: AI provider to use ("gemini" or "openai")
+
+    Returns:
+        Assistant's response
+    """
+    provider_info = AI_PROVIDERS.get(provider, AI_PROVIDERS[DEFAULT_PROVIDER])
+
+    if not api_key:
+        return f"⚠️ {provider_info['name']} API key not configured. Please add {provider_info['env_key']} to your .env file or Streamlit secrets."
+
+    # Build context
+    system_prompt = build_context_prompt(df_composite, ticker, conversation_history)
+
+    # Route to appropriate provider
+    if provider == "openai":
+        return _chat_with_openai(user_message, system_prompt, conversation_history or [], api_key)
+    else:
+        return _chat_with_gemini(user_message, system_prompt, conversation_history or [], api_key)
+
+
+def get_available_providers() -> Dict[str, Dict]:
+    """
+    Get list of available AI providers with their configuration status
+
+    Returns:
+        Dictionary of providers with their availability status
+    """
+    providers = {}
+    for key, info in AI_PROVIDERS.items():
+        api_key = os.getenv(info["env_key"], "")
+        providers[key] = {
+            "name": info["name"],
+            "model": info["model"],
+            "available": bool(api_key),
+            "env_key": info["env_key"]
+        }
+    return providers
 
 
 def get_suggested_questions(ticker: str, df_composite: pd.DataFrame) -> List[str]:

@@ -45,7 +45,7 @@ from irci.media_fetchers.seeking_alpha_rss import seeking_alpha_rss_fetcher
 from irci.peers import find_peers_simple, find_peers_optimized
 from irci.quantum_budget import optimize_ir_budget, DWAVE_AVAILABLE as QUANTUM_BUDGET_AVAILABLE
 from irci.playbook import generate_playbook
-from irci.chatbot import chat_with_context, get_suggested_questions
+from irci.chatbot import chat_with_context, get_suggested_questions, get_available_providers, AI_PROVIDERS
 from irci.yahoo_metrics import get_yahoo_metrics_batch
 from irci.cache import cache_analysis_results, get_cached_analysis, clear_cache
 from irci.email_sender import send_irci_report_email, get_email_config_status, validate_email
@@ -6488,18 +6488,27 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
     if selected_section == "💬 AI Assistant":
         st.markdown("#### 💬 AI Assistant")
 
-        # Check for Gemini API key
+        # Load settings and check available providers
         s = Settings.load()
-        if not s.gemini_api_key:
+        available_providers = get_available_providers()
+
+        # Check if any provider is available
+        has_gemini = bool(s.gemini_api_key)
+        has_openai = bool(s.openai_api_key)
+
+        if not has_gemini and not has_openai:
             st.warning("""
-            ⚠️ **Gemini API Key Required**
+            ⚠️ **AI API Key Required**
 
-            To use the AI Assistant, please add your Google Gemini API key:
-            1. Add `GEMINI_API_KEY=your-key-here` to your `.env` file
-            2. Or set the `GEMINI_API_KEY` environment variable
-            3. Reload the app
+            To use the AI Assistant, please add at least one API key:
 
-            Get your free API key at: https://aistudio.google.com/app/apikey
+            **Option 1: Google Gemini 3.1 Pro** (Recommended)
+            - Add `GEMINI_API_KEY=your-key-here` to your `.env` file
+            - Get your free API key at: https://aistudio.google.com/app/apikey
+
+            **Option 2: OpenAI GPT-5**
+            - Add `OPENAI_API_KEY=your-key-here` to your `.env` file
+            - Get your API key at: https://platform.openai.com/api-keys
             """)
         else:
             try:
@@ -6508,13 +6517,40 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     st.session_state.chat_history = []
                 if 'ai_response' not in st.session_state:
                     st.session_state.ai_response = None
+                if 'ai_provider' not in st.session_state:
+                    st.session_state.ai_provider = "gemini" if has_gemini else "openai"
 
-                # Company selector
-                chatbot_ticker = st.selectbox(
-                    "Company:",
-                    df_composite['ticker'].unique(),
-                    key="chatbot_ticker_select"
-                )
+                # Provider and company selectors
+                col_provider, col_company = st.columns([1, 2])
+
+                with col_provider:
+                    # Build provider options (only show available ones)
+                    provider_options = []
+                    provider_labels = {}
+                    if has_gemini:
+                        provider_options.append("gemini")
+                        provider_labels["gemini"] = "Gemini 3.1 Pro"
+                    if has_openai:
+                        provider_options.append("openai")
+                        provider_labels["openai"] = "GPT-5"
+
+                    selected_provider = st.selectbox(
+                        "AI Model:",
+                        provider_options,
+                        format_func=lambda x: provider_labels.get(x, x),
+                        key="ai_provider_select"
+                    )
+                    st.session_state.ai_provider = selected_provider
+
+                with col_company:
+                    chatbot_ticker = st.selectbox(
+                        "Company:",
+                        df_composite['ticker'].unique(),
+                        key="chatbot_ticker_select"
+                    )
+
+                # Get the appropriate API key based on provider
+                api_key = s.gemini_api_key if selected_provider == "gemini" else s.openai_api_key
 
                 # Simple text input with submit button
                 col1, col2 = st.columns([5, 1])
@@ -6530,13 +6566,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
                 # Handle submission
                 if submit_clicked and user_question:
-                    with st.spinner("Thinking..."):
+                    with st.spinner(f"Thinking ({provider_labels.get(selected_provider, selected_provider)})..."):
                         response = chat_with_context(
                             user_question,
                             df_composite,
                             chatbot_ticker,
                             st.session_state.chat_history,
-                            s.gemini_api_key
+                            api_key,
+                            provider=selected_provider
                         )
                         # Store in history
                         st.session_state.chat_history.append({"role": "user", "content": user_question})
@@ -6550,13 +6587,14 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 for i, suggestion in enumerate(suggestions):
                     with cols[i % 2]:
                         if st.button(suggestion, key=f"q_{i}", use_container_width=True):
-                            with st.spinner("Thinking..."):
+                            with st.spinner(f"Thinking ({provider_labels.get(selected_provider, selected_provider)})..."):
                                 response = chat_with_context(
                                     suggestion,
                                     df_composite,
                                     chatbot_ticker,
                                     st.session_state.chat_history,
-                                    s.gemini_api_key
+                                    api_key,
+                                    provider=selected_provider
                                 )
                                 st.session_state.chat_history.append({"role": "user", "content": suggestion})
                                 st.session_state.chat_history.append({"role": "assistant", "content": response})
