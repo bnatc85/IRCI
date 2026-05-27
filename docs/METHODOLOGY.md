@@ -1,6 +1,6 @@
 # IRCI Methodology & Calculations
 
-A comprehensive reference of all mathematical formulas, scoring algorithms, and methodologies used in the IRCI (Investor Relations Composite Index) system.
+A comprehensive reference of all mathematical formulas, scoring algorithms, and methodologies used in the IRCI (Investor Relations Contribution Index) system.
 
 ---
 

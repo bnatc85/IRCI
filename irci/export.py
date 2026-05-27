@@ -85,7 +85,7 @@ def export_to_excel(
                 'Company': company_name,
                 'Tickers Analyzed': ', '.join(df_composite['ticker'].unique()) if df_composite is not None else 'N/A',
                 'Quarters Covered': len(df_composite['quarter_end'].unique()) if df_composite is not None and 'quarter_end' in df_composite.columns else 0,
-                'Source': 'IRCI - Investor Relations Composite Index'
+                'Source': 'IRCI - Investor Relations Contribution Index'
             }])
             metadata.to_excel(writer, sheet_name='Metadata', index=False)
 
@@ -210,7 +210,7 @@ Files included:
 - tickers/: Individual ticker data files
 
 Generated: {timestamp}
-Source: IRCI - Investor Relations Composite Index
+Source: IRCI - Investor Relations Contribution Index
 
 For more information, visit: https://ircibeta.streamlit.app
 """.format(timestamp=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))

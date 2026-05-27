@@ -2256,9 +2256,16 @@ elif run_analysis:
                     df_liq["quarter_end"] = pd.to_datetime(pd.to_datetime(df_liq["quarter_end"]).dt.date)
                 try:
                     df_liq = add_liquidity_percentile(df_liq)
+                    liq_scores = df_liq[['ticker', 'liquidity_pct']].dropna(subset=['liquidity_pct'])
+                    if not liq_scores.empty:
+                        liq_str = ", ".join([f"{r['ticker']}: {r['liquidity_pct']:.0f}" for _, r in liq_scores.iterrows()])
+                        st.success(f"✓ Liquidity scores: {liq_str}")
+                    else:
+                        st.warning("⚠️ Liquidity data collected but scores could not be calculated")
                 except Exception as e:
+                    import traceback
                     st.warning(f"⚠️ Liquidity percentile calculation error: {e}")
-                    # Ensure liquidity_pct column exists even if calculation fails
+                    st.code(traceback.format_exc(), language="text")
                     if "liquidity_pct" not in df_liq.columns:
                         df_liq["liquidity_pct"] = np.nan
             ticker_progress.empty()  # Clear ticker progress

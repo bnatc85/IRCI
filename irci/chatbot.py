@@ -76,7 +76,7 @@ DIAL SCORES:
 PEER GROUP: {', '.join(peer_group)}
 
 ABOUT IRCI:
-IRCI (Investor Relations Composite Index) measures IR effectiveness across four key dimensions:
+IRCI (Investor Relations Contribution Index) measures IR effectiveness across four key dimensions:
 
 1. **Valuation (Market Perception)**
    - Measures: P/E ratio, P/S ratio, EV/EBITDA vs peer group
@@ -136,7 +136,7 @@ Analyzing {len(df_composite)} companies in peer group: {', '.join(df_composite['
 Average IRCI Score: {df_composite['irci_composite_pct'].mean():.1f}%
 
 ABOUT IRCI:
-IRCI (Investor Relations Composite Index) measures IR effectiveness across four dimensions:
+IRCI (Investor Relations Contribution Index) measures IR effectiveness across four dimensions:
 1. **Valuation** - Market perception relative to fundamentals (P/E, P/S, EV/EBITDA)
 2. **Liquidity** - Trading activity (volume, spreads, volatility)
 3. **Coverage** - Media attention quality and quantity

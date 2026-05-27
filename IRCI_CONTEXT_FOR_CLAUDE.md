@@ -1,4 +1,4 @@
-# IRCI (Investor Relations Composite Index) - Context for Diagram Creation
+# IRCI (Investor Relations Contribution Index) - Context for Diagram Creation
 
 ## Executive Summary
 
