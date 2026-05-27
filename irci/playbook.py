@@ -65,20 +65,6 @@ def get_valuation_recommendations(score: float, df_composite: pd.DataFrame) -> L
             "quick_win": False
         })
         recommendations.append({
-            "priority": "high",
-            "category": "Valuation",
-            "action": "Optimize comparable company selection",
-            "what": "Work with analysts to establish the right peer set that showcases your competitive advantages.",
-            "description": "Valuation multiples are heavily influenced by which peers investors compare you to. Proactively suggest a peer group that highlights your strengths while remaining credible.",
-            "evidence": "De Franco et al. (2011) show peer selection materially impacts valuation - companies can trade at 20-40% different multiples based on peer framing. Bhojraj & Lee (2002) found optimal peer selection reduces valuation errors by 25%.",
-            "expected_impact": "3-6 IRCI points over 3-6 months",
-            "timeframe": "3-6 months",
-            "tools": "Capital IQ for peer screening, Bloomberg COMP function, FactSet peer analysis",
-            "metrics": "Track: Number of analysts using your suggested peer set, relative valuation percentile within peer group",
-            "benchmark": "Target: 75%+ of analysts using your preferred peer set within 12 months",
-            "quick_win": True
-        })
-        recommendations.append({
             "priority": "medium",
             "category": "Valuation",
             "action": "Implement sum-of-the-parts (SOTP) disclosure",

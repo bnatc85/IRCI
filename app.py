@@ -5698,7 +5698,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 "IRCI Impact (pts)": st.column_config.NumberColumn(
                     "IRCI Impact (pts)",
                     help="IRCI point impact for this event type",
-                    format="%.3f"
+                    format="%.4f"
                 ),
                 "Dollar Impact ($M)": st.column_config.NumberColumn(
                     "Dollar Impact ($M)",

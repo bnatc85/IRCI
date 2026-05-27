@@ -753,9 +753,9 @@ class IRCIReport(FPDF):
 
             # Format IRCI impact
             if irci_impact >= 0:
-                irci_str = f"+{irci_impact:.3f} pts"
+                irci_str = f"+{irci_impact:.4f} pts"
             else:
-                irci_str = f"{irci_impact:.3f} pts"
+                irci_str = f"{irci_impact:.4f} pts"
 
             # Calculate dollar value
             dollar_impact = irci_impact * dollar_per_point

@@ -1,80 +1,47 @@
 # IRCI Deployment Guide
 
-## Streamlit Cloud Configuration
+## Railway
 
-The IRCI app is deployed on Streamlit Cloud at: https://ircibeta.streamlit.app/
+The IRCI app is deployed on Railway at: https://irci.up.railway.app/
 
-### Important: Branch Configuration
+Railway auto-deploys from the `main` branch of `bnatc85/IRCI` on every push.
 
-**Streamlit Cloud is configured to deploy from the `irci-bridge` branch, NOT `main`.**
+### Configuration
 
-This means:
-- All development work happens on `main` branch
-- Changes must be merged to `irci-bridge` to appear on the live app
+| File | Purpose |
+|------|---------|
+| `Procfile` | `web: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true` |
+| `.python-version` | Pins Python to 3.12 |
+| `requirements.txt` | Installed by Railway's Python builder |
 
-### How to Deploy Changes
-
-After making changes on `main`, run these commands to deploy:
-
-```bash
-# 1. Make sure you're on main and changes are committed
-git checkout main
-git status  # Should show "nothing to commit, working tree clean"
-
-# 2. Switch to irci-bridge and merge changes from main
-git checkout irci-bridge
-git merge main -m "Merge main into irci-bridge - [describe changes]"
-
-# 3. Push to deploy
-git push origin irci-bridge
-
-# 4. Switch back to main for continued development
-git checkout main
-```
-
-### Quick One-Liner to Deploy
+### Deploying Changes
 
 ```bash
-git checkout irci-bridge && git merge main -m "Deploy latest changes" && git push origin irci-bridge && git checkout main
+git push origin main
 ```
 
-### If Streamlit Cloud Doesn't Update
+Railway rebuilds within ~1–2 minutes. Confirm by checking the `last-modified` response header at https://irci.up.railway.app/ or the deploy log in the Railway dashboard.
 
-1. Go to https://share.streamlit.io/
-2. Find the ircibeta app
-3. Click the ⋮ menu → "Reboot app"
+### Health Check
 
-Or from the app itself:
-1. Go to https://ircibeta.streamlit.app/
-2. Click ☰ menu (bottom right)
-3. Click "Reboot app"
+```bash
+curl -I https://irci.up.railway.app/                  # expect HTTP 200
+curl https://irci.up.railway.app/_stcore/health       # Streamlit healthz
+```
 
-### Streamlit Cloud Settings
+### Environment Variables / Secrets
 
-To check or change deployment settings:
-1. Go to https://share.streamlit.io/
-2. Click on the ircibeta app
-3. Click "Settings" (gear icon)
+Set in the Railway dashboard under **Variables**, not via local `.env`. The app reads them through standard `os.environ` lookups in `irci/config.py`.
 
-Current settings should be:
-- **Repository**: bnatc85/IRCI
-- **Branch**: irci-bridge
-- **Main file path**: app.py
+### Reboot
 
-### Environment Variables
-
-Streamlit Cloud uses secrets configured in the dashboard, NOT the local `.env` file.
-
-To update secrets:
-1. Go to Streamlit Cloud dashboard
-2. Click on app → Settings → Secrets
-3. Add secrets in TOML format
+Railway dashboard → service → **Deployments** → ⋮ on latest → **Redeploy**.
 
 ### Branches Overview
 
 | Branch | Purpose |
 |--------|---------|
-| `main` | Active development, all new code goes here |
-| `irci-bridge` | Production deployment branch for Streamlit Cloud |
+| `main` | Active development; Railway deploys from here |
 | `feature/*` | Feature branches for larger changes |
 
+The `irci-bridge` branch is a legacy Streamlit Cloud deploy branch and is no longer used.
