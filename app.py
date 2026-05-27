@@ -848,64 +848,19 @@ def show_intro_modal():
 
     st.markdown("---")
 
-    # 2-Minute Tour content
     st.markdown("""
     ### Get Started in 3 Easy Steps:
 
-    **1. Choose Your Peer Group** 👥
-    - Use quick templates below OR manually select companies in the sidebar
-    - Pick 2-5 similar companies for the best comparison
+    **1. Choose Your Peer Group** -- Select companies in the sidebar or use the peer finder
 
-    **2. Select Time Period** 📅
-    - Choose one or multiple quarters to analyze
-    - Recent quarters (2024Q3+) have better news coverage data
+    **2. Select Time Period** -- Choose one or multiple quarters to analyze
 
-    **3. Run Analysis** 🚀
-    - Click the big "Run Analysis" button in the sidebar
-    - Takes ~1-4 minutes depending on company count
-    - Get instant IRCI scores, peer rankings, and actionable insights
-
-    **💡 Tip:** Start with a quick template below to see IRCI in action!
+    **3. Run Analysis** -- Click "Run Analysis" in the sidebar to get IRCI scores, peer rankings, and actionable insights
     """)
 
     st.markdown("---")
 
-    # Quick Start Templates
-    st.markdown("### Quick Start Templates")
-    st.caption("Click a template to pre-fill peer companies")
-
-    # Center the icons with padding columns on either side
-    _, center_col, _ = st.columns([1, 2, 1])
-    with center_col:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown("<div style='display: flex; flex-direction: column; align-items: center;'>", unsafe_allow_html=True)
-            st.image("assets/tech-icon.jpg", width=80)
-            st.markdown("</div>", unsafe_allow_html=True)
-            if st.button("Select", key="modal_big_tech", use_container_width=True):
-                st.session_state['found_peers'] = 'AAPL, MSFT, GOOGL, META, AMZN'
-                st.session_state['show_intro'] = False
-                st.rerun()
-        with col2:
-            st.markdown("<div style='display: flex; flex-direction: column; align-items: center;'>", unsafe_allow_html=True)
-            st.image("assets/finance-icon.jpg", width=80)
-            st.markdown("</div>", unsafe_allow_html=True)
-            if st.button("Select", key="modal_financials", use_container_width=True):
-                st.session_state['found_peers'] = 'JPM, BAC, WFC, GS, MS'
-                st.session_state['show_intro'] = False
-                st.rerun()
-        with col3:
-            st.markdown("<div style='display: flex; flex-direction: column; align-items: center;'>", unsafe_allow_html=True)
-            st.image("assets/health-icon.jpg", width=80)
-            st.markdown("</div>", unsafe_allow_html=True)
-            if st.button("Select", key="modal_healthcare", use_container_width=True):
-                st.session_state['found_peers'] = 'JNJ, PFE, UNH, ABBV, LLY'
-                st.session_state['show_intro'] = False
-                st.rerun()
-
-    st.markdown("---")
-
-    if st.button("🚀 Get Started", use_container_width=True, type="primary"):
+    if st.button("Get Started", use_container_width=True, type="primary"):
         st.session_state['show_intro'] = False
         st.rerun()
 
@@ -1096,25 +1051,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📊 Select Companies")
 
-    # Quick templates for common peer groups - icon buttons
-    st.caption("Quick templates:")
-    template_col1, template_col2, template_col3 = st.columns(3)
-    with template_col1:
-        st.image("assets/tech-icon.jpg", use_container_width=True)
-        if st.button("Select", key="tmpl_tech", use_container_width=True):
-            st.session_state['found_peers'] = "AAPL, MSFT, GOOGL, META, AMZN"
-            st.rerun()
-    with template_col2:
-        st.image("assets/finance-icon.jpg", use_container_width=True)
-        if st.button("Select", key="tmpl_fin", use_container_width=True):
-            st.session_state['found_peers'] = "JPM, BAC, WFC, GS, MS"
-            st.rerun()
-    with template_col3:
-        st.image("assets/health-icon.jpg", use_container_width=True)
-        if st.button("Select", key="tmpl_health", use_container_width=True):
-            st.session_state['found_peers'] = "JNJ, PFE, UNH, ABBV, LLY"
-            st.rerun()
-
     # Peer finder expander
     with st.expander("🔍 Find Companies", expanded=False):
         st.caption("Enter a ticker to find peers in the same industry")
@@ -1214,7 +1150,9 @@ with st.sidebar:
                         else:
                             st.warning(f"⚠️ {peer_base_ticker.upper()} not in database. Try: AAPL, TSLA, NVDA, NFLX, JPM")
                 except Exception as e:
+                    import traceback
                     st.error(f"Error: {str(e)}")
+                    st.code(traceback.format_exc(), language="text")
             else:
                 st.warning("Please enter a ticker")
 
@@ -1581,11 +1519,6 @@ with st.sidebar:
                 st.rerun()
             else:
                 st.warning("Please enter a valid schedule name and email")
-
-    # Welcome Tour button - at bottom of sidebar for discoverability
-    if st.button("👋 Show Welcome Tour", use_container_width=True, help="New to IRCI? Watch a video intro and explore quick templates"):
-        st.session_state['show_intro'] = True
-        st.rerun()
 
     # Contact information (no extra spacing)
     st.markdown("""
