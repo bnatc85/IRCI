@@ -42,7 +42,7 @@ from irci.media_fetchers.finnhub_fetcher import finnhub_fetcher
 from irci.media_fetchers.yahoo_rss_news import yahoo_rss_news_fetcher
 from irci.media_fetchers.google_news_rss import google_news_rss_fetcher
 from irci.media_fetchers.seeking_alpha_rss import seeking_alpha_rss_fetcher
-from irci.peers import find_peers_simple, find_peers_optimized
+from irci.peers import find_peers_optimized
 from irci.quantum_budget import optimize_ir_budget, DWAVE_AVAILABLE as QUANTUM_BUDGET_AVAILABLE
 from irci.playbook import generate_playbook
 from irci.chatbot import chat_with_context, get_suggested_questions, get_available_providers, AI_PROVIDERS
@@ -1067,88 +1067,65 @@ with st.sidebar:
         with finder_col2:
             peer_count = st.number_input("# Peers", 3, 15, 8, help="Number of peer companies to find")
 
-        # Peer selection mode
-        peer_mode = st.radio(
-            "Selection Mode",
-            ["⚡ Quick (Curated)", "🧠 Optimized (AI-Powered)"],
-            horizontal=True,
-            help="Quick uses curated peer lists. Optimized uses multi-dimensional analysis to find the best analytical peers."
-        )
-
-        # Show optimization settings for optimized mode
-        if "Optimized" in peer_mode:
-            with st.container():
-                st.caption("**Optimization Weights** (adjust importance of each factor)")
-                opt_col1, opt_col2 = st.columns(2)
-                with opt_col1:
-                    w_mcap = st.slider("Market Cap", 0.0, 1.0, 0.20, 0.05, help="Similarity in company size")
-                    w_sector = st.slider("Sector Match", 0.0, 1.0, 0.25, 0.05, help="Same sector/industry")
-                    w_analyst = st.slider("Analyst Coverage", 0.0, 1.0, 0.10, 0.05, help="Similar analyst attention")
-                    w_liquidity = st.slider("Liquidity", 0.0, 1.0, 0.15, 0.05, help="Trading liquidity profile")
-                with opt_col2:
-                    w_volume = st.slider("Volume Pattern", 0.0, 1.0, 0.10, 0.05, help="Trading volume similarity")
-                    w_inst = st.slider("Institutional %", 0.0, 1.0, 0.10, 0.05, help="Institutional ownership")
-                    w_geo = st.slider("Geography", 0.0, 1.0, 0.05, 0.05, help="Geographic exposure")
-                    w_corr = st.slider("Diversity Bonus", 0.0, 0.2, 0.05, 0.01, help="Penalize highly correlated peers for diversity")
+        # Optimization weights
+        with st.container():
+            st.caption("**Optimization Weights** (adjust importance of each factor)")
+            opt_col1, opt_col2 = st.columns(2)
+            with opt_col1:
+                w_mcap = st.slider("Market Cap", 0.0, 1.0, 0.20, 0.05, help="Similarity in company size")
+                w_sector = st.slider("Sector Match", 0.0, 1.0, 0.25, 0.05, help="Same sector/industry")
+                w_analyst = st.slider("Analyst Coverage", 0.0, 1.0, 0.10, 0.05, help="Similar analyst attention")
+                w_liquidity = st.slider("Liquidity", 0.0, 1.0, 0.15, 0.05, help="Trading liquidity profile")
+            with opt_col2:
+                w_volume = st.slider("Volume Pattern", 0.0, 1.0, 0.10, 0.05, help="Trading volume similarity")
+                w_inst = st.slider("Institutional %", 0.0, 1.0, 0.10, 0.05, help="Institutional ownership")
+                w_geo = st.slider("Geography", 0.0, 1.0, 0.05, 0.05, help="Geographic exposure")
+                w_corr = st.slider("Diversity Bonus", 0.0, 0.2, 0.05, 0.01, help="Penalize highly correlated peers for diversity")
 
         if st.button("🔍 Find Peers", use_container_width=True):
             if peer_base_ticker:
                 try:
                     s = Settings.load()
 
-                    if "Optimized" in peer_mode:
-                        # Quantum-ready optimized peer selection
-                        with st.spinner(f"🧠 Analyzing optimal peers for {peer_base_ticker.upper()}..."):
-                            weights = {
-                                'market_cap_log': w_mcap,
-                                'sector_match': w_sector,
-                                'analyst_coverage_ratio': w_analyst,
-                                'liquidity_score': w_liquidity,
-                                'trading_volume_pattern': w_volume,
-                                'institutional_ownership': w_inst,
-                                'geographic_exposure': w_geo,
-                                'correlation_penalty': w_corr
-                            }
-                            result = find_peers_optimized(
-                                ticker=peer_base_ticker.upper(),
-                                api_key=s.fmp_api_key,
-                                num_peers=peer_count,
-                                weights=weights,
-                                use_quantum=False  # Classical mode (D-Wave coming soon)
-                            )
+                    with st.spinner(f"Analyzing optimal peers for {peer_base_ticker.upper()}..."):
+                        weights = {
+                            'market_cap_log': w_mcap,
+                            'sector_match': w_sector,
+                            'analyst_coverage_ratio': w_analyst,
+                            'liquidity_score': w_liquidity,
+                            'trading_volume_pattern': w_volume,
+                            'institutional_ownership': w_inst,
+                            'geographic_exposure': w_geo,
+                            'correlation_penalty': w_corr
+                        }
+                        result = find_peers_optimized(
+                            ticker=peer_base_ticker.upper(),
+                            api_key=s.fmp_api_key,
+                            num_peers=peer_count,
+                            weights=weights,
+                            use_quantum=False
+                        )
 
-                            if result.get('selected_peers'):
-                                all_tickers = [peer_base_ticker.upper()] + result['selected_peers']
-                                st.session_state['found_peers'] = ", ".join(all_tickers)
-                                st.session_state['peer_optimization_result'] = result
-
-                                # Show optimization details
-                                st.success(f"✓ Found {len(result['selected_peers'])} optimal peers using {result['method']}")
-
-                                # Show peer details in a compact table
-                                if result.get('peer_details'):
-                                    peer_df = pd.DataFrame(result['peer_details'])
-                                    if 'similarity_score' in peer_df.columns:
-                                        peer_df['Similarity'] = (peer_df['similarity_score'] * 100).round(1).astype(str) + '%'
-                                    if 'market_cap' in peer_df.columns:
-                                        peer_df['Market Cap'] = (peer_df['market_cap'] / 1e9).round(1).astype(str) + 'B'
-                                    display_cols = ['ticker', 'Similarity', 'Market Cap', 'sector']
-                                    display_cols = [c for c in display_cols if c in peer_df.columns]
-                                    st.dataframe(peer_df[display_cols].rename(columns={'ticker': 'Ticker', 'sector': 'Sector'}), hide_index=True)
-
-                                st.rerun()
-                            else:
-                                st.warning(f"⚠️ Could not find optimized peers for {peer_base_ticker.upper()}")
-                    else:
-                        # Quick curated peer lookup
-                        peers = find_peers_simple(peer_base_ticker.upper(), s.fmp_api_key, max_peers=peer_count)
-                        if peers:
-                            all_tickers = [peer_base_ticker.upper()] + peers
+                        if result.get('selected_peers'):
+                            all_tickers = [peer_base_ticker.upper()] + result['selected_peers']
                             st.session_state['found_peers'] = ", ".join(all_tickers)
-                            st.success(f"✓ Found {len(peers)} peers for {peer_base_ticker.upper()}")
+                            st.session_state['peer_optimization_result'] = result
+
+                            st.success(f"✓ Found {len(result['selected_peers'])} optimal peers")
+
+                            if result.get('peer_details'):
+                                peer_df = pd.DataFrame(result['peer_details'])
+                                if 'similarity_score' in peer_df.columns:
+                                    peer_df['Similarity'] = (peer_df['similarity_score'] * 100).round(1).astype(str) + '%'
+                                if 'market_cap' in peer_df.columns:
+                                    peer_df['Market Cap'] = (peer_df['market_cap'] / 1e9).round(1).astype(str) + 'B'
+                                display_cols = ['ticker', 'Similarity', 'Market Cap', 'sector']
+                                display_cols = [c for c in display_cols if c in peer_df.columns]
+                                st.dataframe(peer_df[display_cols].rename(columns={'ticker': 'Ticker', 'sector': 'Sector'}), hide_index=True)
+
                             st.rerun()
                         else:
-                            st.warning(f"⚠️ {peer_base_ticker.upper()} not in database. Try: AAPL, TSLA, NVDA, NFLX, JPM")
+                            st.warning(f"⚠️ Could not find peers for {peer_base_ticker.upper()}")
                 except Exception as e:
                     import traceback
                     st.error(f"Error: {str(e)}")
@@ -2922,18 +2899,30 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             # Helper function to get status color and label
             def get_dial_status(value):
                 """Returns (color, status_label) based on dial value."""
-                if value >= 70:
-                    return '#4CAF50', 'Strong'  # Green for strong
-                elif value >= 40:
-                    return '#FFA500', 'Moderate'  # Orange/yellow for moderate
+                try:
+                    v = float(value)
+                except (TypeError, ValueError):
+                    return '#888888', 'N/A'
+                if pd.isna(v):
+                    return '#888888', 'N/A'
+                if v >= 70:
+                    return '#4CAF50', 'Strong'
+                elif v >= 40:
+                    return '#FFA500', 'Moderate'
                 else:
-                    return '#ff4444', 'Needs Attention'  # Red for needs attention
+                    return '#ff4444', 'Needs Attention'
 
             # Create compact gauge charts for each dial
             st.markdown("#### Dial Performance Gauges")
 
             def create_gauge_chart(value, title):
                 """Create a compact gauge chart for a dial metric."""
+                try:
+                    value = float(value)
+                except (TypeError, ValueError):
+                    value = 0
+                if pd.isna(value):
+                    value = 0
                 status_color, status_label = get_dial_status(value)
 
                 fig = go.Figure(go.Indicator(
