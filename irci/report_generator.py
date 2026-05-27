@@ -742,7 +742,7 @@ class IRCIReport(FPDF):
 
         def fmt_dollar(value: float) -> str:
             if value == 0:
-                return "—"
+                return "-"
             sign = "+" if value > 0 else "-"
             abs_v = abs(value)
             if abs_v >= 1e9:
