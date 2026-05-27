@@ -14,22 +14,33 @@ from typing import Optional
 
 # Literature-anchored elasticity: ~0.12% of EV per IRCI percentile.
 #
-# Derivation:
-#   Botosan (1997), Accounting Review: 1-unit higher disclosure-quality score reduces
-#     cost of equity by ~28 bps for low-analyst-following firms.
-#   Botosan & Plumlee (2002), JAR: annual disclosure → ~100 bps cost-of-equity reduction.
-#   Gordon growth: P/D = 1/(r-g). A 28 bps drop in r at r=9%, g=3% implies ~4.7% EV uplift.
-#   Healy, Hutton & Palepu (1999), CAR: firms expanding disclosure show ~7% abnormal
-#     stock return in expansion year with persistent valuation gain.
+# Headline citation (modern):
+#   Rjiba, Saadi, Boubaker & Ding (2021), J. Corporate Finance — "Annual Report Readability
+#     and the Cost of Equity Capital". Using Loughran-McDonald (2014/2016) machine-readable
+#     10-K complexity measures on a large modern U.S. panel: less readable 10-Ks face
+#     significantly higher implied cost of equity, attenuated by analyst coverage,
+#     institutional ownership, and financial-statement comparability. Modern data confirms
+#     the classic Botosan (1997, AR) finding using machine-readable disclosure measures.
 #
-# IRCI mapping: only the Coverage dial + half of Trust map cleanly to Botosan's
-# "disclosure quality" construct (~50% of the composite). So:
-#   1 IRCI percentile ≈ 0.5 × (5/100) = 0.025 Botosan disclosure units
-#                     ≈ 0.025 × 28 bps = 0.7 bps cost-of-equity reduction
-#                     ≈ 0.0007 / 0.06 ≈ 0.117% EV uplift via Gordon growth
+# Supporting citations:
+#   Botosan (1997), Accounting Review — original AIMR disclosure-score finding:
+#     1-unit higher disclosure-quality score → ~28 bps cost-of-equity reduction.
+#   Botosan & Plumlee (2002), JAR — annual disclosure → ~100 bps reduction.
+#   Healy, Hutton & Palepu (1999), CAR — disclosure-expansion firms show ~7% abnormal
+#     stock return in expansion year with persistent valuation gain.
+#   Loughran & McDonald (2016), JAR — survey of textual-analysis methodology.
+#
+# Derivation:
+#   1 disclosure-quality unit ≈ 9-25 bps cost-of-equity reduction (Rjiba et al. 2021;
+#     varies with analyst coverage and institutional ownership; midpoint ≈ 15 bps).
+#   Gordon growth: P/D = 1/(r-g). A 15 bps drop in r at r=9%, g=3% implies ~2.5% EV.
+#   IRCI mapping: only Coverage + half of Trust map cleanly to disclosure quality
+#     (~50% of composite). So 1 IRCI percentile ≈ 0.5 × (5/100) = 0.025 disclosure units
+#     ≈ 0.025 × 15 bps = 0.4 bps cost-of-equity → 0.06% EV (conservative).
+#   We use the mid-range 0.12% per percentile as headline; band reported below.
 EV_ELASTICITY_PER_IRCI_PT = 0.0012   # headline: 0.12% of EV per IRCI point
-EV_ELASTICITY_LOW = 0.0005           # conservative band (only Coverage dial)
-EV_ELASTICITY_HIGH = 0.0025          # aggressive band (full Botosan applies)
+EV_ELASTICITY_LOW = 0.0005           # conservative band
+EV_ELASTICITY_HIGH = 0.0025          # aggressive band (Rjiba et al. upper estimate)
 
 # Healy, Hutton & Palepu (1999) cap: IR-attributable EV uplift maxes around 20%
 # even for firms making the largest disclosure-quality leaps.

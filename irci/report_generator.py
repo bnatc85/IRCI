@@ -669,8 +669,8 @@ class IRCIReport(FPDF):
 
         # Define event types with their configurations (matching app.py event_menu_items)
         # Format: (Label, event_type, metadata, expected_car)
-        # Event configs - CARs from peer-reviewed event-study literature.
-        # See full citation table in the in-app Research Methodology expander.
+        # Event configs - CARs from peer-reviewed event-study literature (2015+ where available).
+        # See in-app Research Methodology expander for full citation table.
         event_configs = [
             ('Investor Day', 'investor_day', {}, "+2.0%"),
             ('Analyst Day', 'analyst_day', {}, "+1.5%"),
@@ -682,18 +682,18 @@ class IRCIReport(FPDF):
             ('Director Change', 'director_change', {}, "-0.2%"),
             ('Dividend Initiation', 'dividend_announcement', {'dividend_change_pct': 100, 'is_initiation': True}, "+3.4%"),
             ('Dividend Increase (>10%)', 'dividend_announcement', {'dividend_change_pct': 15}, "+1.0%"),
-            ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -30}, "-6.5%"),
-            ('Buyback Announcement', 'buyback_announcement', {}, "+3.5%"),
+            ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -30}, "-5.0%"),
+            ('Buyback Announcement', 'buyback_announcement', {}, "+1.5%"),
             ('Earnings Beat (>5%)', 'earnings_call', {'beat_pct': 0.05}, "+3.5%"),
             ('Earnings Miss (>5%)', 'earnings_call', {'beat_pct': -0.05}, "-4.5%"),
             ('Guidance Raise', 'strategic_announcement', {'sentiment': 0.8, 'announcement_type': 'guidance_raise'}, "+2.5%"),
             ('Guidance Lower', 'strategic_announcement', {'sentiment': -0.8, 'announcement_type': 'guidance_lower'}, "-5.0%"),
-            ('M&A Announce (Acquirer)', 'strategic_announcement', {'sentiment': 0.3, 'announcement_type': 'ma_acquirer'}, "-1.0%"),
+            ('M&A Announce (Acquirer)', 'strategic_announcement', {'sentiment': 0.3, 'announcement_type': 'ma_acquirer'}, "+0.3%"),
             ('Strategic Partnership', 'strategic_announcement', {'sentiment': 0.6, 'announcement_type': 'partnership'}, "+1.2%"),
             ('Restructuring', 'strategic_announcement', {'sentiment': -0.4, 'announcement_type': 'restructuring'}, "-0.8%"),
             ('Advertising Campaign', 'advertising_campaign', {}, "+0.8%"),
             ('Conference Presentation', 'conference_presentation', {}, "+0.8%"),
-            ('Analyst Coverage Init.', 'analyst_coverage_initiation', {}, "+1.0%"),
+            ('Analyst Coverage Init.', 'analyst_coverage_initiation', {}, "+0.8%"),
             ('Non-Deal Roadshow', 'conference_presentation', {'is_roadshow': True}, "+0.6%"),
         ]
 
