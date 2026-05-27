@@ -669,38 +669,31 @@ class IRCIReport(FPDF):
 
         # Define event types with their configurations (matching app.py event_menu_items)
         # Format: (Label, event_type, metadata, expected_car)
+        # Event configs - CARs from peer-reviewed event-study literature.
+        # See full citation table in the in-app Research Methodology expander.
         event_configs = [
-            # === Major Corporate Events ===
             ('Investor Day', 'investor_day', {}, "+2.0%"),
             ('Analyst Day', 'analyst_day', {}, "+1.5%"),
-            # === Leadership Changes ===
             ('CEO Change (Inside)', 'ceo_change', {'succession_type': 'planned_inside', 'forced': False}, "+0.5%"),
-            ('CEO Change (Outside)', 'ceo_change', {'succession_type': 'outside', 'forced': False}, "-0.5%"),
-            ('CEO Change (Forced)', 'ceo_change', {'succession_type': 'unknown', 'forced': True}, "-1.5%"),
+            ('CEO Change (Outside)', 'ceo_change', {'succession_type': 'outside', 'forced': False}, "+1.0%"),
+            ('CEO Change (Forced)', 'ceo_change', {'succession_type': 'unknown', 'forced': True}, "+2.0%"),
             ('CFO Change (Voluntary)', 'cfo_change', {'forced': False}, "-0.3%"),
             ('CFO Change (Forced)', 'cfo_change', {'forced': True}, "-1.0%"),
             ('Director Change', 'director_change', {}, "-0.2%"),
-            # === Capital Allocation Events ===
             ('Dividend Initiation', 'dividend_announcement', {'dividend_change_pct': 100, 'is_initiation': True}, "+3.4%"),
             ('Dividend Increase (>10%)', 'dividend_announcement', {'dividend_change_pct': 15}, "+1.0%"),
-            ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -30}, "-3.7%"),
+            ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -30}, "-6.5%"),
             ('Buyback Announcement', 'buyback_announcement', {}, "+3.5%"),
-            # === Earnings & Guidance ===
-            ('Earnings Beat (>5%)', 'earnings_call', {'beat_pct': 0.05}, "+2.0%"),
-            ('Earnings Miss (>5%)', 'earnings_call', {'beat_pct': -0.05}, "-2.5%"),
-            ('Guidance Raise', 'strategic_announcement', {'sentiment': 0.8, 'announcement_type': 'guidance_raise'}, "+1.8%"),
-            ('Guidance Lower', 'strategic_announcement', {'sentiment': -0.8, 'announcement_type': 'guidance_lower'}, "-2.2%"),
-            # === Strategic Announcements ===
+            ('Earnings Beat (>5%)', 'earnings_call', {'beat_pct': 0.05}, "+3.5%"),
+            ('Earnings Miss (>5%)', 'earnings_call', {'beat_pct': -0.05}, "-4.5%"),
+            ('Guidance Raise', 'strategic_announcement', {'sentiment': 0.8, 'announcement_type': 'guidance_raise'}, "+2.5%"),
+            ('Guidance Lower', 'strategic_announcement', {'sentiment': -0.8, 'announcement_type': 'guidance_lower'}, "-5.0%"),
             ('M&A Announce (Acquirer)', 'strategic_announcement', {'sentiment': 0.3, 'announcement_type': 'ma_acquirer'}, "-1.0%"),
             ('Strategic Partnership', 'strategic_announcement', {'sentiment': 0.6, 'announcement_type': 'partnership'}, "+1.2%"),
             ('Restructuring', 'strategic_announcement', {'sentiment': -0.4, 'announcement_type': 'restructuring'}, "-0.8%"),
-            # === Daily IR Activities ===
-            ('Advertising Campaign', 'advertising_campaign', {}, "+1.3%"),
-            ('Social Media Campaign', 'social_media_campaign', {}, "+0.5%"),
+            ('Advertising Campaign', 'advertising_campaign', {}, "+0.8%"),
             ('Conference Presentation', 'conference_presentation', {}, "+0.8%"),
             ('Analyst Coverage Init.', 'analyst_coverage_initiation', {}, "+1.0%"),
-            ('IR Website Improvement', 'ir_website_improvement', {}, "+0.5%"),
-            ('Press Release Program', 'press_release_program', {}, "+0.5%"),
             ('Non-Deal Roadshow', 'conference_presentation', {'is_roadshow': True}, "+0.6%"),
         ]
 
@@ -710,6 +703,7 @@ class IRCIReport(FPDF):
 
         for label, event_type, metadata, expected_car in event_configs:
             irci_impact = 0.0
+            event_window_dollar = 0.0
             if can_calculate:
                 try:
                     impact = calculate_event_irci_impact(
@@ -723,71 +717,64 @@ class IRCIReport(FPDF):
                         event_metadata=metadata
                     )
                     irci_impact = impact.get('irci_impact', 0.0)
+                    event_window_dollar = impact.get('event_window_dollar', 0.0)
                 except Exception:
-                    irci_impact = 0.0
+                    pass
 
-            event_menu_items.append((label, expected_car, irci_impact))
+            event_menu_items.append((label, expected_car, irci_impact, event_window_dollar))
 
-        # Sort by IRCI impact (positive first, then negative)
-        event_menu_items.sort(key=lambda x: -x[2])
+        # Sort by |Event-Window $| descending (literature-direct headline impact)
+        event_menu_items.sort(key=lambda x: -abs(x[3]))
 
-        # Table header - use smaller font and row height to fit all items
+        # Table header
         self.set_font('Arial', 'B', 6)
         self.set_fill_color(20, 40, 80)
         self.set_text_color(255, 255, 255)
 
-        self.cell(50, 4, 'Event Type', 1, 0, 'C', fill=True)
-        self.cell(20, 4, 'CAR', 1, 0, 'C', fill=True)
-        self.cell(30, 4, 'IRCI Impact', 1, 0, 'C', fill=True)
-        self.cell(40, 4, 'Est. Value', 1, 1, 'C', fill=True)
+        self.cell(45, 4, 'Event Type', 1, 0, 'C', fill=True)
+        self.cell(15, 4, 'CAR', 1, 0, 'C', fill=True)
+        self.cell(35, 4, 'Event-Window $', 1, 0, 'C', fill=True)
+        self.cell(25, 4, 'IRCI Lift', 1, 0, 'C', fill=True)
+        self.cell(30, 4, 'Persistent IR $', 1, 1, 'C', fill=True)
 
         self.set_text_color(0, 0, 0)
         self.set_font('Arial', '', 6)
 
-        for i, (event_name, car, irci_impact) in enumerate(event_menu_items):
-            # Alternate row colors
+        def fmt_dollar(value: float) -> str:
+            if value == 0:
+                return "—"
+            sign = "+" if value > 0 else "-"
+            abs_v = abs(value)
+            if abs_v >= 1e9:
+                return f"{sign}${abs_v/1e9:.2f}B"
+            if abs_v >= 1e6:
+                return f"{sign}${abs_v/1e6:.1f}M"
+            if abs_v >= 1e3:
+                return f"{sign}${abs_v/1e3:.0f}K"
+            return f"{sign}${abs_v:,.0f}"
+
+        for i, (event_name, car, irci_impact, event_window_dollar) in enumerate(event_menu_items):
             if i % 2 == 0:
                 self.set_fill_color(248, 249, 250)
             else:
                 self.set_fill_color(255, 255, 255)
 
-            # Format IRCI impact
-            if irci_impact >= 0:
-                irci_str = f"+{irci_impact:.4f} pts"
-            else:
-                irci_str = f"{irci_impact:.4f} pts"
+            irci_str = f"{'+' if irci_impact >= 0 else ''}{irci_impact:.4f} pts"
+            ew_str = fmt_dollar(event_window_dollar)
+            persistent_str = fmt_dollar(irci_impact * dollar_per_point)
 
-            # Calculate dollar value
-            dollar_impact = irci_impact * dollar_per_point
-            is_negative = dollar_impact < 0
-            abs_value = abs(dollar_impact)
-
-            if abs_value >= 1e9:
-                if is_negative:
-                    value_str = f"-${abs_value/1e9:.2f}B"
-                else:
-                    value_str = f"${abs_value/1e9:.2f}B"
-            elif abs_value >= 1e6:
-                if is_negative:
-                    value_str = f"-${abs_value/1e6:.1f}M"
-                else:
-                    value_str = f"${abs_value/1e6:.1f}M"
-            else:
-                if is_negative:
-                    value_str = f"-${abs_value:,.0f}"
-                else:
-                    value_str = f"${abs_value:,.0f}"
-
-            self.cell(50, 3.5, event_name, 1, 0, 'L', fill=True)
-            self.cell(20, 3.5, car, 1, 0, 'C', fill=True)
-            self.cell(30, 3.5, irci_str, 1, 0, 'C', fill=True)
-            self.cell(40, 3.5, value_str, 1, 1, 'C', fill=True)
+            self.cell(45, 3.5, event_name, 1, 0, 'L', fill=True)
+            self.cell(15, 3.5, car, 1, 0, 'C', fill=True)
+            self.cell(35, 3.5, ew_str, 1, 0, 'C', fill=True)
+            self.cell(25, 3.5, irci_str, 1, 0, 'C', fill=True)
+            self.cell(30, 3.5, persistent_str, 1, 1, 'C', fill=True)
 
         self.set_font('Arial', 'I', 6)
         weight_note = ""
         if weights:
             weight_note = f" Weights: Val={weights.get('valuation', 0.35)*100:.0f}%, Liq={weights.get('liquidity', 0.35)*100:.0f}%, Cov={weights.get('coverage', 0.15)*100:.0f}%, Trust={weights.get('sentiment', 0.15)*100:.0f}%."
-        self.cell(0, 3, f"CAR = Cumulative Abnormal Return. IRCI Impact calculated using current dial weights.{weight_note}", 0, 1, 'L')
+        self.cell(0, 3, f"CAR = Cumulative Abnormal Return (peer-reviewed event studies). Event-Window $ = CAR x EV (announcement effect).", 0, 1, 'L')
+        self.cell(0, 3, f"Persistent IR $ = IRCI Lift x Company $/IRCI Point (durable quality lift, not announcement effect).{weight_note}", 0, 1, 'L')
 
         self.ln(2)
 

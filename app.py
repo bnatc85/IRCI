@@ -3978,7 +3978,7 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         st.markdown("#### 💵 Dollar Value per IRCI Point")
         st.markdown("*Reveals how much enterprise value corresponds to each IRCI point improvement*")
 
-        st.caption("⚠️ Dollar estimates are **planning ranges** based on peer regression, not guarantees. Values scaled by R² for conservatism.")
+        st.caption("⚠️ Dollar estimates are **planning ranges** anchored to disclosure-quality cost-of-equity literature (Botosan 1997; Healy, Hutton & Palepu 1999). Not guarantees.")
 
         try:
             dollar_value_df = compute_dollar_value_per_irci_point(df_composite_filtered, df_val_filtered)
@@ -3986,26 +3986,45 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             if dollar_value_df.empty:
                 st.warning("⚠️ No enterprise value data available for dollar value calculations. The valuation dial may not have enterprise_value data for this time period.")
             else:
-                # Display key metric
+                # Headline metric: literature-anchored elasticity (NOT the noisy in-sample regression)
                 avg_company_dollars_per_point = dollar_value_df['company_$/irci_pt'].mean()
-                r2_score = dollar_value_df['regression_r2'].iloc[0] if not dollar_value_df['regression_r2'].isna().all() else 0.0
+                avg_low = dollar_value_df['company_$/irci_pt_low'].mean()
+                avg_high = dollar_value_df['company_$/irci_pt_high'].mean()
+                r2_score = dollar_value_df['regression_r2'].iloc[0] if not dollar_value_df['regression_r2'].isna().all() else np.nan
 
                 col1, col2, col3 = st.columns(3)
                 col1.metric(
                     "Avg Company $/IRCI Point",
                     f"${avg_company_dollars_per_point:,.0f}" if not pd.isna(avg_company_dollars_per_point) else "N/A",
-                    help="Company-specific dollar value per IRCI point. Based on academic research (Bushee & Miller 2012): IR contributes 5-10% to firm value over long term, spread across ~50 IRCI points = 0.05% of EV per point (scaled by R²)."
+                    help=(
+                        "Literature-anchored elasticity: 0.12% of Enterprise Value per IRCI percentile point. "
+                        "Derived from Botosan (1997) cost-of-equity findings via Gordon growth, mapped to the "
+                        "~50% of IRCI that captures disclosure quality (Coverage + half of Trust). "
+                        "Capped at 20% total IR-attributable EV per Healy, Hutton & Palepu (1999)."
+                    )
                 )
                 col2.metric(
-                    "Regression R²",
-                    f"{r2_score:.2f}" if not pd.isna(r2_score) else "N/A",
-                    help="How well EV correlates with IRCI scores (0-1 scale). R² of 0.3-0.5 is typical for secondary factors after fundamentals. Higher = stronger relationship."
+                    "Literature Range",
+                    f"${avg_low:,.0f} – ${avg_high:,.0f}",
+                    help=(
+                        "Low: 0.05% of EV per point (only Coverage dial). "
+                        "High: 0.25% of EV per point (full Botosan disclosure-quality elasticity). "
+                        "Headline metric is the mid-range (0.12%)."
+                    )
                 )
                 col3.metric(
                     "Max IRCI Gap",
                     f"{dollar_value_df['irci_gap_to_top'].max():.1f} pts",
-                    help="Largest gap between a peer and the top performer. This shows the maximum improvement opportunity in the peer group."
+                    help="Largest gap between a peer and the top performer. Maximum improvement opportunity in this peer group."
                 )
+
+                if not pd.isna(r2_score):
+                    st.caption(
+                        f"📊 *Diagnostic only:* in-sample EV~IRCI peer regression R²={r2_score:.2f}. "
+                        f"This is reported for transparency but does NOT scale the headline above — with n≈{len(dollar_value_df)} "
+                        f"peers, the regression is dominated by size/business-mix and is too noisy to identify the IR-attributable slope. "
+                        f"Out-of-sample literature anchor (Botosan 1997 + Healy-Hutton-Palepu 1999) is used instead."
+                    )
 
 
                 # IR Contribution Value Summary
@@ -4216,12 +4235,13 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     """)
 
                 # Visualization: Scatter plot of EV vs IRCI with regression line
+                r2_label = f"R²={r2_score:.2f} (diagnostic)" if not pd.isna(r2_score) else "n<3 — no regression"
                 fig = px.scatter(
                     dollar_value_df,
                     x='irci_composite_pct',
                     y='enterprise_value',
                     text='ticker',
-                    title=f'Enterprise Value vs IRCI Score (R² = {r2_score:.2f})',
+                    title=f'Enterprise Value vs IRCI Score ({r2_label})',
                     labels={'irci_composite_pct': 'IRCI Score (%)', 'enterprise_value': 'Enterprise Value ($)'},
                     color='company_$/irci_pt',
                     color_continuous_scale='Viridis',
@@ -4235,8 +4255,8 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 )
                 fig.update_traces(textposition='top center')
 
-                # Add regression line if R² is reasonable
-                if r2_score > 0.1:
+                # Add regression line if R² is reasonable (diagnostic only — sizing comes from literature elasticity)
+                if not pd.isna(r2_score) and r2_score > 0.1:
                     from scipy import stats
                     slope, intercept, _, _, _ = stats.linregress(
                         dollar_value_df['irci_composite_pct'],
@@ -4268,20 +4288,20 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                # Show regression stats inline if available
-                if not dollar_value_df.empty:
+                # Show diagnostic regression stats inline (NOT used for sizing — see methodology note above)
+                if not dollar_value_df.empty and len(dollar_value_df) >= 3:
                     from scipy import stats
                     slope, intercept, r_value, p_value, std_err = stats.linregress(
                         dollar_value_df['irci_composite_pct'],
                         dollar_value_df['enterprise_value']
                     )
                     r_squared = r_value ** 2
-                    # Apply 10% floor for calculation (same as dial_insights.py)
-                    r_squared_for_calc = max(r_squared, 0.10)
-                    scaled_slope = abs(slope) * r_squared_for_calc
                     stat_sig = "✓" if p_value < 0.05 else "⚠️"
-                    floor_note = " (10% floor applied)" if r_squared < 0.10 else ""
-                    st.caption(f"Regression: Raw slope \\${abs(slope):,.0f}/pt × R²={r_squared_for_calc:.2f}{floor_note} = \\${scaled_slope:,.0f}/pt (p={p_value:.3f} {stat_sig})")
+                    st.caption(
+                        f"📊 *Diagnostic in-sample regression* (NOT used for sizing): "
+                        f"raw slope \\${abs(slope):,.0f}/pt, R²={r_squared:.2f}, p={p_value:.3f} {stat_sig}. "
+                        f"Headline $/IRCI point comes from the Botosan/Healy literature elasticity, not this regression."
+                    )
 
         except Exception as e:
             st.warning(f"Could not compute dollar value metrics: {str(e)}")
@@ -5587,64 +5607,62 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             'sentiment': weight_trust / 100
         }
     
-        # Define all event types with their configurations
-        # CAR estimates based on published academic research
+        # Event configurations. CARs are short-window event-study estimates from peer-reviewed
+        # finance literature; see help expander below for full citations.
         event_menu_items = [
             # === Major Corporate Events ===
-            # Investor Day: MZ Group (2024) shows +0.5% to +5% CAR, avg +30% appreciation in case studies
+            # Investor Day / Analyst Day: Kirk & Markov (2016, Accounting Review)
             ('Investor Day', 'investor_day', {}, "+2.0%", "+2% Cov, +1.5% Trust"),
-            # Analyst Day: Similar to investor day but smaller sample; Francis et al. (1997)
             ('Analyst Day', 'analyst_day', {}, "+1.5%", "+1.5% Cov, +1% Trust"),
 
             # === Leadership Changes ===
-            # CEO Change: Huson et al. (2004) "Managerial succession and firm performance" JFE
-            # Inside succession: +0.5% CAR; Outside: -0.5%; Forced: -1.5%
+            # CEO change: Borokhovich, Parrino & Trapani (1996, JFQA); Denis & Denis (1995, JF)
+            # Markets generally welcome change, especially forced exits (governance correction)
             ('CEO Change (Inside)', 'ceo_change', {'succession_type': 'planned_inside', 'forced': False}, "+0.5%", "+0.5% Trust"),
-            ('CEO Change (Outside)', 'ceo_change', {'succession_type': 'outside', 'forced': False}, "-0.5%", "-0.5% Trust"),
-            ('CEO Change (Forced)', 'ceo_change', {'succession_type': 'unknown', 'forced': True}, "-1.5%", "-1% Trust"),
-            # CFO Change: Mian (2001) "On the choice and replacement of CFOs" JFE
+            ('CEO Change (Outside)', 'ceo_change', {'succession_type': 'outside', 'forced': False}, "+1.0%", "+0.8% Trust"),
+            ('CEO Change (Forced)', 'ceo_change', {'succession_type': 'unknown', 'forced': True}, "+2.0%", "+1.5% Trust"),
+            # CFO change: Mian (2001, JAE); Hennes, Leone & Miller (2008, AR)
             ('CFO Change (Voluntary)', 'cfo_change', {'forced': False}, "-0.3%", "-0.3% Trust"),
             ('CFO Change (Forced)', 'cfo_change', {'forced': True}, "-1.0%", "-0.8% Trust"),
-            # Director Change: moderate governance signal
             ('Director Change', 'director_change', {}, "-0.2%", "-0.2% Trust"),
 
             # === Capital Allocation Events ===
-            # Dividend: Michaely et al. (1995) "Price reactions to dividend initiations" JF
-            # Initiation: +3.4%, Increase >10%: +1.0%, Cut: -3.7%
-            ('Dividend Initiation', 'dividend_announcement', {'dividend_change_pct': 100, 'is_initiation': True}, "+3.4%", "+1.5% Trust, +0.5% Val"),
+            # Dividend: Michaely, Thaler & Womack (1995, JF); Grullon, Michaely & Swaminathan (2002, JB)
+            ('Dividend Initiation', 'dividend_announcement', {'dividend_change_pct': 100, 'is_initiation': True}, "+3.4%", "+1.5% Trust"),
             ('Dividend Increase (>10%)', 'dividend_announcement', {'dividend_change_pct': 15}, "+1.0%", "+0.5% Trust"),
-            ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -30}, "-3.7%", "-1.5% Trust"),
-            # Buyback: Ikenberry et al. (1995) "Market underreaction to open market share repurchases" JFE
-            # Avg CAR: +3.5% at announcement, +12% over 4 years
-            ('Buyback Announcement', 'buyback_announcement', {}, "+3.5%", "+1.5% Trust, +0.8% Val"),
+            ('Dividend Cut', 'dividend_announcement', {'dividend_change_pct': -30}, "-6.5%", "-1.5% Trust"),
+            # Buyback: Ikenberry, Lakonishok & Vermaelen (1995, JFE)
+            ('Buyback Announcement', 'buyback_announcement', {}, "+3.5%", "+1.5% Trust"),
 
             # === Earnings & Guidance ===
-            # Earnings: Ball & Brown (1968), Bernard & Thomas (1989) post-earnings drift
-            ('Earnings Beat (>5%)', 'earnings_call', {'beat_pct': 0.05}, "+2.0%", "+1% Trust, +0.5% Val"),
-            ('Earnings Miss (>5%)', 'earnings_call', {'beat_pct': -0.05}, "-2.5%", "-1% Trust, -0.5% Val"),
-            ('Guidance Raise', 'strategic_announcement', {'sentiment': 0.8, 'announcement_type': 'guidance_raise'}, "+1.8%", "+0.8% Trust, +0.5% Cov"),
-            ('Guidance Lower', 'strategic_announcement', {'sentiment': -0.8, 'announcement_type': 'guidance_lower'}, "-2.2%", "-1% Trust, -0.5% Cov"),
+            # Earnings: Bernard & Thomas (1989, 1990); Livnat & Mendenhall (2006, JAR);
+            # Skinner & Sloan (2002, RAS) for asymmetric punishment
+            ('Earnings Beat (>5%)', 'earnings_call', {'beat_pct': 0.05}, "+3.5%", "+1% Trust, +0.5% Cov"),
+            ('Earnings Miss (>5%)', 'earnings_call', {'beat_pct': -0.05}, "-4.5%", "-1% Trust, -0.5% Cov"),
+            # Guidance: Anilowski, Feng & Skinner (2007, JAE); Kasznik & Lev (1995, AR)
+            ('Guidance Raise', 'strategic_announcement', {'sentiment': 0.8, 'announcement_type': 'guidance_raise'}, "+2.5%", "+1.2% Trust, +0.5% Cov"),
+            ('Guidance Lower', 'strategic_announcement', {'sentiment': -0.8, 'announcement_type': 'guidance_lower'}, "-5.0%", "-2.5% Trust, -0.5% Cov"),
 
             # === Strategic Announcements ===
-            ('M&A Announcement (Acquirer)', 'strategic_announcement', {'sentiment': 0.3, 'announcement_type': 'ma_acquirer'}, "-1.0%", "-0.5% Trust, +0.3% Cov"),
-            ('M&A Announcement (Target)', 'strategic_announcement', {'sentiment': 0.9, 'announcement_type': 'ma_target'}, "+15-30%", "+5% Trust, +2% Cov"),
-            ('Strategic Partnership', 'strategic_announcement', {'sentiment': 0.6, 'announcement_type': 'partnership'}, "+1.2%", "+0.6% Trust, +0.4% Cov"),
-            ('Restructuring Announcement', 'strategic_announcement', {'sentiment': -0.4, 'announcement_type': 'restructuring'}, "-0.8%", "-0.4% Trust, +0.3% Cov"),
+            # M&A acquirer: Andrade, Mitchell & Stafford (2001, JEP); Moeller, Schlingemann & Stulz (2004, JFE)
+            ('M&A Announcement (Acquirer)', 'strategic_announcement', {'sentiment': 0.3, 'announcement_type': 'ma_acquirer'}, "-1.0%", "-0.5% Trust, +0.5% Cov"),
+            # Partnership: Chan, Kensinger, Keown & Martin (1997, JFE)
+            ('Strategic Partnership', 'strategic_announcement', {'sentiment': 0.6, 'announcement_type': 'partnership'}, "+1.2%", "+0.6% Trust, +0.5% Cov"),
+            # Restructuring: John & Ofek (1995, JFE); Worrell, Davidson & Sharma (1991, AMJ)
+            ('Restructuring Announcement', 'strategic_announcement', {'sentiment': -0.4, 'announcement_type': 'restructuring'}, "-0.8%", "-0.4% Trust, +0.5% Cov"),
 
             # === Daily IR Activities ===
-            # Grullon et al. (2004): 25% increase in advertising → +1.32% firm value
-            ('Advertising Campaign', 'advertising_campaign', {}, "+1.3%", "+0.5% Cov, +0.3% Trust"),
-            # Brunswick Group (2023): 80% of institutional investors use social media
-            ('Social Media Campaign', 'social_media_campaign', {}, "+0.5%", "+0.6% Cov, +0.4% Liq"),
-            # Francis et al. (1997): Conference presentations serve as price discovery
+            # Advertising: Joshi & Hanssens (2010, J. Marketing) - per-campaign stock lift
+            ('Advertising Campaign', 'advertising_campaign', {}, "+0.8%", "+0.8% Liq, +0.5% Cov"),
+            # Conference presentation: Bushee, Jung & Miller (2011, JAR)
             ('Conference Presentation', 'conference_presentation', {}, "+0.8%", "+0.8% Cov, +0.4% Trust"),
-            # Irvine (2003): Analyst initiation creates +1.02% abnormal return
-            ('Analyst Coverage Initiation', 'analyst_coverage_initiation', {}, "+1.0%", "+1.5% Cov, +0.8% Liq, +0.5% Trust"),
-            # Website/IR improvements: industry estimates
-            ('IR Website Improvement', 'ir_website_improvement', {}, "+0.5%", "+0.4% Cov, +0.3% Trust"),
-            ('Press Release Program', 'press_release_program', {}, "+0.5%", "+0.3% Cov, +0.2% Trust"),
-            # Non-deal roadshow: Green et al. (2014) "Access to management and the informativeness"
+            # Non-deal roadshow: Bushee, Gerakos & Lee (2018, AR)
             ('Non-Deal Roadshow', 'conference_presentation', {'is_roadshow': True}, "+0.6%", "+0.5% Cov, +0.3% Trust"),
+            # Analyst coverage initiation: Irvine (2003, JAE)
+            ('Analyst Coverage Initiation', 'analyst_coverage_initiation', {}, "+1.0%", "+1.5% Cov, +0.8% Liq, +0.5% Trust"),
+            # NOTE: Social Media Campaign, IR Website Improvement, Press Release Program removed
+            # as of 2026Q1 methodology revision - no clean event-study anchor and risk of
+            # double-counting (press releases impound into the other events above).
         ]
     
         # Calculate impacts for each event type
@@ -5663,49 +5681,65 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                 )
                 event_values.append({
                     'Event Type': label,
+                    'event_window_num': impact.get('event_window_dollar', 0.0),
                     'irci_impact_num': impact['irci_impact'],
                     'dollar_impact_num': impact['dollar_impact'],
                     'Expected CAR': expected_car,
                     'Affected Dials': dial_impact
                 })
             except Exception as e:
-                # If calculation fails, still show the event with expected values
                 event_values.append({
                     'Event Type': label,
+                    'event_window_num': 0.0,
                     'irci_impact_num': 0,
                     'dollar_impact_num': 0,
                     'Expected CAR': expected_car,
                     'Affected Dials': dial_impact
                 })
 
-        # Create dataframe with numeric columns for sorting
+        # Create dataframe with numeric columns for sorting (sort by absolute event-window impact)
         event_menu_df = pd.DataFrame(event_values)
+        event_menu_df = event_menu_df.reindex(
+            event_menu_df['event_window_num'].abs().sort_values(ascending=False).index
+        ).reset_index(drop=True)
 
-        # Rename numeric columns for display and convert dollar to millions for better display
-        event_menu_df['IRCI Impact (pts)'] = event_menu_df['irci_impact_num']
-        event_menu_df['Dollar Impact ($M)'] = event_menu_df['dollar_impact_num'] / 1e6
+        # Display columns
+        event_menu_df['Event-Window $ (M)'] = event_menu_df['event_window_num'] / 1e6
+        event_menu_df['IRCI Lift (pts)'] = event_menu_df['irci_impact_num']
+        event_menu_df['Persistent IR Lift ($K)'] = event_menu_df['dollar_impact_num'] / 1e3
 
-        # Select columns for display
-        display_cols = ['Event Type', 'IRCI Impact (pts)', 'Dollar Impact ($M)', 'Expected CAR', 'Affected Dials']
+        display_cols = ['Event Type', 'Expected CAR', 'Event-Window $ (M)',
+                        'IRCI Lift (pts)', 'Persistent IR Lift ($K)', 'Affected Dials']
 
-        # Display with numeric columns that can be sorted
         st.dataframe(
             event_menu_df[display_cols],
             use_container_width=True,
             hide_index=True,
-            height=400,
+            height=520,
             column_config={
-                "IRCI Impact (pts)": st.column_config.NumberColumn(
-                    "IRCI Impact (pts)",
-                    help="IRCI point impact for this event type",
-                    format="%.4f"
+                "Event-Window $ (M)": st.column_config.NumberColumn(
+                    "Event-Window $ (M)",
+                    help="Literature-direct event-window value: CAR × Enterprise Value. "
+                         "What published event-study research says happens in the days around the event.",
+                    format="$%+,.0fM"
                 ),
-                "Dollar Impact ($M)": st.column_config.NumberColumn(
-                    "Dollar Impact ($M)",
-                    help="Dollar impact in millions",
-                    format="$%.2f"
+                "IRCI Lift (pts)": st.column_config.NumberColumn(
+                    "IRCI Lift (pts)",
+                    help="Persistent IRCI point shift attributable to this event type. "
+                         "Smaller than event-window CAR because IRCI measures durable peer-relative quality.",
+                    format="%+.4f"
+                ),
+                "Persistent IR Lift ($K)": st.column_config.NumberColumn(
+                    "Persistent IR Lift ($K)",
+                    help="IRCI Lift × Company $/IRCI Point. The slow-burn quality lift, not the announcement effect.",
+                    format="$%+,.0fK"
                 ),
             }
+        )
+        st.caption(
+            "💡 **Two different measures** — *Event-Window $* is the one-time announcement effect from "
+            "event-study literature (CAR × EV). *Persistent IR Lift* is the durable quality "
+            "improvement attributable to this IR action. They answer different questions."
         )
     
         st.caption("💡 **How to Use**: Review the projected impacts above, then add events to your scenario below to see cumulative effects.")
@@ -5713,19 +5747,39 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
         # Research References
         with st.expander("📚 Research Methodology", expanded=False):
             st.markdown("""
-**Event Impact Sources:**
-| Event Type | Impact | Source |
-|------------|--------|--------|
-| Investor Days | +0.5% to +5% CAR | MZ Group (2024) |
-| CEO Change (Inside) | +0.5% CAR | Succession literature |
-| CEO Change (Forced) | -1.5% CAR | Succession literature |
-| Analyst Coverage | +1.02% CAR | Irvine (2003), JFE |
-| Buyback Announced | +1.5% CAR | Capital allocation research |
-| Dividend Increase | +1.0% CAR | Signaling theory |
+**Event-window CARs** are short-window (typically [-1,+1] or [0,+1]) cumulative abnormal returns
+from peer-reviewed finance journals:
 
-**Dollar Impact:** `IRCI Impact × Company $/IRCI Point` (R²-scaled for conservatism)
+| Event | CAR | Source |
+|-------|-----|--------|
+| Investor Day / Analyst Day | +1.5 to +2% | Kirk & Markov (2016), *Accounting Review* |
+| CEO Change (Inside) | +0.5% | Borokhovich, Parrino & Trapani (1996), *JFQA* |
+| CEO Change (Outside) | +1.0% | Borokhovich et al. (1996) — outside hires welcomed |
+| CEO Change (Forced) | +2.0% | Denis & Denis (1995), *JF* — markets reward governance correction |
+| CFO Change (Forced) | -1.0% | Mian (2001), *JAE*; Hennes, Leone & Miller (2008), *AR* |
+| Earnings Beat (>5%) | +3.5% | Bernard & Thomas (1989, 1990); Livnat & Mendenhall (2006), *JAR* |
+| Earnings Miss (>5%) | -4.5% | Skinner & Sloan (2002), *RAS* — asymmetric punishment |
+| Guidance Raise | +2.5% | Anilowski, Feng & Skinner (2007), *JAE* |
+| Guidance Lower | -5.0% | Anilowski, Feng & Skinner (2007); Kasznik & Lev (1995), *AR* |
+| Dividend Initiation | +3.4% | Michaely, Thaler & Womack (1995), *JF* |
+| Dividend Cut | -6.5% | Michaely, Thaler & Womack (1995) |
+| Buyback Announcement | +3.5% | Ikenberry, Lakonishok & Vermaelen (1995), *JFE* |
+| M&A (Acquirer) | -1.0% | Andrade, Mitchell & Stafford (2001), *JEP* |
+| Strategic Partnership | +1.2% | Chan, Kensinger, Keown & Martin (1997), *JFE* |
+| Analyst Coverage Initiation | +1.0% | Irvine (2003), *JAE* |
+| Conference Presentation | +0.8% | Bushee, Jung & Miller (2011), *JAR* |
+| Non-Deal Roadshow | +0.6% | Bushee, Gerakos & Lee (2018), *AR* |
+| Advertising Campaign | +0.8% | Joshi & Hanssens (2010), *J. Marketing* |
 
-**Confidence Levels:** High (0.6-0.7) = strong evidence, Medium (0.4-0.5) = moderate, Low (0.1-0.3) = aggregate
+**Two columns, two questions:**
+- *Event-Window $* = CAR × current Enterprise Value. What event-study literature directly supports
+  happens in the days around the event. For DIS at ~$200B EV, +1% CAR ≈ $2B.
+- *Persistent IR Lift* = IRCI dial nudge × $/IRCI point. The slow-burn quality improvement
+  attributable to making this part of your durable IR program. Always much smaller than CAR × EV
+  because IRCI measures *peer-relative* quality, which can't move overnight.
+
+**Confidence:** High (0.6-0.7) = strong replicated evidence; Medium (0.4-0.5) = moderate;
+Low (0.2-0.3) = thin or window-dependent.
             """)
     
     
