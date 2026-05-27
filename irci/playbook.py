@@ -12,8 +12,14 @@ from typing import Dict, List, Tuple
 import pandas as pd
 
 
-def classify_score(score: float) -> str:
+def classify_score(score) -> str:
     """Classify a dial score as low/medium/high"""
+    try:
+        score = float(score)
+    except (TypeError, ValueError):
+        score = 50
+    if pd.isna(score):
+        score = 50
     if score < 35:
         return "critical"
     elif score < 50:

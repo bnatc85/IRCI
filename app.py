@@ -54,6 +54,21 @@ from irci.report_generator import generate_pdf_report
 from irci.corporate_events_fetcher import fetch_corporate_events_for_peer_group
 import numpy as np
 
+
+def safe_val(v, default=50):
+    """Convert pd.NA / NaN / None to a safe float default."""
+    if v is None:
+        return default
+    try:
+        if pd.isna(v):
+            return default
+    except (TypeError, ValueError):
+        pass
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
 def recalculate_composite_scores(df_composite, weights):
     """
     Recalculate irci_composite_pct in-place using new weights.
@@ -4397,11 +4412,11 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
 
         # Get company-specific data for display
         company_data = df_composite[df_composite['ticker'] == budget_ticker].iloc[0]
-        company_irci = company_data.get('irci_composite_pct', 50)
-        company_val = company_data.get('valuation_pct', 50)
-        company_liq = company_data.get('liquidity_pct', 50)
-        company_cov = company_data.get('coverage_pct', 50)
-        company_trust = company_data.get('sentiment_pct', 50)
+        company_irci = safe_val(company_data.get('irci_composite_pct'))
+        company_val = safe_val(company_data.get('valuation_pct'))
+        company_liq = safe_val(company_data.get('liquidity_pct'))
+        company_cov = safe_val(company_data.get('coverage_pct'))
+        company_trust = safe_val(company_data.get('sentiment_pct'))
 
         # Find weakest dial
         dial_scores = {'Valuation': company_val, 'Liquidity': company_liq, 'Coverage': company_cov, 'Trust': company_trust}
@@ -6123,12 +6138,12 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
             company_row = df_composite_filtered[df_composite_filtered['ticker'] == playbook_ticker].iloc[0]
     
             dial_scores = {
-                'valuation': company_row.get('valuation_pct', 50),
-                'liquidity': company_row.get('liquidity_pct', 50),
-                'coverage': company_row.get('coverage_pct', 50),
-                'trust': company_row.get('sentiment_pct', 50)
+                'valuation': safe_val(company_row.get('valuation_pct')),
+                'liquidity': safe_val(company_row.get('liquidity_pct')),
+                'coverage': safe_val(company_row.get('coverage_pct')),
+                'trust': safe_val(company_row.get('sentiment_pct'))
             }
-    
+
             # Calculate dollar value per IRCI point for this company
             company_dollar_per_point = None
             try:
@@ -6651,10 +6666,10 @@ if 'df_composite' in st.session_state and st.session_state['df_composite'] is no
                     # Get playbook for the selected ticker
                     company_row = df_composite[df_composite['ticker'] == pdf_ticker].iloc[0]
                     dial_scores = {
-                        'valuation': company_row.get('valuation_pct', 50),
-                        'liquidity': company_row.get('liquidity_pct', 50),
-                        'coverage': company_row.get('coverage_pct', 50),
-                        'trust': company_row.get('sentiment_pct', 50)
+                        'valuation': safe_val(company_row.get('valuation_pct')),
+                        'liquidity': safe_val(company_row.get('liquidity_pct')),
+                        'coverage': safe_val(company_row.get('coverage_pct')),
+                        'trust': safe_val(company_row.get('sentiment_pct'))
                     }
                     pdf_playbook = generate_playbook(dial_scores, df_composite, pdf_ticker)
 

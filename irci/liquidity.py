@@ -230,7 +230,7 @@ def add_liquidity_percentile(
             out["quarter_end"] = x["quarter_end"]
         else:
             out["quarter_end"] = x.index.get_level_values("quarter_end") if "quarter_end" in x.index.names else x.index
-        out["liquidity_pct"] = dial.round().astype("Int64")
+        out["liquidity_pct"] = dial.round()
         return out
 
     res = (
