@@ -2254,7 +2254,13 @@ elif run_analysis:
                 # Force timezone-naive by normalizing to date
                 if "quarter_end" in df_liq.columns:
                     df_liq["quarter_end"] = pd.to_datetime(pd.to_datetime(df_liq["quarter_end"]).dt.date)
-                df_liq = add_liquidity_percentile(df_liq)
+                try:
+                    df_liq = add_liquidity_percentile(df_liq)
+                except Exception as e:
+                    st.warning(f"⚠️ Liquidity percentile calculation error: {e}")
+                    # Ensure liquidity_pct column exists even if calculation fails
+                    if "liquidity_pct" not in df_liq.columns:
+                        df_liq["liquidity_pct"] = np.nan
             ticker_progress.empty()  # Clear ticker progress
             progress_bar.progress(80, text="✓ Liquidity complete")
 
