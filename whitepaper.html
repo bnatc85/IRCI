@@ -260,8 +260,8 @@
   <div class="subtitle">A Quantitative Framework for Measuring, Benchmarking,<br>and Valuing Investor Relations Performance</div>
   <div class="cover-meta">
     <strong>Version 1.0</strong> &mdash; May 2026<br>
-    Contact: <a href="mailto:brushing@uccs.edu" style="color:#2563eb;">brushing@uccs.edu</a><br>
-    University of Colorado Colorado Springs
+    Patent Pending<br>
+    <a href="https://www.thebonnierushing.com" target="_blank" style="color:#2563eb;">www.thebonnierushing.com</a> &bull; <a href="mailto:brushing@uccs.edu" style="color:#2563eb;">brushing@uccs.edu</a>
   </div>
 </div>
 
@@ -379,19 +379,19 @@
 
 <p>All scoring uses <strong>median-anchored percentile scaling</strong>, which maps each metric to a 0&ndash;100 scale where the peer-group median equals 50. This approach is robust to outliers, handles small peer groups gracefully through range compression, and provides intuitive interpretation: above 50 means above-median, below 50 means below-median.</p>
 
-<h3>Default Dial Weights</h3>
+<h3>Adaptive Dial Weights</h3>
 <div class="weight-bar">
-  <div class="wb-val">Valuation 35%</div>
-  <div class="wb-liq">Liquidity 35%</div>
-  <div class="wb-cov">Coverage 15%</div>
-  <div class="wb-tru">Trust 15%</div>
+  <div class="wb-val">Valuation w<sub>1</sub></div>
+  <div class="wb-liq">Liquidity w<sub>2</sub></div>
+  <div class="wb-cov">Coverage w<sub>3</sub></div>
+  <div class="wb-tru">Trust w<sub>4</sub></div>
 </div>
-<p>These defaults can be auto-optimized using ridge-regularized non-negative least squares (NNLS) regression to find weights that maximize the correlation (R&sup2;) between IRCI scores and enterprise values within the peer group.</p>
+<p>Dial weights are <strong>auto-optimized for each peer group</strong> using ridge-regularized non-negative least squares (NNLS) regression. The optimizer finds the weight combination that maximizes the correlation (R&sup2;) between IRCI scores and enterprise values within the specific peer group being analyzed. This means weights adapt to each industry and competitive set&mdash;no fixed assumptions are imposed.</p>
 
 <!-- ========== 4. THE FOUR DIALS ========== -->
 <h2 id="s4" class="page-break">4. The Four Dials</h2>
 
-<h3 id="s4a">4.1 Valuation Dial <span class="c-val">(35% Default Weight)</span></h3>
+<h3 id="s4a">4.1 Valuation Dial <span class="c-val">(weight auto-optimized per peer group)</span></h3>
 
 <p>The Valuation dial measures how the market values a company relative to its fundamentals. Academic research consistently shows that effective investor relations reduces information asymmetry, which directly improves valuation multiples (Bushee &amp; Miller, 2012).</p>
 
@@ -408,7 +408,7 @@
   Valuation Gap = (company_EV/EBITDA - peer_mean) / peer_mean &times; 100%
 </div>
 
-<h3 id="s4b">4.2 Liquidity Dial <span class="c-liq">(35% Default Weight)</span></h3>
+<h3 id="s4b">4.2 Liquidity Dial <span class="c-liq">(weight auto-optimized per peer group)</span></h3>
 
 <p>The Liquidity dial measures how easily a company's stock trades without moving the price. Strong IR programs attract institutional investors and market makers, tightening spreads and increasing turnover. This dial carries equal weight to Valuation because liquidity directly impacts a company's cost of capital and ability to raise funds.</p>
 
@@ -438,7 +438,7 @@
 
 <p>Daily metrics are computed over the quarter, with Amihud and Roll spread values winsorized to handle outliers. The quarterly aggregate uses the median for Amihud and Roll spread (robust to extreme days) and the mean for turnover.</p>
 
-<h3 id="s4c" class="page-break">4.3 Coverage Dial <span class="c-cov">(15% Default Weight)</span></h3>
+<h3 id="s4c" class="page-break">4.3 Coverage Dial <span class="c-cov">(weight auto-optimized per peer group)</span></h3>
 
 <p>The Coverage dial measures media visibility, analyst attention, and disclosure quality. It captures how effectively the IR program drives awareness and maintains transparent communication with the market.</p>
 
@@ -474,7 +474,7 @@
 </table>
 </div>
 
-<h3 id="s4d">4.4 Trust &amp; Sentiment Dial <span class="c-tru">(15% Default Weight)</span></h3>
+<h3 id="s4d">4.4 Trust &amp; Sentiment Dial <span class="c-tru">(weight auto-optimized per peer group)</span></h3>
 
 <p>The Trust dial measures market confidence and perception&mdash;how investors and media perceive the company's communication and transparency. It is the most AI-intensive dial, leveraging FinBERT transformer models for financial sentiment analysis.</p>
 
@@ -525,7 +525,9 @@
 
 <div class="formula-block">
   <span class="label">IRCI Composite Score</span>
-  IRCI = (Valuation &times; 0.35) + (Liquidity &times; 0.35) + (Coverage &times; 0.15) + (Trust &times; 0.15)
+  IRCI = (Valuation &times; w&lt;sub&gt;1&lt;/sub&gt;) + (Liquidity &times; w&lt;sub&gt;2&lt;/sub&gt;) + (Coverage &times; w&lt;sub&gt;3&lt;/sub&gt;) + (Trust &times; w&lt;sub&gt;4&lt;/sub&gt;)
+
+  Weights w&lt;sub&gt;1&lt;/sub&gt;...w&lt;sub&gt;4&lt;/sub&gt; are auto-optimized per peer group (constrained: w &ge; 0, &Sigma;w = 1)
 
   Result: 0&ndash;100 peer-relative percentile scale
   &bull; 75&ndash;100: Strong (top quartile)
@@ -551,8 +553,8 @@
   <li><strong>Small-group compression:</strong> For peer groups of 2&ndash;5 companies, the range is compressed (e.g., 15&ndash;85 for 3 peers) to avoid giving false precision to a narrow comparison.</li>
 </ul>
 
-<h3>Weight Auto-Optimization</h3>
-<p>Users can override default weights or run the auto-optimizer, which uses ridge-regularized non-negative least squares regression:</p>
+<h3>Weight Optimization Algorithm</h3>
+<p>The auto-optimizer runs as part of every analysis, using ridge-regularized non-negative least squares regression:</p>
 
 <div class="formula-block">
   <span class="label">Auto-Optimization</span>
@@ -907,8 +909,9 @@
 <div class="callout" style="text-align:center; border-left-color:#7c3aed; background:#f5f3ff;">
   <strong style="color:#6d28d9; font-size:1.1rem;">Get in Touch</strong><br><br>
   <span style="font-size:1.05rem;">For demos, partnerships, or academic collaboration:</span><br><br>
-  <a href="mailto:brushing@uccs.edu" style="color:#2563eb; font-weight:700; font-size:1.1rem; text-decoration:none;">brushing@uccs.edu</a><br><br>
-  <span style="color:#64748b;">University of Colorado Colorado Springs</span>
+  <a href="https://www.thebonnierushing.com" target="_blank" style="color:#2563eb; font-weight:700; font-size:1.1rem; text-decoration:none;">www.thebonnierushing.com</a><br>
+  <a href="mailto:brushing@uccs.edu" style="color:#94a3b8; font-size:0.95rem; text-decoration:none;">brushing@uccs.edu</a><br><br>
+  <span style="color:#64748b;">Patent Pending</span>
 </div>
 
 <!-- ========== 15. REFERENCES ========== -->
@@ -930,7 +933,7 @@
 <!-- FOOTER -->
 <div class="wp-footer">
   <p>&copy; 2026 IRCI &mdash; Investor Relations Composite Index<br>
-  <a href="mailto:brushing@uccs.edu">brushing@uccs.edu</a> &bull; University of Colorado Colorado Springs</p>
+  <a href="https://www.thebonnierushing.com" target="_blank">www.thebonnierushing.com</a> &bull; <a href="mailto:brushing@uccs.edu">brushing@uccs.edu</a> &bull; Patent Pending</p>
 </div>
 
 </div><!-- /.paper -->

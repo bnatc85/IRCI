@@ -639,7 +639,7 @@
           <div class="dial-icon">V</div>
           <div>
             <div class="dial-name">Valuation</div>
-            <div class="dial-weight">35% Weight</div>
+            <div class="dial-weight">Auto-optimized weight</div>
           </div>
         </div>
         <p>How the market values your company relative to fundamentals. Good IR reduces information asymmetry, improving multiples.</p>
@@ -655,7 +655,7 @@
           <div class="dial-icon">L</div>
           <div>
             <div class="dial-name">Liquidity</div>
-            <div class="dial-weight">35% Weight</div>
+            <div class="dial-weight">Auto-optimized weight</div>
           </div>
         </div>
         <p>How easily your stock trades without moving the price. Strong IR attracts institutional investors and tightens spreads.</p>
@@ -671,7 +671,7 @@
           <div class="dial-icon">C</div>
           <div>
             <div class="dial-name">Coverage</div>
-            <div class="dial-weight">15% Weight</div>
+            <div class="dial-weight">Auto-optimized weight</div>
           </div>
         </div>
         <p>Media visibility and analyst attention. Measures how effectively your IR program drives awareness and disclosure quality.</p>
@@ -687,7 +687,7 @@
           <div class="dial-icon">T</div>
           <div>
             <div class="dial-name">Trust &amp; Sentiment</div>
-            <div class="dial-weight">15% Weight</div>
+            <div class="dial-weight">Auto-optimized weight</div>
           </div>
         </div>
         <p>Market confidence and perception. Captures how investors and media perceive your communication and transparency.</p>
@@ -703,9 +703,9 @@
     <div class="formula-banner fade-up">
       <h3>Composite Score Formula</h3>
       <div class="formula">
-        IRCI = <span class="blue">Val&times;35%</span> + <span class="cyan">Liq&times;35%</span> + <span class="green">Cov&times;15%</span> + <span class="yellow">Trust&times;15%</span>
+        IRCI = <span class="blue">Val&times;w<sub>1</sub></span> + <span class="cyan">Liq&times;w<sub>2</sub></span> + <span class="green">Cov&times;w<sub>3</sub></span> + <span class="yellow">Trust&times;w<sub>4</sub></span>
       </div>
-      <div class="formula-note">Weights auto-optimizable via ridge-regularized NNLS regression to maximize R&sup2; with enterprise value.</div>
+      <div class="formula-note">Weights are auto-optimized for each peer group using ridge-regularized NNLS regression, maximizing correlation (R&sup2;) with enterprise value. No fixed assumptions&mdash;the data decides what matters most.</div>
     </div>
 
     <!-- Gauge Row -->
@@ -861,8 +861,8 @@
         <div class="feature-icon">
           <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         </div>
-        <h3>Auto-Optimize Weights</h3>
-        <p>Machine learning finds the optimal dial weights that maximize correlation with enterprise value for your specific peer group.</p>
+        <h3>Auto-Optimized Weights</h3>
+        <p>Dial weights are automatically optimized for each peer group analysis, ensuring the composite score reflects what actually drives enterprise value among your specific peers.</p>
       </div>
 
       <div class="feature-card fade-up">
@@ -1235,7 +1235,7 @@
 
 <!-- FOOTER -->
 <footer>
-  <p>&copy; 2026 IRCI &mdash; Investor Relations Composite Index. All rights reserved.</p>
+  <p>&copy; 2026 IRCI &mdash; Investor Relations Composite Index. Patent Pending. All rights reserved.<br><a href="https://www.thebonnierushing.com" target="_blank" style="color:#60a5fa;text-decoration:none;">www.thebonnierushing.com</a></p>
 </footer>
 
 <script>
