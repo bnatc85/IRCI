@@ -228,14 +228,17 @@ def add_liquidity_percentile(
         out = x[["ticker"]].copy()
         if "quarter_end" in x.columns:
             out["quarter_end"] = x["quarter_end"]
+        elif "quarter_end" in x.index.names:
+            out["quarter_end"] = x.index.get_level_values("quarter_end")
         else:
-            out["quarter_end"] = x.index.get_level_values("quarter_end") if "quarter_end" in x.index.names else x.index
+            # include_groups=False path: the group key is on x.name
+            out["quarter_end"] = x.name
         out["liquidity_pct"] = dial.round()
         return out
 
     res = (
         df_q.groupby("quarter_end", group_keys=False)
-            .apply(per_quarter)
+            .apply(per_quarter, include_groups=False)
             .reset_index(drop=True)
     )
 
