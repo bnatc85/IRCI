@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRCI - Investor Relations Composite Index</title>
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; font-size: 16px; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    background: #f8f9fc;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ===== NAVIGATION ===== */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px;
+    transition: box-shadow 0.3s;
+  }
+  nav.scrolled { box-shadow: 0 2px 24px rgba(0,0,0,0.08); }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 1.25rem; color: #2563eb;
+    text-decoration: none;
+  }
+  .nav-logo svg { width: 32px; height: 32px; }
+  .nav-links { display: flex; gap: 2rem; list-style: none; }
+  .nav-links a {
+    text-decoration: none; color: #64748b; font-size: 0.9rem; font-weight: 500;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: #2563eb; }
+  .nav-cta {
+    background: #2563eb; color: #fff !important; padding: 8px 20px;
+    border-radius: 8px; font-weight: 600;
+  }
+  .nav-cta:hover { background: #1d4ed8 !important; }
+
+  /* ===== HERO ===== */
+  .hero {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #0f172a 100%);
+    position: relative; overflow: hidden;
+    padding: 6rem 2rem 4rem;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(ellipse at 30% 50%, rgba(37,99,235,0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 50%, rgba(16,185,129,0.1) 0%, transparent 50%);
+    animation: heroGlow 8s ease-in-out infinite alternate;
+  }
+  @keyframes heroGlow {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(-3%, 2%); }
+  }
+  .hero-grid {
+    position: absolute; inset: 0; opacity: 0.04;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .hero-content {
+    position: relative; text-align: center; max-width: 900px;
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(37,99,235,0.15); border: 1px solid rgba(37,99,235,0.3);
+    color: #60a5fa; padding: 6px 18px; border-radius: 100px;
+    font-size: 0.85rem; font-weight: 600; letter-spacing: 0.05em;
+    margin-bottom: 2rem;
+  }
+  .hero h1 {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 800; color: #fff;
+    line-height: 1.1; margin-bottom: 1.5rem;
+  }
+  .hero h1 span { color: #3b82f6; }
+  .hero h1 .green { color: #10b981; }
+  .hero p {
+    font-size: clamp(1.05rem, 2vw, 1.3rem);
+    color: #94a3b8; max-width: 680px; margin: 0 auto 2.5rem;
+  }
+  .hero-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .btn-primary {
+    background: #2563eb; color: #fff; padding: 14px 32px;
+    border-radius: 12px; font-weight: 600; font-size: 1rem;
+    text-decoration: none; transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.3);
+  }
+  .btn-primary:hover { background: #1d4ed8; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(37,99,235,0.4); }
+  .btn-outline {
+    border: 1.5px solid rgba(255,255,255,0.2); color: #e2e8f0;
+    padding: 14px 32px; border-radius: 12px; font-weight: 600;
+    font-size: 1rem; text-decoration: none; transition: all 0.2s;
+  }
+  .btn-outline:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.05); }
+
+  /* Hero Stats */
+  .hero-stats {
+    display: flex; gap: 3rem; justify-content: center;
+    margin-top: 4rem; padding-top: 3rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .hero-stat { text-align: center; }
+  .hero-stat-value {
+    font-size: 2.2rem; font-weight: 800; color: #fff;
+    display: block;
+  }
+  .hero-stat-value .unit { font-size: 1.2rem; color: #60a5fa; }
+  .hero-stat-label { color: #64748b; font-size: 0.85rem; margin-top: 4px; }
+
+  /* ===== SECTIONS ===== */
+  section { padding: 6rem 2rem; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .section-label {
+    color: #2563eb; font-weight: 700; font-size: 0.85rem;
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.75rem;
+  }
+  .section-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 800; line-height: 1.15; margin-bottom: 1rem;
+  }
+  .section-subtitle {
+    font-size: 1.1rem; color: #64748b; max-width: 640px; margin-bottom: 3rem;
+  }
+  .centered { text-align: center; }
+  .centered .section-subtitle { margin-left: auto; margin-right: auto; }
+
+  /* ===== PROBLEM SECTION ===== */
+  .problem { background: #fff; }
+  .problem-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem; margin-top: 2rem;
+  }
+  .problem-card {
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 16px;
+    padding: 2rem; position: relative; overflow: hidden;
+  }
+  .problem-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, #ef4444, #f97316);
+  }
+  .problem-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: #fee2e2; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 1rem; font-size: 1.4rem;
+  }
+  .problem-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .problem-card p { color: #64748b; font-size: 0.95rem; }
+
+  /* ===== SOLUTION / 4 DIALS ===== */
+  .solution { background: linear-gradient(180deg, #f8f9fc, #fff); }
+  .dials-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem; margin-top: 2.5rem;
+  }
+  .dial-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 20px;
+    padding: 2rem; transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .dial-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+    border-color: transparent;
+  }
+  .dial-header { display: flex; align-items: center; gap: 12px; margin-bottom: 1.2rem; }
+  .dial-icon {
+    width: 52px; height: 52px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 700; color: #fff;
+  }
+  .dial-valuation .dial-icon { background: linear-gradient(135deg, #2563eb, #7c3aed); }
+  .dial-liquidity .dial-icon { background: linear-gradient(135deg, #0891b2, #06b6d4); }
+  .dial-coverage .dial-icon { background: linear-gradient(135deg, #059669, #10b981); }
+  .dial-trust .dial-icon { background: linear-gradient(135deg, #d97706, #f59e0b); }
+  .dial-name { font-weight: 700; font-size: 1.1rem; }
+  .dial-weight { font-size: 0.8rem; color: #94a3b8; font-weight: 600; }
+  .dial-card p { color: #64748b; font-size: 0.92rem; margin-bottom: 1rem; }
+  .dial-metrics {
+    list-style: none; display: flex; flex-direction: column; gap: 6px;
+  }
+  .dial-metrics li {
+    font-size: 0.85rem; color: #475569; padding-left: 1.2rem;
+    position: relative;
+  }
+  .dial-metrics li::before {
+    content: ''; position: absolute; left: 0; top: 8px;
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .dial-valuation .dial-metrics li::before { background: #2563eb; }
+  .dial-liquidity .dial-metrics li::before { background: #06b6d4; }
+  .dial-coverage .dial-metrics li::before { background: #10b981; }
+  .dial-trust .dial-metrics li::before { background: #f59e0b; }
+
+  /* Composite Formula Banner */
+  .formula-banner {
+    margin-top: 3rem;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    border-radius: 20px; padding: 2.5rem; color: #fff;
+    text-align: center;
+  }
+  .formula-banner h3 { font-size: 1.2rem; color: #94a3b8; margin-bottom: 1rem; font-weight: 600; }
+  .formula {
+    font-size: clamp(1rem, 2.5vw, 1.5rem); font-weight: 700;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px; padding: 1.2rem 2rem; display: inline-block;
+  }
+  .formula .blue { color: #60a5fa; }
+  .formula .cyan { color: #22d3ee; }
+  .formula .green { color: #34d399; }
+  .formula .yellow { color: #fbbf24; }
+  .formula-note { color: #64748b; font-size: 0.9rem; margin-top: 1rem; }
+
+  /* ===== DOLLAR VALUE SECTION ===== */
+  .dollar-value {
+    background: #fff;
+  }
+  .dv-layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+  }
+  .dv-visual {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    border-radius: 24px; padding: 3rem; color: #fff; position: relative; overflow: hidden;
+  }
+  .dv-visual::after {
+    content: ''; position: absolute; top: -60px; right: -60px;
+    width: 200px; height: 200px; border-radius: 50%;
+    background: rgba(37,99,235,0.15); filter: blur(40px);
+  }
+  .dv-example { position: relative; z-index: 1; }
+  .dv-company { color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.5rem; }
+  .dv-amount { font-size: 3rem; font-weight: 800; color: #10b981; margin-bottom: 0.25rem; }
+  .dv-per { color: #64748b; font-size: 1rem; margin-bottom: 2rem; }
+  .dv-breakdown {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 1.5rem;
+  }
+  .dv-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.6rem 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .dv-row-label { color: #94a3b8; font-size: 0.9rem; }
+  .dv-row-value { font-weight: 700; font-size: 0.95rem; }
+  .dv-text h3 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; }
+  .dv-text p { color: #64748b; margin-bottom: 1rem; font-size: 0.95rem; }
+  .dv-formula-box {
+    background: #f1f5f9; border-radius: 12px; padding: 1.2rem 1.5rem;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.88rem;
+    color: #334155; margin-top: 1.5rem; border-left: 4px solid #2563eb;
+  }
+
+  /* ===== FEATURES ===== */
+  .features { background: linear-gradient(180deg, #f8f9fc, #fff); }
+  .features-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1.5rem; margin-top: 2rem;
+  }
+  .feature-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+    padding: 2rem; transition: all 0.3s;
+  }
+  .feature-card:hover {
+    border-color: #bfdbfe;
+    box-shadow: 0 8px 30px rgba(37,99,235,0.08);
+  }
+  .feature-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; margin-bottom: 1rem;
+    background: #eff6ff; color: #2563eb;
+  }
+  .feature-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .feature-card p { color: #64748b; font-size: 0.9rem; }
+
+  /* ===== COMPARISON TABLE ===== */
+  .comparison { background: #fff; }
+  .comp-table-wrap {
+    overflow-x: auto; margin-top: 2rem;
+    border-radius: 16px; border: 1px solid #e2e8f0;
+  }
+  .comp-table {
+    width: 100%; border-collapse: collapse; font-size: 0.95rem;
+  }
+  .comp-table thead { background: #0f172a; color: #fff; }
+  .comp-table th {
+    padding: 1rem 1.5rem; text-align: left; font-weight: 600;
+  }
+  .comp-table th:first-child { border-radius: 14px 0 0 0; }
+  .comp-table th:last-child { border-radius: 0 14px 0 0; }
+  .comp-table td {
+    padding: 0.9rem 1.5rem; border-bottom: 1px solid #f1f5f9;
+  }
+  .comp-table tbody tr:hover { background: #f8fafc; }
+  .comp-table td:first-child { font-weight: 600; color: #334155; }
+  .comp-table .irci-col { background: #eff6ff; font-weight: 600; color: #1d4ed8; }
+  .comp-table thead .irci-col { background: #2563eb; color: #fff; }
+  .check { color: #10b981; font-weight: 700; }
+  .cross { color: #ef4444; font-weight: 500; }
+  .partial { color: #f59e0b; font-weight: 500; }
+
+  /* ===== DATA SOURCES ===== */
+  .datasources { background: linear-gradient(180deg, #f8f9fc, #fff); }
+  .source-pills {
+    display: flex; flex-wrap: wrap; gap: 0.75rem;
+    justify-content: center; margin-top: 2rem;
+  }
+  .source-pill {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 100px;
+    padding: 10px 20px; font-size: 0.88rem; font-weight: 600;
+    color: #334155; display: flex; align-items: center; gap: 8px;
+    transition: all 0.2s;
+  }
+  .source-pill:hover { border-color: #93c5fd; background: #eff6ff; }
+  .source-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .source-financial .source-dot { background: #2563eb; }
+  .source-regulatory .source-dot { background: #7c3aed; }
+  .source-news .source-dot { background: #10b981; }
+  .source-social .source-dot { background: #f59e0b; }
+  .source-ai .source-dot { background: #ec4899; }
+
+  .source-legend {
+    display: flex; gap: 2rem; justify-content: center;
+    margin-top: 2rem; flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #64748b; }
+
+  /* ===== USE CASES ===== */
+  .usecases { background: #fff; }
+  .usecase-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem; margin-top: 2rem;
+  }
+  .usecase-card {
+    border-radius: 16px; padding: 2rem; color: #fff;
+    position: relative; overflow: hidden;
+  }
+  .usecase-card::before {
+    content: ''; position: absolute; inset: 0;
+    opacity: 0.1; background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><circle cx="30" cy="30" r="1" fill="white"/></svg>');
+  }
+  .uc-ir { background: linear-gradient(135deg, #1e40af, #3b82f6); }
+  .uc-cfo { background: linear-gradient(135deg, #065f46, #10b981); }
+  .uc-analyst { background: linear-gradient(135deg, #7c2d12, #f97316); }
+  .uc-board { background: linear-gradient(135deg, #581c87, #a855f7); }
+  .usecase-card h3 {
+    font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;
+    position: relative;
+  }
+  .usecase-card .uc-role {
+    font-size: 0.8rem; opacity: 0.7; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 1rem; position: relative;
+  }
+  .usecase-card ul {
+    list-style: none; position: relative;
+  }
+  .usecase-card li {
+    padding: 0.35rem 0; font-size: 0.9rem; opacity: 0.9;
+    padding-left: 1.2rem; position: relative;
+  }
+  .usecase-card li::before {
+    content: '+'; position: absolute; left: 0; font-weight: 700;
+  }
+
+  /* ===== TECH STACK ===== */
+  .techstack { background: linear-gradient(180deg, #0f172a, #1e293b); color: #fff; }
+  .techstack .section-label { color: #60a5fa; }
+  .techstack .section-subtitle { color: #94a3b8; }
+  .tech-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem; margin-top: 2rem;
+  }
+  .tech-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 1.5rem; text-align: center;
+    transition: all 0.3s;
+  }
+  .tech-card:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+    transform: translateY(-2px);
+  }
+  .tech-card .tech-label {
+    font-size: 0.75rem; color: #64748b; text-transform: uppercase;
+    letter-spacing: 0.1em; margin-bottom: 0.5rem;
+  }
+  .tech-card .tech-name { font-weight: 700; font-size: 1.05rem; }
+  .tech-card .tech-sub { font-size: 0.82rem; color: #94a3b8; margin-top: 0.3rem; }
+
+  /* ===== ACADEMIC RIGOR ===== */
+  .academic { background: #fff; }
+  .citation-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem; margin-top: 2rem;
+  }
+  .citation-card {
+    background: #fefce8; border: 1px solid #fef08a; border-radius: 16px;
+    padding: 1.5rem;
+  }
+  .citation-card h4 { font-size: 1rem; margin-bottom: 0.5rem; }
+  .citation-card p { font-size: 0.88rem; color: #64748b; }
+  .citation-card .finding {
+    color: #854d0e; font-weight: 600; font-size: 0.9rem; margin-top: 0.75rem;
+  }
+
+  /* ===== PLAYBOOK PREVIEW ===== */
+  .playbook { background: linear-gradient(180deg, #f8f9fc, #fff); }
+  .playbook-example {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 20px;
+    padding: 2rem; margin-top: 2rem; max-width: 800px;
+  }
+  .pb-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem;
+  }
+  .pb-priority {
+    background: #fee2e2; color: #dc2626; font-size: 0.75rem; font-weight: 700;
+    padding: 4px 12px; border-radius: 100px; text-transform: uppercase;
+  }
+  .pb-action { font-weight: 700; font-size: 1.1rem; }
+  .pb-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+  }
+  .pb-item { font-size: 0.9rem; }
+  .pb-item-label { color: #94a3b8; font-size: 0.8rem; font-weight: 600; margin-bottom: 2px; }
+  .pb-item-value { color: #334155; }
+
+  /* ===== WORKFLOW ===== */
+  .workflow { background: #fff; }
+  .workflow-steps {
+    display: flex; gap: 0; margin-top: 3rem; position: relative;
+    justify-content: center; flex-wrap: wrap;
+  }
+  .workflow-step {
+    flex: 0 0 220px; text-align: center; position: relative;
+    padding: 0 1rem;
+  }
+  .workflow-step::after {
+    content: ''; position: absolute; top: 28px; right: -10px;
+    width: 20px; height: 2px; background: #cbd5e1;
+  }
+  .workflow-step:last-child::after { display: none; }
+  .ws-number {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: #fff; font-weight: 800; font-size: 1.3rem;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1rem;
+  }
+  .workflow-step h4 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+  .workflow-step p { font-size: 0.85rem; color: #64748b; }
+
+  /* ===== CTA ===== */
+  .cta {
+    background: linear-gradient(135deg, #1e40af, #7c3aed);
+    padding: 6rem 2rem; text-align: center; color: #fff;
+  }
+  .cta h2 {
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-weight: 800; margin-bottom: 1rem;
+  }
+  .cta p { font-size: 1.15rem; opacity: 0.85; max-width: 600px; margin: 0 auto 2.5rem; }
+  .cta-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .btn-white {
+    background: #fff; color: #1e40af; padding: 14px 32px;
+    border-radius: 12px; font-weight: 700; font-size: 1rem;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-white:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+  .btn-ghost {
+    border: 2px solid rgba(255,255,255,0.3); color: #fff;
+    padding: 14px 32px; border-radius: 12px; font-weight: 600;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-ghost:hover { border-color: #fff; background: rgba(255,255,255,0.1); }
+
+  /* ===== FOOTER ===== */
+  footer {
+    background: #0f172a; color: #64748b; text-align: center;
+    padding: 2rem; font-size: 0.85rem;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    nav { padding: 0 1rem; }
+    .nav-links { display: none; }
+    .hero-stats { flex-direction: column; gap: 1.5rem; }
+    .dv-layout { grid-template-columns: 1fr; gap: 2rem; }
+    .pb-grid { grid-template-columns: 1fr; }
+    .workflow-steps { flex-direction: column; align-items: center; }
+    .workflow-step::after { display: none; }
+    section { padding: 4rem 1.25rem; }
+  }
+
+  /* ===== ANIMATIONS ===== */
+  .fade-up {
+    opacity: 0; transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .fade-up.visible { opacity: 1; transform: translateY(0); }
+
+  /* ===== GAUGE VISUAL ===== */
+  .gauge-row {
+    display: flex; gap: 2rem; justify-content: center;
+    flex-wrap: wrap; margin-top: 3rem;
+  }
+  .gauge {
+    width: 140px; text-align: center;
+  }
+  .gauge-ring {
+    width: 120px; height: 120px; margin: 0 auto 0.75rem;
+    position: relative;
+  }
+  .gauge-ring svg { transform: rotate(-90deg); }
+  .gauge-ring circle {
+    fill: none; stroke-width: 8; stroke-linecap: round;
+  }
+  .gauge-ring .bg { stroke: #e2e8f0; }
+  .gauge-ring .fill { transition: stroke-dashoffset 1.5s ease; }
+  .gauge-value {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; font-weight: 800; transform: rotate(0deg);
+  }
+  .gauge-label { font-size: 0.85rem; font-weight: 600; color: #64748b; }
+</style>
+</head>
+<body>
+
+<!-- NAVIGATION -->
+<nav id="navbar">
+  <a href="#" class="nav-logo">
+    <svg viewBox="0 0 100 100" fill="none">
+      <path d="M50 10 A40 40 0 1 0 85 65" stroke="#2563eb" stroke-width="12" stroke-linecap="round" fill="none"/>
+      <polyline points="38,55 50,68 72,40" stroke="#10b981" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    IRCI
+  </a>
+  <ul class="nav-links">
+    <li><a href="#problem">The Problem</a></li>
+    <li><a href="#solution">The Solution</a></li>
+    <li><a href="#dollar-value">Dollar Value</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#comparison">Why IRCI</a></li>
+    <li><a href="mailto:brushing@uccs.edu?subject=IRCI%20Inquiry" class="nav-cta">Get Started</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+    <div class="hero-badge">Investor Relations Composite Index</div>
+    <h1>Measure IR.<br><span>Prove</span> Its <span class="green">Value.</span></h1>
+    <p>IRCI is the first quantitative framework that converts investor relations quality into a peer-benchmarked score&mdash;and translates every point into enterprise value dollars.</p>
+    <div class="hero-buttons">
+      <a href="#solution" class="btn-primary">See How It Works</a>
+      <a href="mailto:brushing@uccs.edu?subject=IRCI%20Demo%20Request" class="btn-outline">Request a Demo</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="hero-stat-value">4</span>
+        <div class="hero-stat-label">Proprietary IR Dials</div>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-value">15<span class="unit">+</span></span>
+        <div class="hero-stat-label">Live Data Sources</div>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-value">$<span class="unit">M</span></span>
+        <div class="hero-stat-label">Per-Point Value Attribution</div>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-value">0&ndash;100</span>
+        <div class="hero-stat-label">Peer-Relative Score</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section class="problem" id="problem">
+  <div class="container centered">
+    <div class="section-label">The Problem</div>
+    <h2 class="section-title">IR Has a Measurement Problem</h2>
+    <p class="section-subtitle">CFOs invest millions in investor relations every year&mdash;but how do you prove ROI on something you can't measure?</p>
+    <div class="problem-grid">
+      <div class="problem-card fade-up">
+        <div class="problem-icon">?</div>
+        <h3>No Unified Metric</h3>
+        <p>IR teams track dozens of KPIs&mdash;stock price, analyst coverage, sentiment&mdash;but no single, composite benchmark ties them together.</p>
+      </div>
+      <div class="problem-card fade-up">
+        <div class="problem-icon">$</div>
+        <h3>Can't Prove Dollar Impact</h3>
+        <p>When the board asks "What's IR worth?", teams struggle to give a defensible, dollar-denominated answer backed by data.</p>
+      </div>
+      <div class="problem-card fade-up">
+        <div class="problem-icon">&darr;</div>
+        <h3>No Peer Benchmarking</h3>
+        <p>Without peer-relative metrics, there's no way to know if your IR performance is best-in-class or falling behind competitors.</p>
+      </div>
+      <div class="problem-card fade-up">
+        <div class="problem-icon">&rarr;</div>
+        <h3>No Actionable Playbook</h3>
+        <p>Even when gaps are identified, teams lack evidence-backed recommendations on which actions will move the needle most.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOLUTION: 4 DIALS -->
+<section class="solution" id="solution">
+  <div class="container centered">
+    <div class="section-label">The Solution</div>
+    <h2 class="section-title">Four Dials. One Composite Score.</h2>
+    <p class="section-subtitle">IRCI distills investor relations performance into four research-backed dimensions, each scored 0&ndash;100 against your peer group.</p>
+
+    <div class="dials-grid">
+      <div class="dial-card dial-valuation fade-up">
+        <div class="dial-header">
+          <div class="dial-icon">V</div>
+          <div>
+            <div class="dial-name">Valuation</div>
+            <div class="dial-weight">35% Weight</div>
+          </div>
+        </div>
+        <p>How the market values your company relative to fundamentals. Good IR reduces information asymmetry, improving multiples.</p>
+        <ul class="dial-metrics">
+          <li>EV/EBITDA ratio vs. peers</li>
+          <li>PEG ratio benchmarking</li>
+          <li>Valuation gap quantification</li>
+        </ul>
+      </div>
+
+      <div class="dial-card dial-liquidity fade-up">
+        <div class="dial-header">
+          <div class="dial-icon">L</div>
+          <div>
+            <div class="dial-name">Liquidity</div>
+            <div class="dial-weight">35% Weight</div>
+          </div>
+        </div>
+        <p>How easily your stock trades without moving the price. Strong IR attracts institutional investors and tightens spreads.</p>
+        <ul class="dial-metrics">
+          <li>Amihud illiquidity ratio</li>
+          <li>Roll bid-ask spread proxy</li>
+          <li>Daily turnover & institutional %</li>
+        </ul>
+      </div>
+
+      <div class="dial-card dial-coverage fade-up">
+        <div class="dial-header">
+          <div class="dial-icon">C</div>
+          <div>
+            <div class="dial-name">Coverage</div>
+            <div class="dial-weight">15% Weight</div>
+          </div>
+        </div>
+        <p>Media visibility and analyst attention. Measures how effectively your IR program drives awareness and disclosure quality.</p>
+        <ul class="dial-metrics">
+          <li>Credibility-weighted media mentions</li>
+          <li>SEC filing frequency & timeliness</li>
+          <li>Earnings transcript quality</li>
+        </ul>
+      </div>
+
+      <div class="dial-card dial-trust fade-up">
+        <div class="dial-header">
+          <div class="dial-icon">T</div>
+          <div>
+            <div class="dial-name">Trust &amp; Sentiment</div>
+            <div class="dial-weight">15% Weight</div>
+          </div>
+        </div>
+        <p>Market confidence and perception. Captures how investors and media perceive your communication and transparency.</p>
+        <ul class="dial-metrics">
+          <li>FinBERT AI sentiment analysis</li>
+          <li>Event-day volatility (calmness)</li>
+          <li>Social sentiment (Reddit, StockTwits)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Composite Formula -->
+    <div class="formula-banner fade-up">
+      <h3>Composite Score Formula</h3>
+      <div class="formula">
+        IRCI = <span class="blue">Val&times;35%</span> + <span class="cyan">Liq&times;35%</span> + <span class="green">Cov&times;15%</span> + <span class="yellow">Trust&times;15%</span>
+      </div>
+      <div class="formula-note">Weights auto-optimizable via ridge-regularized NNLS regression to maximize R&sup2; with enterprise value.</div>
+    </div>
+
+    <!-- Gauge Row -->
+    <div class="gauge-row fade-up">
+      <div class="gauge">
+        <div class="gauge-ring">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle class="bg" cx="60" cy="60" r="50"/>
+            <circle class="fill" cx="60" cy="60" r="50" stroke="#2563eb"
+              stroke-dasharray="314" stroke-dashoffset="94"/>
+          </svg>
+          <div class="gauge-value" style="color:#2563eb">70</div>
+        </div>
+        <div class="gauge-label">Valuation</div>
+      </div>
+      <div class="gauge">
+        <div class="gauge-ring">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle class="bg" cx="60" cy="60" r="50"/>
+            <circle class="fill" cx="60" cy="60" r="50" stroke="#06b6d4"
+              stroke-dasharray="314" stroke-dashoffset="138"/>
+          </svg>
+          <div class="gauge-value" style="color:#06b6d4">56</div>
+        </div>
+        <div class="gauge-label">Liquidity</div>
+      </div>
+      <div class="gauge">
+        <div class="gauge-ring">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle class="bg" cx="60" cy="60" r="50"/>
+            <circle class="fill" cx="60" cy="60" r="50" stroke="#10b981"
+              stroke-dasharray="314" stroke-dashoffset="50"/>
+          </svg>
+          <div class="gauge-value" style="color:#10b981">84</div>
+        </div>
+        <div class="gauge-label">Coverage</div>
+      </div>
+      <div class="gauge">
+        <div class="gauge-ring">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle class="bg" cx="60" cy="60" r="50"/>
+            <circle class="fill" cx="60" cy="60" r="50" stroke="#f59e0b"
+              stroke-dasharray="314" stroke-dashoffset="157"/>
+          </svg>
+          <div class="gauge-value" style="color:#f59e0b">50</div>
+        </div>
+        <div class="gauge-label">Trust</div>
+      </div>
+      <div class="gauge">
+        <div class="gauge-ring">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle class="bg" cx="60" cy="60" r="50"/>
+            <circle class="fill" cx="60" cy="60" r="50" stroke="#7c3aed"
+              stroke-dasharray="314" stroke-dashoffset="107"/>
+          </svg>
+          <div class="gauge-value" style="color:#7c3aed">66</div>
+        </div>
+        <div class="gauge-label">Composite</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DOLLAR VALUE -->
+<section class="dollar-value" id="dollar-value">
+  <div class="container">
+    <div class="section-label">The Breakthrough</div>
+    <h2 class="section-title">Every IRCI Point Has a Dollar Value</h2>
+    <p class="section-subtitle">IRCI translates score improvements into enterprise value impact&mdash;giving IR teams the language the C-suite speaks.</p>
+
+    <div class="dv-layout fade-up">
+      <div class="dv-visual">
+        <div class="dv-example">
+          <div class="dv-company">Example: Large-Cap Company ($135B EV)</div>
+          <div class="dv-amount">$33.8M</div>
+          <div class="dv-per">per IRCI point</div>
+          <div class="dv-breakdown">
+            <div class="dv-row">
+              <span class="dv-row-label">Press Release (+0.75 pts)</span>
+              <span class="dv-row-value" style="color:#10b981">+$25.3M</span>
+            </div>
+            <div class="dv-row">
+              <span class="dv-row-label">Investor Day (+3.2 pts)</span>
+              <span class="dv-row-value" style="color:#10b981">+$108.2M</span>
+            </div>
+            <div class="dv-row">
+              <span class="dv-row-label">Full IR Program (+8 pts)</span>
+              <span class="dv-row-value" style="color:#10b981">+$270.4M</span>
+            </div>
+            <div class="dv-row">
+              <span class="dv-row-label">Statistical Confidence</span>
+              <span class="dv-row-value">R&sup2; = 0.50</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dv-text">
+        <h3>Academically Grounded, Practically Powerful</h3>
+        <p>Unlike generic AI estimates, IRCI's dollar attribution is built on peer-reviewed research by Bushee &amp; Miller (2012), showing IR contributes 5&ndash;10% of firm value over time.</p>
+        <p>The formula spreads this across the typical 50-point gap between industry leaders and laggards, then scales by your company's enterprise value and model fit.</p>
+        <p>The result: a conservative, defensible number you can put in front of the CFO and the board.</p>
+        <div class="dv-formula-box">
+          $/Point = EV &times; 0.05% &times; R&sup2;<br><br>
+          Quarterly Contribution = &Delta;IRCI &times; $/Point &times; Impact Factor
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="container centered">
+    <div class="section-label">Platform Capabilities</div>
+    <h2 class="section-title">A Complete IR Intelligence Platform</h2>
+    <p class="section-subtitle">From real-time data ingestion to board-ready reports, IRCI handles the entire IR analytics workflow.</p>
+
+    <div class="features-grid">
+      <div class="feature-card fade-up">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path d="M9 12l2 2 4-4"/></svg>
+        </div>
+        <h3>AI-Powered Playbook</h3>
+        <p>Generates 20+ prioritized, evidence-backed recommendations with expected impact, timeframe, and academic citations for each action.</p>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        </div>
+        <h3>Interactive Dashboards</h3>
+        <p>Live radar charts, bar rankings, trend lines, correlation matrices, and scatter plots&mdash;all interactive with drill-down capabilities.</p>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+        </div>
+        <h3>Board-Grade PDF Reports</h3>
+        <p>One-click generation of professional reports with executive summaries, dial breakdowns, peer comparisons, and dollar-value impact analysis.</p>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+        </div>
+        <h3>Multi-Quarter Trends</h3>
+        <p>Track IRCI scores across quarters. Visualize momentum, identify seasonal patterns, and demonstrate IR program progress over time.</p>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        </div>
+        <h3>Auto-Optimize Weights</h3>
+        <p>Machine learning finds the optimal dial weights that maximize correlation with enterprise value for your specific peer group.</p>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <h3>AI Chat Assistant</h3>
+        <p>Claude-powered conversational Q&amp;A about your results. Ask "Why is our liquidity low?" and get data-driven answers with specific recommendations.</p>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <h3>Predictive Analytics</h3>
+        <p>Forecast next-quarter IRCI scores. Model the impact of planned IR initiatives before you invest. Run scenario analysis and ROI projections.</p>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+        </div>
+        <h3>Budget Optimizer</h3>
+        <p>Quantum-ready QUBO formulation allocates your IR budget across initiatives to maximize IRCI improvement per dollar spent.</p>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
+        </div>
+        <h3>Scheduled Reports &amp; Email</h3>
+        <p>Automate weekly or monthly IRCI analysis. Deliver board-ready PDF reports directly to stakeholder inboxes on a schedule.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section class="comparison" id="comparison">
+  <div class="container centered">
+    <div class="section-label">Why IRCI</div>
+    <h2 class="section-title">Not Another AI Chatbot</h2>
+    <p class="section-subtitle">IRCI is a quantitative finance framework enhanced by AI&mdash;not the other way around. Here's how it compares.</p>
+
+    <div class="comp-table-wrap fade-up">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th>Capability</th>
+            <th>Generic LLM / ChatGPT</th>
+            <th>Bloomberg Terminal</th>
+            <th class="irci-col">IRCI</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Composite IR Score (0&ndash;100)</td>
+            <td class="cross">No</td>
+            <td class="cross">No</td>
+            <td class="irci-col check">Yes</td>
+          </tr>
+          <tr>
+            <td>Dollar Value per IR Point</td>
+            <td class="cross">No</td>
+            <td class="cross">No</td>
+            <td class="irci-col check">Yes</td>
+          </tr>
+          <tr>
+            <td>Peer-Relative Benchmarking</td>
+            <td class="cross">No</td>
+            <td class="partial">Partial</td>
+            <td class="irci-col check">Yes</td>
+          </tr>
+          <tr>
+            <td>Academic-Backed Methodology</td>
+            <td class="cross">No</td>
+            <td class="partial">Partial</td>
+            <td class="irci-col check">Yes</td>
+          </tr>
+          <tr>
+            <td>AI Sentiment Analysis (FinBERT)</td>
+            <td class="partial">Generic</td>
+            <td class="cross">No</td>
+            <td class="irci-col check">Finance-Tuned</td>
+          </tr>
+          <tr>
+            <td>Actionable Playbook with Citations</td>
+            <td class="partial">Generic advice</td>
+            <td class="cross">No</td>
+            <td class="irci-col check">20+ actions</td>
+          </tr>
+          <tr>
+            <td>Reproducible & Auditable</td>
+            <td class="cross">Non-deterministic</td>
+            <td class="check">Yes</td>
+            <td class="irci-col check">Fully traceable</td>
+          </tr>
+          <tr>
+            <td>Real-Time Data (15+ Sources)</td>
+            <td class="cross">Stale training data</td>
+            <td class="check">Yes</td>
+            <td class="irci-col check">Yes</td>
+          </tr>
+          <tr>
+            <td>IR-Specific Optimization</td>
+            <td class="cross">General purpose</td>
+            <td class="cross">General finance</td>
+            <td class="irci-col check">Purpose-built</td>
+          </tr>
+          <tr>
+            <td>Budget Allocation Optimizer</td>
+            <td class="cross">No</td>
+            <td class="cross">No</td>
+            <td class="irci-col check">Quantum-ready</td>
+          </tr>
+          <tr>
+            <td>Board-Ready PDF Reports</td>
+            <td class="cross">No</td>
+            <td class="partial">Manual</td>
+            <td class="irci-col check">One-click</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- DATA SOURCES -->
+<section class="datasources" id="datasources">
+  <div class="container centered">
+    <div class="section-label">Data Foundation</div>
+    <h2 class="section-title">15+ Live Data Sources. Zero Guesswork.</h2>
+    <p class="section-subtitle">IRCI pulls real-time data from authoritative financial, regulatory, and media sources with multi-level fallback chains.</p>
+
+    <div class="source-pills">
+      <div class="source-pill source-financial"><span class="source-dot"></span> Yahoo Finance</div>
+      <div class="source-pill source-financial"><span class="source-dot"></span> FMP API</div>
+      <div class="source-pill source-financial"><span class="source-dot"></span> Alpha Vantage</div>
+      <div class="source-pill source-regulatory"><span class="source-dot"></span> SEC EDGAR</div>
+      <div class="source-pill source-regulatory"><span class="source-dot"></span> SEC 13F Filings</div>
+      <div class="source-pill source-regulatory"><span class="source-dot"></span> SEC XBRL</div>
+      <div class="source-pill source-news"><span class="source-dot"></span> World News API</div>
+      <div class="source-pill source-news"><span class="source-dot"></span> NewsAPI</div>
+      <div class="source-pill source-news"><span class="source-dot"></span> Finnhub</div>
+      <div class="source-pill source-news"><span class="source-dot"></span> Google News</div>
+      <div class="source-pill source-social"><span class="source-dot"></span> Reddit / WSB</div>
+      <div class="source-pill source-social"><span class="source-dot"></span> StockTwits</div>
+      <div class="source-pill source-ai"><span class="source-dot"></span> FinBERT (NLP)</div>
+      <div class="source-pill source-financial"><span class="source-dot"></span> Kenneth French</div>
+      <div class="source-pill source-news"><span class="source-dot"></span> Seeking Alpha</div>
+    </div>
+
+    <div class="source-legend">
+      <div class="legend-item"><span class="source-dot" style="background:#2563eb; display:inline-block; width:8px; height:8px; border-radius:50%;"></span> Financial</div>
+      <div class="legend-item"><span class="source-dot" style="background:#7c3aed; display:inline-block; width:8px; height:8px; border-radius:50%;"></span> Regulatory</div>
+      <div class="legend-item"><span class="source-dot" style="background:#10b981; display:inline-block; width:8px; height:8px; border-radius:50%;"></span> News & Media</div>
+      <div class="legend-item"><span class="source-dot" style="background:#f59e0b; display:inline-block; width:8px; height:8px; border-radius:50%;"></span> Social</div>
+      <div class="legend-item"><span class="source-dot" style="background:#ec4899; display:inline-block; width:8px; height:8px; border-radius:50%;"></span> AI / NLP</div>
+    </div>
+  </div>
+</section>
+
+<!-- USE CASES -->
+<section class="usecases" id="usecases">
+  <div class="container centered">
+    <div class="section-label">Who It's For</div>
+    <h2 class="section-title">Built for Every Seat at the Table</h2>
+    <p class="section-subtitle">From IR officers to the boardroom, IRCI speaks every stakeholder's language.</p>
+
+    <div class="usecase-grid">
+      <div class="usecase-card uc-ir fade-up">
+        <div class="uc-role">IR Teams</div>
+        <h3>Benchmark &amp; Improve</h3>
+        <ul>
+          <li>Rank against peer group on all four dials</li>
+          <li>Get prioritized playbook of improvements</li>
+          <li>Track quarterly momentum</li>
+          <li>Plan investor days with projected ROI</li>
+        </ul>
+      </div>
+      <div class="usecase-card uc-cfo fade-up">
+        <div class="uc-role">CFOs &amp; Finance</div>
+        <h3>Prove IR ROI</h3>
+        <ul>
+          <li>Dollar value per IRCI point</li>
+          <li>Justify IR budget with hard numbers</li>
+          <li>Compare cost vs. enterprise value impact</li>
+          <li>Optimize spend with budget allocator</li>
+        </ul>
+      </div>
+      <div class="usecase-card uc-analyst fade-up">
+        <div class="uc-role">Analysts &amp; Investors</div>
+        <h3>Screen &amp; Evaluate</h3>
+        <ul>
+          <li>Identify under-covered stocks</li>
+          <li>Spot valuation gaps across sectors</li>
+          <li>Assess liquidity risk before investing</li>
+          <li>Monitor sentiment shifts in real time</li>
+        </ul>
+      </div>
+      <div class="usecase-card uc-board fade-up">
+        <div class="uc-role">Board &amp; Executives</div>
+        <h3>Strategic Oversight</h3>
+        <ul>
+          <li>One-page IRCI score vs. competitors</li>
+          <li>Track communication program effectiveness</li>
+          <li>Receive automated board-ready reports</li>
+          <li>Scenario-plan IR initiatives</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ACADEMIC RIGOR -->
+<section class="academic" id="academic">
+  <div class="container centered">
+    <div class="section-label">Academic Foundation</div>
+    <h2 class="section-title">Grounded in Peer-Reviewed Research</h2>
+    <p class="section-subtitle">Every calculation, weight, and recommendation in IRCI is backed by published finance research.</p>
+
+    <div class="citation-grid">
+      <div class="citation-card fade-up">
+        <h4>Bushee &amp; Miller (2012)</h4>
+        <p>"The Role of the Business Press as an Information Intermediary"</p>
+        <div class="finding">Finding: IR programs contribute 5&ndash;10% to firm enterprise value through reduced information asymmetry.</div>
+      </div>
+      <div class="citation-card fade-up">
+        <h4>Kirk &amp; Vincent (2014)</h4>
+        <p>"Professional Investor Relations within the Firm"</p>
+        <div class="finding">Finding: Companies with dedicated IR see lower bid-ask spreads, higher institutional ownership, and more analyst coverage.</div>
+      </div>
+      <div class="citation-card fade-up">
+        <h4>Amihud (2002)</h4>
+        <p>"Illiquidity and Stock Returns"</p>
+        <div class="finding">Finding: The Amihud ratio captures price impact per dollar traded&mdash;the gold standard for measuring market liquidity.</div>
+      </div>
+      <div class="citation-card fade-up">
+        <h4>Fama &amp; French (2015)</h4>
+        <p>"A Five-Factor Model of Expected Stock Returns"</p>
+        <div class="finding">Finding: Five-factor residuals isolate company-specific volatility from market-wide effects&mdash;used in IRCI's Trust dial.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLAYBOOK PREVIEW -->
+<section class="playbook" id="playbook">
+  <div class="container">
+    <div class="section-label">AI-Generated Playbook</div>
+    <h2 class="section-title">From Score to Action in Seconds</h2>
+    <p class="section-subtitle">IRCI doesn't just measure&mdash;it tells you exactly what to do next, with evidence and expected outcomes.</p>
+
+    <div class="playbook-example fade-up">
+      <div class="pb-header">
+        <span class="pb-priority">High Priority</span>
+        <span class="pb-action">Enhance Earnings Communication</span>
+      </div>
+      <p style="color:#64748b; font-size:0.92rem; margin-bottom:1.5rem;">
+        Restructure quarterly earnings calls to include more forward-looking guidance, segment-level KPIs, and structured Q&amp;A. This addresses your below-median Valuation dial and Coverage gap.
+      </p>
+      <div class="pb-grid">
+        <div class="pb-item">
+          <div class="pb-item-label">Expected Impact</div>
+          <div class="pb-item-value">+5&ndash;8 IRCI points over 6&ndash;12 months</div>
+        </div>
+        <div class="pb-item">
+          <div class="pb-item-label">Academic Evidence</div>
+          <div class="pb-item-value">Bushee &amp; Miller 2012, Kirk &amp; Vincent 2014</div>
+        </div>
+        <div class="pb-item">
+          <div class="pb-item-label">Key Metrics to Track</div>
+          <div class="pb-item-value">EPS forecast dispersion, P/E discount to peers</div>
+        </div>
+        <div class="pb-item">
+          <div class="pb-item-label">Recommended Tools</div>
+          <div class="pb-item-value">Q4 Earnings Platform, FactSet, Bloomberg</div>
+        </div>
+      </div>
+    </div>
+    <p style="text-align:center; margin-top:1.5rem; color:#94a3b8; font-size:0.9rem;">
+      This is one of 20+ recommendations generated per analysis, each tailored to your specific dial scores and peer positioning.
+    </p>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="workflow" id="workflow">
+  <div class="container centered">
+    <div class="section-label">How It Works</div>
+    <h2 class="section-title">From Tickers to Insights in Minutes</h2>
+    <p class="section-subtitle">Three simple steps to quantify your IR performance.</p>
+
+    <div class="workflow-steps">
+      <div class="workflow-step fade-up">
+        <div class="ws-number">1</div>
+        <h4>Enter Tickers</h4>
+        <p>Input your company ticker and peer group. Select the quarter you want to analyze.</p>
+      </div>
+      <div class="workflow-step fade-up">
+        <div class="ws-number">2</div>
+        <h4>IRCI Analyzes</h4>
+        <p>The engine pulls data from 15+ sources, calculates all four dials, and generates your composite score.</p>
+      </div>
+      <div class="workflow-step fade-up">
+        <div class="ws-number">3</div>
+        <h4>Get Your Score</h4>
+        <p>View interactive dashboards, download board-ready PDFs, and explore your AI-powered playbook.</p>
+      </div>
+      <div class="workflow-step fade-up">
+        <div class="ws-number">4</div>
+        <h4>Take Action</h4>
+        <p>Implement prioritized recommendations and track your IRCI improvement quarter over quarter.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section class="techstack" id="techstack">
+  <div class="container centered">
+    <div class="section-label">Technology</div>
+    <h2 class="section-title" style="color:#fff">Enterprise-Grade Architecture</h2>
+    <p class="section-subtitle">Purpose-built for financial data with resilient multi-source fallbacks and institutional-grade statistical methods.</p>
+
+    <div class="tech-grid">
+      <div class="tech-card fade-up">
+        <div class="tech-label">Compute</div>
+        <div class="tech-name">Python 3.12</div>
+        <div class="tech-sub">Pandas, NumPy, SciPy</div>
+      </div>
+      <div class="tech-card fade-up">
+        <div class="tech-label">AI / NLP</div>
+        <div class="tech-name">FinBERT + Claude</div>
+        <div class="tech-sub">Multi-provider (Gemini, GPT)</div>
+      </div>
+      <div class="tech-card fade-up">
+        <div class="tech-label">Visualization</div>
+        <div class="tech-name">Plotly + Streamlit</div>
+        <div class="tech-sub">Interactive dashboards</div>
+      </div>
+      <div class="tech-card fade-up">
+        <div class="tech-label">Statistics</div>
+        <div class="tech-name">scikit-learn</div>
+        <div class="tech-sub">Ridge NNLS, Cross-validation</div>
+      </div>
+      <div class="tech-card fade-up">
+        <div class="tech-label">Optimization</div>
+        <div class="tech-name">QUBO / D-Wave</div>
+        <div class="tech-sub">Quantum-ready budget allocation</div>
+      </div>
+      <div class="tech-card fade-up">
+        <div class="tech-label">Reporting</div>
+        <div class="tech-name">FPDF + SMTP</div>
+        <div class="tech-sub">Auto-generated & emailed</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta" id="contact">
+  <h2>Ready to Quantify Your IR Impact?</h2>
+  <p>Join the companies already using IRCI to prove investor relations value, win budget battles, and outperform their peers.</p>
+  <div class="cta-buttons">
+    <a href="mailto:brushing@uccs.edu?subject=IRCI%20Demo%20Request" class="btn-white">Schedule a Demo</a>
+    <a href="whitepaper.html" class="btn-ghost" target="_blank">Download Whitepaper</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>&copy; 2026 IRCI &mdash; Investor Relations Composite Index. All rights reserved.</p>
+</footer>
+
+<script>
+// Navbar scroll effect
+const nav = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 20);
+});
+
+// Fade-up on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+// Smooth scroll for nav links
+document.querySelectorAll('a[href^="#"]').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(link.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+</script>
+
+</body>
+</html>

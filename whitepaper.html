@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRCI Whitepaper - The Investor Relations Composite Index</title>
+<style>
+  @media print {
+    body { font-size: 11pt; }
+    .no-print { display: none !important; }
+    section { page-break-inside: avoid; }
+    .page-break { page-break-before: always; }
+    @page { margin: 1in; }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    color: #1a1a2e;
+    background: #fff;
+    line-height: 1.8;
+    font-size: 16px;
+  }
+
+  /* Print bar */
+  .print-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+    background: #0f172a; color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 2rem; font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.9rem;
+  }
+  .print-bar a { color: #60a5fa; text-decoration: none; }
+  .print-bar a:hover { text-decoration: underline; }
+  .print-btn {
+    background: #2563eb; color: #fff; border: none; padding: 8px 24px;
+    border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .print-btn:hover { background: #1d4ed8; }
+
+  /* Layout */
+  .paper {
+    max-width: 800px; margin: 0 auto;
+    padding: 80px 2rem 4rem;
+  }
+
+  /* Cover */
+  .cover {
+    text-align: center; padding: 4rem 0 3rem;
+    border-bottom: 3px double #1a1a2e;
+    margin-bottom: 3rem;
+  }
+  .cover-logo {
+    display: inline-block; margin-bottom: 2rem;
+  }
+  .cover-logo svg { width: 80px; height: 80px; }
+  .cover h1 {
+    font-size: 2.4rem; font-weight: 700; line-height: 1.2;
+    margin-bottom: 0.5rem; letter-spacing: -0.02em;
+  }
+  .cover .subtitle {
+    font-size: 1.2rem; color: #64748b; font-style: italic;
+    margin-bottom: 2rem;
+  }
+  .cover-meta {
+    font-size: 0.9rem; color: #94a3b8; line-height: 1.6;
+  }
+  .cover-meta strong { color: #475569; }
+
+  /* TOC */
+  .toc {
+    background: #f8f9fc; border: 1px solid #e2e8f0;
+    border-radius: 12px; padding: 2rem; margin-bottom: 3rem;
+  }
+  .toc h2 {
+    font-size: 1.1rem; font-family: 'Segoe UI', system-ui, sans-serif;
+    text-transform: uppercase; letter-spacing: 0.1em; color: #2563eb;
+    margin-bottom: 1rem; font-weight: 700;
+  }
+  .toc ol { padding-left: 1.5rem; }
+  .toc li { margin-bottom: 0.4rem; font-size: 0.95rem; }
+  .toc a { color: #1a1a2e; text-decoration: none; }
+  .toc a:hover { color: #2563eb; }
+
+  /* Headings */
+  h2 {
+    font-size: 1.6rem; font-weight: 700; margin: 3rem 0 1rem;
+    padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0;
+    color: #0f172a;
+  }
+  h3 {
+    font-size: 1.2rem; font-weight: 700; margin: 2rem 0 0.75rem;
+    color: #1e293b;
+  }
+  h4 {
+    font-size: 1.05rem; font-weight: 700; margin: 1.5rem 0 0.5rem;
+    color: #334155;
+  }
+
+  /* Text */
+  p { margin-bottom: 1rem; text-align: justify; }
+  .lead { font-size: 1.1rem; color: #475569; font-style: italic; margin-bottom: 1.5rem; }
+
+  /* Lists */
+  ul, ol { margin-bottom: 1rem; padding-left: 1.8rem; }
+  li { margin-bottom: 0.3rem; }
+
+  /* Callouts */
+  .callout {
+    background: #eff6ff; border-left: 4px solid #2563eb;
+    padding: 1.2rem 1.5rem; margin: 1.5rem 0;
+    border-radius: 0 8px 8px 0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.95rem; line-height: 1.6;
+  }
+  .callout strong { color: #1d4ed8; }
+  .callout-green {
+    background: #f0fdf4; border-left-color: #10b981;
+  }
+  .callout-green strong { color: #059669; }
+  .callout-amber {
+    background: #fffbeb; border-left-color: #f59e0b;
+  }
+  .callout-amber strong { color: #d97706; }
+
+  /* Formula blocks */
+  .formula-block {
+    background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 1.5rem; margin: 1.5rem 0;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9rem; line-height: 1.8; overflow-x: auto;
+  }
+  .formula-block .label {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-weight: 700; color: #2563eb; font-size: 0.8rem;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 0.5rem; display: block;
+  }
+
+  /* Tables */
+  .wp-table-wrap { overflow-x: auto; margin: 1.5rem 0; }
+  table {
+    width: 100%; border-collapse: collapse;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.9rem;
+  }
+  thead { background: #0f172a; color: #fff; }
+  th { padding: 0.75rem 1rem; text-align: left; font-weight: 600; }
+  td { padding: 0.7rem 1rem; border-bottom: 1px solid #f1f5f9; }
+  tbody tr:hover { background: #f8fafc; }
+
+  /* Figures */
+  .figure {
+    margin: 2rem 0; text-align: center;
+  }
+  .figure-caption {
+    font-size: 0.85rem; color: #64748b; margin-top: 0.75rem;
+    font-style: italic;
+  }
+  .figure-num { font-weight: 700; color: #334155; font-style: normal; }
+
+  /* Diagram boxes */
+  .diagram {
+    display: flex; gap: 1rem; justify-content: center;
+    flex-wrap: wrap; margin: 1.5rem 0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+  .diagram-box {
+    border: 2px solid #e2e8f0; border-radius: 12px;
+    padding: 1rem 1.5rem; text-align: center; min-width: 140px;
+    transition: all 0.2s;
+  }
+  .diagram-box:hover { border-color: #93c5fd; background: #f8fafc; }
+  .diagram-box .db-label {
+    font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 0.25rem;
+  }
+  .diagram-box .db-value { font-size: 1.3rem; font-weight: 800; }
+  .diagram-arrow {
+    display: flex; align-items: center; color: #cbd5e1;
+    font-size: 1.5rem;
+  }
+
+  /* Dial color coding */
+  .c-val { color: #2563eb; }
+  .c-liq { color: #0891b2; }
+  .c-cov { color: #059669; }
+  .c-tru { color: #d97706; }
+  .c-comp { color: #7c3aed; }
+
+  /* References */
+  .references { font-size: 0.88rem; }
+  .references li { margin-bottom: 0.6rem; color: #475569; }
+  .ref-title { font-style: italic; }
+
+  /* Footer */
+  .wp-footer {
+    margin-top: 4rem; padding-top: 2rem;
+    border-top: 3px double #1a1a2e;
+    text-align: center; font-size: 0.85rem; color: #94a3b8;
+  }
+  .wp-footer a { color: #2563eb; text-decoration: none; }
+
+  /* Highlight stats */
+  .stat-row {
+    display: flex; gap: 1.5rem; justify-content: center;
+    margin: 2rem 0; flex-wrap: wrap;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+  .stat-box {
+    background: linear-gradient(135deg, #eff6ff, #f0fdf4);
+    border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 1.25rem 2rem; text-align: center; min-width: 160px;
+  }
+  .stat-box .sb-val {
+    font-size: 1.8rem; font-weight: 800; color: #1e40af;
+    display: block;
+  }
+  .stat-box .sb-label { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+
+  /* Weight bar */
+  .weight-bar {
+    display: flex; height: 36px; border-radius: 8px; overflow: hidden;
+    margin: 1rem 0; font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.8rem; font-weight: 700; color: #fff;
+  }
+  .weight-bar div {
+    display: flex; align-items: center; justify-content: center;
+  }
+  .wb-val { background: #2563eb; flex: 35; }
+  .wb-liq { background: #0891b2; flex: 35; }
+  .wb-cov { background: #059669; flex: 15; }
+  .wb-tru { background: #d97706; flex: 15; }
+</style>
+</head>
+<body>
+
+<!-- Print / Download bar -->
+<div class="print-bar no-print">
+  <div><a href="presentation.html">&larr; Back to Presentation</a></div>
+  <div style="display:flex;gap:1rem;align-items:center;">
+    <span>IRCI Whitepaper</span>
+    <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+  </div>
+</div>
+
+<div class="paper">
+
+<!-- ========== COVER ========== -->
+<div class="cover">
+  <div class="cover-logo">
+    <svg viewBox="0 0 100 100" fill="none">
+      <path d="M50 10 A40 40 0 1 0 85 65" stroke="#2563eb" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <polyline points="38,55 50,68 72,40" stroke="#10b981" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+  </div>
+  <h1>The Investor Relations<br>Composite Index</h1>
+  <div class="subtitle">A Quantitative Framework for Measuring, Benchmarking,<br>and Valuing Investor Relations Performance</div>
+  <div class="cover-meta">
+    <strong>Version 1.0</strong> &mdash; May 2026<br>
+    Contact: <a href="mailto:brushing@uccs.edu" style="color:#2563eb;">brushing@uccs.edu</a><br>
+    University of Colorado Colorado Springs
+  </div>
+</div>
+
+<!-- ========== TOC ========== -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li><a href="#s1">Executive Summary</a></li>
+    <li><a href="#s2">The Problem: IR's Measurement Gap</a></li>
+    <li><a href="#s3">IRCI Framework Overview</a></li>
+    <li><a href="#s4">The Four Dials</a>
+      <ol style="margin-top:0.3rem;">
+        <li><a href="#s4a">Valuation Dial</a></li>
+        <li><a href="#s4b">Liquidity Dial</a></li>
+        <li><a href="#s4c">Coverage Dial</a></li>
+        <li><a href="#s4d">Trust &amp; Sentiment Dial</a></li>
+      </ol>
+    </li>
+    <li><a href="#s5">Composite Score Calculation</a></li>
+    <li><a href="#s6">Dollar Value Attribution</a></li>
+    <li><a href="#s7">Data Architecture &amp; Sources</a></li>
+    <li><a href="#s8">AI &amp; Machine Learning Components</a></li>
+    <li><a href="#s9">Differentiation from Existing Solutions</a></li>
+    <li><a href="#s10">Use Cases &amp; Applications</a></li>
+    <li><a href="#s11">Statistical Rigor &amp; Validation</a></li>
+    <li><a href="#s12">Platform Architecture</a></li>
+    <li><a href="#s13">Academic Foundations</a></li>
+    <li><a href="#s14">Conclusion &amp; Contact</a></li>
+    <li><a href="#s15">References</a></li>
+  </ol>
+</div>
+
+<!-- ========== 1. EXECUTIVE SUMMARY ========== -->
+<h2 id="s1">1. Executive Summary</h2>
+
+<p class="lead">IRCI&mdash;the Investor Relations Composite Index&mdash;is the first quantitative framework that converts investor relations quality into a single, peer-benchmarked score and translates every point into enterprise value dollars.</p>
+
+<p>Public companies invest millions annually in investor relations, yet IR teams have long lacked a unified, defensible metric to demonstrate the financial impact of their work. IRCI solves this by synthesizing four research-backed performance dimensions&mdash;Valuation, Liquidity, Coverage, and Trust&mdash;into a composite score on a 0&ndash;100 peer-relative scale.</p>
+
+<p>Each IRCI point carries a dollar value derived from academic research (Bushee &amp; Miller, 2012), scaled by company enterprise value and statistical model fit. For a $135 billion company, a single IRCI point can represent over $33 million in enterprise value.</p>
+
+<div class="stat-row">
+  <div class="stat-box">
+    <span class="sb-val">4</span>
+    <span class="sb-label">Research-Backed Dials</span>
+  </div>
+  <div class="stat-box">
+    <span class="sb-val">15+</span>
+    <span class="sb-label">Live Data Sources</span>
+  </div>
+  <div class="stat-box">
+    <span class="sb-val">0&ndash;100</span>
+    <span class="sb-label">Peer-Relative Score</span>
+  </div>
+  <div class="stat-box">
+    <span class="sb-val">$M</span>
+    <span class="sb-label">Per-Point Attribution</span>
+  </div>
+</div>
+
+<p>Beyond scoring, IRCI provides an AI-powered playbook of 20+ prioritized actions, predictive analytics for forecasting future scores, budget optimization via quantum-ready algorithms, and board-grade PDF reports&mdash;all from a single analysis run.</p>
+
+<!-- ========== 2. THE PROBLEM ========== -->
+<h2 id="s2" class="page-break">2. The Problem: IR's Measurement Gap</h2>
+
+<p>Investor relations sits at the intersection of finance, communications, and strategy. Despite its strategic importance, the discipline suffers from a fundamental measurement problem:</p>
+
+<h3>No Unified Metric</h3>
+<p>IR teams track dozens of disparate KPIs&mdash;stock price performance, analyst coverage counts, trading volume, media mentions, earnings call attendance, institutional ownership percentages&mdash;but no single, composite benchmark ties them together into a holistic view of IR quality. This fragmentation makes it impossible to answer the simple question: "How good is our IR program?"</p>
+
+<h3>No Dollar-Value Attribution</h3>
+<p>When CFOs and boards ask "What is investor relations worth to this company?", IR professionals struggle to provide a defensible, dollar-denominated answer. Without a quantitative link between IR activities and enterprise value, IR budgets are perpetually vulnerable to cost-cutting exercises.</p>
+
+<h3>No Peer Benchmarking Standard</h3>
+<p>A company may know its own media mention count or institutional ownership percentage, but without peer-relative benchmarking, these numbers lack context. Is 45% institutional ownership good or bad? It depends entirely on the peer group&mdash;and currently, no standard framework provides this comparison.</p>
+
+<h3>No Evidence-Based Playbook</h3>
+<p>Even when gaps are identified qualitatively, IR teams lack a systematic, evidence-backed methodology for prioritizing which actions will have the greatest impact on measurable outcomes. Recommendations are typically anecdotal rather than data-driven.</p>
+
+<div class="callout">
+  <strong>The Core Insight:</strong> IR creates value through four observable channels&mdash;valuation multiples, trading liquidity, media/analyst coverage, and investor sentiment. IRCI is the first system to measure all four simultaneously, score them against peers, and convert the result into dollars.
+</div>
+
+<!-- ========== 3. FRAMEWORK OVERVIEW ========== -->
+<h2 id="s3" class="page-break">3. IRCI Framework Overview</h2>
+
+<p>IRCI works by collecting real-time data from 15+ authoritative sources, computing four dial scores on a peer-relative percentile basis, combining them into a weighted composite, and then translating score changes into enterprise value impact.</p>
+
+<div class="diagram">
+  <div class="diagram-box" style="border-color:#2563eb;">
+    <div class="db-label">Step 1</div>
+    <div class="db-value" style="font-size:1rem;">Data Ingestion</div>
+  </div>
+  <div class="diagram-arrow">&rarr;</div>
+  <div class="diagram-box" style="border-color:#0891b2;">
+    <div class="db-label">Step 2</div>
+    <div class="db-value" style="font-size:1rem;">Dial Scoring</div>
+  </div>
+  <div class="diagram-arrow">&rarr;</div>
+  <div class="diagram-box" style="border-color:#059669;">
+    <div class="db-label">Step 3</div>
+    <div class="db-value" style="font-size:1rem;">Composite IRCI</div>
+  </div>
+  <div class="diagram-arrow">&rarr;</div>
+  <div class="diagram-box" style="border-color:#d97706;">
+    <div class="db-label">Step 4</div>
+    <div class="db-value" style="font-size:1rem;">$ Attribution</div>
+  </div>
+  <div class="diagram-arrow">&rarr;</div>
+  <div class="diagram-box" style="border-color:#7c3aed;">
+    <div class="db-label">Step 5</div>
+    <div class="db-value" style="font-size:1rem;">Playbook</div>
+  </div>
+</div>
+
+<p>All scoring uses <strong>median-anchored percentile scaling</strong>, which maps each metric to a 0&ndash;100 scale where the peer-group median equals 50. This approach is robust to outliers, handles small peer groups gracefully through range compression, and provides intuitive interpretation: above 50 means above-median, below 50 means below-median.</p>
+
+<h3>Default Dial Weights</h3>
+<div class="weight-bar">
+  <div class="wb-val">Valuation 35%</div>
+  <div class="wb-liq">Liquidity 35%</div>
+  <div class="wb-cov">Coverage 15%</div>
+  <div class="wb-tru">Trust 15%</div>
+</div>
+<p>These defaults can be auto-optimized using ridge-regularized non-negative least squares (NNLS) regression to find weights that maximize the correlation (R&sup2;) between IRCI scores and enterprise values within the peer group.</p>
+
+<!-- ========== 4. THE FOUR DIALS ========== -->
+<h2 id="s4" class="page-break">4. The Four Dials</h2>
+
+<h3 id="s4a">4.1 Valuation Dial <span class="c-val">(35% Default Weight)</span></h3>
+
+<p>The Valuation dial measures how the market values a company relative to its fundamentals. Academic research consistently shows that effective investor relations reduces information asymmetry, which directly improves valuation multiples (Bushee &amp; Miller, 2012).</p>
+
+<h4>Primary Metric: EV/EBITDA (70% of dial)</h4>
+<p>Enterprise Value to EBITDA is the workhorse valuation multiple used by professional investors. IRCI computes this ratio for each company in the peer group and converts it to a median-anchored percentile where <em>lower</em> EV/EBITDA ratios (indicating relative undervaluation by the market) receive <em>higher</em> scores.</p>
+
+<h4>Secondary Metric: PEG Ratio (30% of dial)</h4>
+<p>The Price/Earnings-to-Growth ratio adjusts the P/E multiple for growth expectations, sourced from Yahoo Finance and Alpha Vantage. When unavailable, the dial relies entirely on EV/EBITDA.</p>
+
+<div class="formula-block">
+  <span class="label">Valuation Dial Formula</span>
+  Valuation = 0.70 &times; percentile(EV/EBITDA, lower_is_better) + 0.30 &times; percentile(PEG, lower_is_better)
+
+  Valuation Gap = (company_EV/EBITDA - peer_mean) / peer_mean &times; 100%
+</div>
+
+<h3 id="s4b">4.2 Liquidity Dial <span class="c-liq">(35% Default Weight)</span></h3>
+
+<p>The Liquidity dial measures how easily a company's stock trades without moving the price. Strong IR programs attract institutional investors and market makers, tightening spreads and increasing turnover. This dial carries equal weight to Valuation because liquidity directly impacts a company's cost of capital and ability to raise funds.</p>
+
+<h4>Component Metrics</h4>
+
+<div class="wp-table-wrap">
+<table>
+  <thead>
+    <tr><th>Metric</th><th>Weight</th><th>Direction</th><th>Source</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Amihud Illiquidity Ratio</td><td>35%</td><td>Lower is better</td><td>Yahoo Finance prices</td></tr>
+    <tr><td>Roll Bid-Ask Spread Proxy</td><td>25%</td><td>Lower is better</td><td>Return autocovariance</td></tr>
+    <tr><td>Daily Turnover</td><td>25%</td><td>Higher is better</td><td>Volume / Market Cap</td></tr>
+    <tr><td>Institutional Ownership</td><td>15%</td><td>Higher is better</td><td>SEC 13F filings</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="formula-block">
+  <span class="label">Key Liquidity Formulas</span>
+  Amihud = |daily_return| / dollar_volume          (Amihud, 2002)
+  Roll Spread = 2 &times; &radic;(max(-autocovariance, 0))    (Roll, 1984)
+  Turnover = dollar_volume / market_cap
+  Institutional % = 13F holdings / shares outstanding
+</div>
+
+<p>Daily metrics are computed over the quarter, with Amihud and Roll spread values winsorized to handle outliers. The quarterly aggregate uses the median for Amihud and Roll spread (robust to extreme days) and the mean for turnover.</p>
+
+<h3 id="s4c" class="page-break">4.3 Coverage Dial <span class="c-cov">(15% Default Weight)</span></h3>
+
+<p>The Coverage dial measures media visibility, analyst attention, and disclosure quality. It captures how effectively the IR program drives awareness and maintains transparent communication with the market.</p>
+
+<h4>Component Metrics</h4>
+
+<div class="wp-table-wrap">
+<table>
+  <thead>
+    <tr><th>Metric</th><th>Weight</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Media Visibility</td><td>40%</td><td>Credibility-weighted article count across tiers</td></tr>
+    <tr><td>8-K Filing Count</td><td>27%</td><td>Frequency of SEC event disclosures</td></tr>
+    <tr><td>Filing Timeliness</td><td>18%</td><td>Days to file 10-Q/10-K (faster = better)</td></tr>
+    <tr><td>Transcript Quality</td><td>15%</td><td>Earnings call content: guidance, Q&amp;A depth</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Media visibility uses a domain credibility weighting system that assigns different multipliers based on source authority:</p>
+
+<div class="wp-table-wrap">
+<table>
+  <thead>
+    <tr><th>Tier</th><th>Sources</th><th>Weight</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Tier 1</td><td>Wall Street Journal, Bloomberg, Reuters</td><td>1.0</td></tr>
+    <tr><td>Tier 2</td><td>CNBC, Forbes, Financial Times</td><td>0.85&ndash;0.90</td></tr>
+    <tr><td>Tier 3</td><td>Seeking Alpha, MarketWatch</td><td>0.60</td></tr>
+    <tr><td>Press Releases</td><td>Business Wire, PR Newswire</td><td>0.30&ndash;0.40</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="s4d">4.4 Trust &amp; Sentiment Dial <span class="c-tru">(15% Default Weight)</span></h3>
+
+<p>The Trust dial measures market confidence and perception&mdash;how investors and media perceive the company's communication and transparency. It is the most AI-intensive dial, leveraging FinBERT transformer models for financial sentiment analysis.</p>
+
+<h4>Component Metrics</h4>
+
+<div class="wp-table-wrap">
+<table>
+  <thead>
+    <tr><th>Metric</th><th>Weight</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Event Calmness</td><td>40%</td><td>Volatility around SEC filing events (Fama-French 5-factor residuals)</td></tr>
+    <tr><td>Media Tone</td><td>30%</td><td>FinBERT sentiment of news articles, with reliability shrinkage</td></tr>
+    <tr><td>Social Sentiment</td><td>15%</td><td>Reddit rank changes, StockTwits bullish ratio</td></tr>
+    <tr><td>Baseline Calmness</td><td>15%</td><td>Quarterly stock return volatility</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="formula-block">
+  <span class="label">Event Calmness</span>
+  For each SEC filing event:
+    event_volatility = &Sigma;|residual_returns| over &plusmn;3 trading days
+    residuals from Fama-French 5-factor model (or CAPM fallback)
+
+  event_calmness = -median(event_volatilities)
+  Interpretation: Lower volatility around events = calmer market reaction = higher trust
+</div>
+
+<div class="formula-block">
+  <span class="label">FinBERT Media Tone with Reliability Shrinkage</span>
+  raw_score = P(positive) - P(negative)     per article
+  raw_tone = mean(article_scores)
+  media_tone = raw_tone &times; shrinkage_factor
+
+  shrinkage = n_articles / (n_articles + 4)
+
+  With 2 articles:  shrinkage = 0.33 (high uncertainty, shrink toward 0)
+  With 20 articles: shrinkage = 0.83 (high confidence, trust the signal)
+</div>
+
+<div class="callout-green callout">
+  <strong>Why Shrinkage Matters:</strong> A company with only 2 articles&mdash;both positive&mdash;should not receive the same high sentiment score as a company with 50 positive articles. The Bayesian shrinkage factor pulls small-sample estimates toward neutral, preventing noise from dominating the signal.
+</div>
+
+<!-- ========== 5. COMPOSITE SCORE ========== -->
+<h2 id="s5" class="page-break">5. Composite Score Calculation</h2>
+
+<div class="formula-block">
+  <span class="label">IRCI Composite Score</span>
+  IRCI = (Valuation &times; 0.35) + (Liquidity &times; 0.35) + (Coverage &times; 0.15) + (Trust &times; 0.15)
+
+  Result: 0&ndash;100 peer-relative percentile scale
+  &bull; 75&ndash;100: Strong (top quartile)
+  &bull; 50&ndash;75:  Above median
+  &bull; 25&ndash;50:  Below median
+  &bull;  0&ndash;25:  Attention needed (bottom quartile)
+</div>
+
+<h3>Median-Anchored Percentile Scaling</h3>
+<p>Rather than simple min-max normalization, IRCI uses a median-anchored approach that provides several advantages:</p>
+
+<div class="formula-block">
+  <span class="label">Scaling Algorithm</span>
+  if value &le; median:
+      percentile = (value - min) / (median - min) &times; 50
+  else:
+      percentile = 50 + (value - median) / (max - median) &times; 50
+</div>
+
+<ul>
+  <li><strong>Median = 50 always:</strong> The middle of the peer group is always anchored at 50, making scores intuitive.</li>
+  <li><strong>Outlier-robust:</strong> Extreme values at the top or bottom compress naturally rather than distorting the entire scale.</li>
+  <li><strong>Small-group compression:</strong> For peer groups of 2&ndash;5 companies, the range is compressed (e.g., 15&ndash;85 for 3 peers) to avoid giving false precision to a narrow comparison.</li>
+</ul>
+
+<h3>Weight Auto-Optimization</h3>
+<p>Users can override default weights or run the auto-optimizer, which uses ridge-regularized non-negative least squares regression:</p>
+
+<div class="formula-block">
+  <span class="label">Auto-Optimization</span>
+  Objective: maximize R&sup2; of regression EV ~ IRCI
+
+  minimize: ||Xw - y||&sup2; + &lambda;||w||&sup2;
+  subject to: w &ge; 0, &Sigma;w = 1
+
+  &lambda; = 0.05 (ridge penalty)
+  Cross-validation: 3-fold rolling CV
+</div>
+
+<!-- ========== 6. DOLLAR VALUE ========== -->
+<h2 id="s6" class="page-break">6. Dollar Value Attribution</h2>
+
+<p class="lead">The single most powerful feature of IRCI is its ability to assign a dollar value to each point of the composite score&mdash;enabling IR teams to speak the language of the C-suite.</p>
+
+<h3>Methodology</h3>
+<p>The dollar attribution is grounded in the academic finding by Bushee &amp; Miller (2012) that investor relations programs contribute approximately 5&ndash;10% to firm enterprise value over the long term. IRCI operationalizes this as follows:</p>
+
+<div class="formula-block">
+  <span class="label">Dollar Value Per IRCI Point</span>
+  $/Point = Enterprise Value &times; 0.05% &times; R&sup2;
+
+  Derivation:
+  &bull; Total IR contribution to EV: ~5% (conservative end of 5&ndash;10% range)
+  &bull; Typical IRCI gap between leader and laggard: ~50 points
+  &bull; Per-point impact: 5% &divide; 50 = 0.10%
+  &bull; Conservative halving: 0.10% &divide; 2 = 0.05%
+  &bull; Scaled by R&sup2; (model fit quality) for statistical defensibility
+</div>
+
+<h3>Worked Example</h3>
+
+<div class="callout-green callout">
+  <strong>Large-Cap Example &mdash; $135 Billion Enterprise Value, R&sup2; = 0.50</strong><br><br>
+  $/Point = $135B &times; 0.0005 &times; 0.50 = <strong>$33.75 million per IRCI point</strong><br><br>
+  &bull; A successful press release (+0.75 IRCI pts): <strong>+$25.3M</strong> implied value<br>
+  &bull; An investor day (+3.2 pts): <strong>+$108M</strong> implied value<br>
+  &bull; A comprehensive IR program overhaul (+8 pts): <strong>+$270M</strong> implied value
+</div>
+
+<h3>Quarterly IR Contribution</h3>
+<div class="formula-block">
+  <span class="label">Quarterly Attribution</span>
+  Quarterly IR Contribution = (Current Q IRCI - Previous Q IRCI) &times; $/Point &times; Impact Factor
+
+  Default Impact Factor: 10%
+
+  Rationale: The cross-sectional regression measures structural (multi-year)
+  differences. A single quarter captures only marginal, incremental improvement.
+  The 10% factor converts structural $/point into a conservative quarterly estimate.
+</div>
+
+<p>The impact factor is user-adjustable on a 1&ndash;100% slider, allowing teams to model conservative (5%), moderate (10%), or aggressive (25%) attribution scenarios for board presentations.</p>
+
+<!-- ========== 7. DATA ARCHITECTURE ========== -->
+<h2 id="s7" class="page-break">7. Data Architecture &amp; Sources</h2>
+
+<p>IRCI is not an AI model generating estimates from stale training data. It is a <strong>quantitative engine ingesting real-time data</strong> from 15+ authoritative sources, each with multi-level fallback chains to ensure analysis never fails due to a single API outage.</p>
+
+<div class="wp-table-wrap">
+<table>
+  <thead>
+    <tr><th>Category</th><th>Sources</th><th>Data Provided</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Financial</strong></td>
+      <td>Yahoo Finance, FMP API, Alpha Vantage, Kenneth French Library</td>
+      <td>Stock prices, enterprise values, EBITDA, market cap, PEG ratios, Fama-French factors</td>
+    </tr>
+    <tr>
+      <td><strong>Regulatory</strong></td>
+      <td>SEC EDGAR, SEC XBRL, SEC 13F Filings</td>
+      <td>8-K/10-Q/10-K filings, filing dates, institutional holdings, financial statements</td>
+    </tr>
+    <tr>
+      <td><strong>News &amp; Media</strong></td>
+      <td>FMP News, World News API, NewsAPI, Finnhub, Google News RSS, Seeking Alpha RSS</td>
+      <td>Article counts, publication dates, source domains, article text for sentiment</td>
+    </tr>
+    <tr>
+      <td><strong>Social</strong></td>
+      <td>Reddit/WallStreetBets (ApeWisdom), StockTwits</td>
+      <td>Mention rank changes, bullish/bearish sentiment ratios</td>
+    </tr>
+    <tr>
+      <td><strong>AI / NLP</strong></td>
+      <td>FinBERT transformer model</td>
+      <td>Financial sentiment scores for each article (-1 to +1)</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Multi-Source Fallback Architecture</h3>
+<p>Each critical data point has a cascading fallback chain. For example, Enterprise Value:</p>
+
+<div class="diagram">
+  <div class="diagram-box" style="border-color:#10b981;">
+    <div class="db-label">Primary</div>
+    <div class="db-value" style="font-size:0.9rem;">FMP API</div>
+  </div>
+  <div class="diagram-arrow">&rarr;</div>
+  <div class="diagram-box" style="border-color:#f59e0b;">
+    <div class="db-label">Fallback 1</div>
+    <div class="db-value" style="font-size:0.9rem;">Component Calc</div>
+  </div>
+  <div class="diagram-arrow">&rarr;</div>
+  <div class="diagram-box" style="border-color:#ef4444;">
+    <div class="db-label">Fallback 2</div>
+    <div class="db-value" style="font-size:0.9rem;">Yahoo Finance</div>
+  </div>
+</div>
+
+<p>This architecture means IRCI produces results even when individual APIs are rate-limited, temporarily down, or returning incomplete data&mdash;a critical requirement for production use in enterprise environments.</p>
+
+<!-- ========== 8. AI & ML COMPONENTS ========== -->
+<h2 id="s8" class="page-break">8. AI &amp; Machine Learning Components</h2>
+
+<p>IRCI uses AI as a <strong>precision enhancement</strong> to a quantitative finance framework&mdash;not as its foundation. This is a critical distinction: the core scoring engine is deterministic and reproducible, while AI adds three layers of intelligence on top.</p>
+
+<h3>8.1 FinBERT Sentiment Analysis</h3>
+<p>FinBERT is a BERT transformer model fine-tuned on 50,000+ financial documents. Unlike general-purpose sentiment analyzers, it understands that "the company beat expectations by cutting workforce" contains both positive and negative financial signals. IRCI applies FinBERT to every news article collected for the Trust dial's media tone component.</p>
+
+<h3>8.2 AI Chat Assistant</h3>
+<p>A multi-provider conversational AI (Claude, GPT, Gemini) allows users to ask natural-language questions about their results. The assistant is context-aware, meaning it has access to the specific IRCI scores, peer comparisons, and raw metrics for the current analysis. Example: "Why is our liquidity score below the peer median?" yields a data-driven explanation referencing the company's specific Amihud ratio vs. peers.</p>
+
+<h3>8.3 AI-Generated Playbook</h3>
+<p>For each analysis, IRCI generates 20+ prioritized recommendations using large language models. Each recommendation includes:</p>
+<ul>
+  <li>Priority level (High / Medium / Low) based on dial gaps</li>
+  <li>Specific action description with implementation details</li>
+  <li>Expected IRCI impact (point estimate and timeframe)</li>
+  <li>Academic citations supporting the recommendation</li>
+  <li>Key metrics to track for measuring success</li>
+  <li>Recommended tools and platforms</li>
+  <li>Industry benchmarks for context</li>
+</ul>
+
+<h3>8.4 Predictive Analytics</h3>
+<p>Machine learning models forecast next-quarter IRCI scores based on historical trends, planned IR initiatives, and seasonal patterns. Users can model "what-if" scenarios: "If we host an investor day and increase press release cadence, what's the projected IRCI impact?"</p>
+
+<div class="callout-amber callout">
+  <strong>Key Differentiator:</strong> AI components in IRCI are enhancers, not the engine. Remove the AI layers and you still have a fully functional, deterministic quantitative scoring system. Add them back and you get richer insights. This is the opposite of generic LLM tools, where removing the AI leaves nothing.
+</div>
+
+<!-- ========== 9. DIFFERENTIATION ========== -->
+<h2 id="s9" class="page-break">9. Differentiation from Existing Solutions</h2>
+
+<div class="wp-table-wrap">
+<table>
+  <thead>
+    <tr><th>Dimension</th><th>Generic LLM (ChatGPT)</th><th>Bloomberg Terminal</th><th style="background:#2563eb;">IRCI</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Composite IR score</td>
+      <td>Cannot produce</td>
+      <td>Does not exist</td>
+      <td><strong>0&ndash;100 peer-relative</strong></td>
+    </tr>
+    <tr>
+      <td>Dollar value per IR point</td>
+      <td>Cannot calculate</td>
+      <td>Not available</td>
+      <td><strong>Academic-backed $/point</strong></td>
+    </tr>
+    <tr>
+      <td>Data source</td>
+      <td>Stale training corpus</td>
+      <td>Real-time</td>
+      <td><strong>15+ real-time sources</strong></td>
+    </tr>
+    <tr>
+      <td>Reproducibility</td>
+      <td>Non-deterministic</td>
+      <td>Deterministic</td>
+      <td><strong>Fully deterministic</strong></td>
+    </tr>
+    <tr>
+      <td>Auditability</td>
+      <td>Black box</td>
+      <td>Transparent</td>
+      <td><strong>Every metric traceable to source</strong></td>
+    </tr>
+    <tr>
+      <td>IR-specific optimization</td>
+      <td>General purpose</td>
+      <td>General finance</td>
+      <td><strong>Purpose-built for IR</strong></td>
+    </tr>
+    <tr>
+      <td>Actionable recommendations</td>
+      <td>Generic advice</td>
+      <td>No recommendations</td>
+      <td><strong>20+ cited, prioritized actions</strong></td>
+    </tr>
+    <tr>
+      <td>Budget optimization</td>
+      <td>Not possible</td>
+      <td>Not available</td>
+      <td><strong>Quantum-ready QUBO solver</strong></td>
+    </tr>
+    <tr>
+      <td>Board-ready reports</td>
+      <td>No formatting</td>
+      <td>Manual assembly</td>
+      <td><strong>One-click PDF generation</strong></td>
+    </tr>
+    <tr>
+      <td>Cost</td>
+      <td>$20/month (limited)</td>
+      <td>$24,000+/year</td>
+      <td><strong>Flexible pricing</strong></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>The fundamental difference is architectural: generic LLMs <em>generate text about</em> IR performance, while IRCI <em>measures</em> IR performance. Bloomberg provides raw financial data but no IR-specific composite scoring. IRCI occupies a unique category&mdash;a domain-specific quantitative framework with AI enhancement.</p>
+
+<!-- ========== 10. USE CASES ========== -->
+<h2 id="s10" class="page-break">10. Use Cases &amp; Applications</h2>
+
+<h3>For IR Teams</h3>
+<ul>
+  <li><strong>Peer benchmarking:</strong> See exactly where you stand on each dial relative to competitors</li>
+  <li><strong>Improvement prioritization:</strong> Know which dial to focus on for maximum composite improvement</li>
+  <li><strong>Quarterly progress tracking:</strong> Demonstrate momentum to leadership with trend charts</li>
+  <li><strong>Investor day planning:</strong> Project the IRCI impact of planned events before committing budget</li>
+  <li><strong>Competitive intelligence:</strong> Monitor peers' IR effectiveness over time</li>
+</ul>
+
+<h3>For CFOs &amp; Finance</h3>
+<ul>
+  <li><strong>IR budget justification:</strong> Present dollar-value impact to the board: "Our IR program added $X million in enterprise value this quarter"</li>
+  <li><strong>Resource allocation:</strong> Use the budget optimizer to distribute IR spend across initiatives for maximum ROI</li>
+  <li><strong>Cost-benefit analysis:</strong> Compare IR program cost against the $/IRCI point enterprise value attribution</li>
+</ul>
+
+<h3>For Analysts &amp; Investors</h3>
+<ul>
+  <li><strong>Coverage gap screening:</strong> Identify under-covered companies where IR improvement could unlock value</li>
+  <li><strong>Liquidity risk assessment:</strong> Evaluate trading efficiency before making large positions</li>
+  <li><strong>Sentiment monitoring:</strong> Track real-time market perception shifts across portfolios</li>
+  <li><strong>Valuation arbitrage:</strong> Spot companies with peer-relative valuation gaps attributable to poor IR</li>
+</ul>
+
+<h3>For Boards &amp; Executives</h3>
+<ul>
+  <li><strong>Strategic oversight:</strong> One-page IRCI scorecard vs. peer group for board meetings</li>
+  <li><strong>Communication effectiveness:</strong> Quantify the impact of corporate communication initiatives</li>
+  <li><strong>Automated reporting:</strong> Schedule board-ready PDF reports delivered to inbox weekly or monthly</li>
+  <li><strong>Scenario planning:</strong> Model IR investment scenarios with predicted ROI</li>
+</ul>
+
+<!-- ========== 11. STATISTICAL RIGOR ========== -->
+<h2 id="s11" class="page-break">11. Statistical Rigor &amp; Validation</h2>
+
+<p>IRCI is designed to meet the evidentiary standards of finance professionals and academic researchers. Every output includes supporting statistical metrics.</p>
+
+<h3>R-Squared (R&sup2;)</h3>
+<p>The coefficient of determination measures how much variance in enterprise value is explained by IRCI scores within the peer group. Reported with every analysis, R&sup2; directly scales the dollar attribution&mdash;ensuring that weak correlations produce conservatively small dollar estimates.</p>
+
+<h3>P-Value</h3>
+<p>Statistical significance of the IRCI-to-EV relationship. Only relationships with p &lt; 0.05 are flagged as statistically significant, ensuring users don't act on noise.</p>
+
+<h3>Peer Count Validation</h3>
+<p>IRCI warns when peer groups are too small for reliable statistical inference. Range compression for small groups (2&ndash;5 companies) prevents false precision, and analyses with fewer than 3 peers carry explicit uncertainty caveats.</p>
+
+<h3>Fama-French Risk Adjustment</h3>
+<p>The Trust dial's event calmness metric uses Fama-French 5-factor residuals&mdash;the gold standard in academic finance&mdash;to isolate company-specific volatility from market-wide, size, value, profitability, and investment factors. This prevents confounding: a calm market day isn't mistakenly credited to good IR.</p>
+
+<h3>Winsorization &amp; Outlier Handling</h3>
+<p>Daily liquidity metrics are winsorized to the 1st/99th percentiles before aggregation, preventing a single anomalous trading day from distorting quarterly scores.</p>
+
+<!-- ========== 12. PLATFORM ARCHITECTURE ========== -->
+<h2 id="s12" class="page-break">12. Platform Architecture</h2>
+
+<h3>Technology Stack</h3>
+<div class="wp-table-wrap">
+<table>
+  <thead>
+    <tr><th>Layer</th><th>Technology</th><th>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Core Engine</td><td>Python 3.12, Pandas, NumPy, SciPy</td><td>Data processing and scoring calculations</td></tr>
+    <tr><td>Web Interface</td><td>Streamlit</td><td>Interactive dashboards and user interaction</td></tr>
+    <tr><td>Visualization</td><td>Plotly</td><td>Interactive charts (radar, bar, line, scatter)</td></tr>
+    <tr><td>AI / NLP</td><td>FinBERT, Claude, GPT, Gemini</td><td>Sentiment analysis, chat, playbook generation</td></tr>
+    <tr><td>Machine Learning</td><td>scikit-learn</td><td>Weight optimization, regression, cross-validation</td></tr>
+    <tr><td>Optimization</td><td>QUBO / D-Wave SDK</td><td>Budget allocation (quantum-ready)</td></tr>
+    <tr><td>Reporting</td><td>FPDF</td><td>Board-grade PDF generation</td></tr>
+    <tr><td>Delivery</td><td>SMTP</td><td>Automated email report distribution</td></tr>
+    <tr><td>CLI</td><td>Typer</td><td>Command-line interface for automation</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Deployment Options</h3>
+<ul>
+  <li><strong>Web application:</strong> Streamlit-based interactive dashboard accessible via browser</li>
+  <li><strong>Command-line interface:</strong> Typer-based CLI for scripted and automated analysis</li>
+  <li><strong>Scheduled jobs:</strong> Built-in scheduler for recurring analysis with email delivery</li>
+  <li><strong>API integration:</strong> Composable Python modules for embedding IRCI in existing workflows</li>
+</ul>
+
+<h3>Quantum-Ready Budget Optimization</h3>
+<p>IRCI's budget allocator formulates the IR spending optimization as a Quadratic Unconstrained Binary Optimization (QUBO) problem&mdash;the native problem type for quantum annealers like D-Wave. Today, it solves classically using SciPy; tomorrow, it can run on quantum hardware for exponentially larger optimization spaces as the technology matures.</p>
+
+<!-- ========== 13. ACADEMIC FOUNDATIONS ========== -->
+<h2 id="s13" class="page-break">13. Academic Foundations</h2>
+
+<p>IRCI's methodology rests on a substantial body of peer-reviewed finance and communications research. Key supporting studies include:</p>
+
+<h4>Bushee &amp; Miller (2012)</h4>
+<p><em>"The Role of the Business Press as an Information Intermediary."</em> Journal of Accounting Research. Demonstrated that proactive IR programs contribute 5&ndash;10% to firm enterprise value by reducing information asymmetry between management and investors. This finding anchors IRCI's dollar attribution methodology.</p>
+
+<h4>Kirk &amp; Vincent (2014)</h4>
+<p><em>"Professional Investor Relations within the Firm."</em> The Accounting Review. Found that companies with dedicated IR professionals experience lower bid-ask spreads, higher institutional ownership, and greater analyst coverage&mdash;validating the Liquidity and Coverage dial constructs.</p>
+
+<h4>Amihud (2002)</h4>
+<p><em>"Illiquidity and Stock Returns: Cross-Section and Time-Series Effects."</em> Journal of Financial Markets. Introduced the Amihud illiquidity ratio (|return|/volume), which became the standard measure of price impact and forms the primary component of IRCI's Liquidity dial.</p>
+
+<h4>Roll (1984)</h4>
+<p><em>"A Simple Implicit Measure of the Effective Bid-Ask Spread in an Efficient Market."</em> Journal of Finance. Developed the Roll spread estimator from return autocovariance, used in IRCI's Liquidity dial as a proxy for bid-ask spreads when direct spread data is unavailable.</p>
+
+<h4>Fama &amp; French (2015)</h4>
+<p><em>"A Five-Factor Model of Expected Stock Returns."</em> Journal of Financial Economics. Provided the five-factor risk model used in IRCI's Trust dial to compute residual returns&mdash;isolating company-specific volatility from systematic market factors.</p>
+
+<h4>Huang, Teoh &amp; Zhang (2014)</h4>
+<p><em>"Tone Management."</em> The Accounting Review. Demonstrated that linguistic tone in financial disclosures predicts future firm performance, supporting the inclusion of FinBERT sentiment analysis in the Trust dial.</p>
+
+<!-- ========== 14. CONCLUSION ========== -->
+<h2 id="s14" class="page-break">14. Conclusion &amp; Contact</h2>
+
+<p>IRCI represents a paradigm shift in how investor relations performance is measured, communicated, and optimized. By combining quantitative rigor with AI-powered insights, it gives IR teams the tools to:</p>
+
+<ul>
+  <li>Definitively answer "How good is our IR program?" with a single, peer-benchmarked score</li>
+  <li>Translate IR quality into the dollar-denominated language that CFOs and boards require</li>
+  <li>Prioritize improvements using evidence-backed, academically cited recommendations</li>
+  <li>Forecast the impact of planned initiatives before committing resources</li>
+  <li>Optimize budget allocation across competing IR investments</li>
+  <li>Deliver automated, board-ready reports on a schedule</li>
+</ul>
+
+<p>For the first time, investor relations can be managed with the same quantitative discipline that finance applies to every other strategic function.</p>
+
+<div class="callout" style="text-align:center; border-left-color:#7c3aed; background:#f5f3ff;">
+  <strong style="color:#6d28d9; font-size:1.1rem;">Get in Touch</strong><br><br>
+  <span style="font-size:1.05rem;">For demos, partnerships, or academic collaboration:</span><br><br>
+  <a href="mailto:brushing@uccs.edu" style="color:#2563eb; font-weight:700; font-size:1.1rem; text-decoration:none;">brushing@uccs.edu</a><br><br>
+  <span style="color:#64748b;">University of Colorado Colorado Springs</span>
+</div>
+
+<!-- ========== 15. REFERENCES ========== -->
+<h2 id="s15" class="page-break">15. References</h2>
+
+<ol class="references">
+  <li>Amihud, Y. (2002). Illiquidity and stock returns: cross-section and time-series effects. <span class="ref-title">Journal of Financial Markets</span>, 5(1), 31&ndash;56.</li>
+  <li>Bushee, B. J., &amp; Miller, G. S. (2012). Investor relations, firm visibility, and investor following. <span class="ref-title">The Accounting Review</span>, 87(3), 867&ndash;897.</li>
+  <li>Fama, E. F., &amp; French, K. R. (2015). A five-factor model of expected stock returns. <span class="ref-title">Journal of Financial Economics</span>, 116(1), 1&ndash;22.</li>
+  <li>Huang, X., Teoh, S. H., &amp; Zhang, Y. (2014). Tone management. <span class="ref-title">The Accounting Review</span>, 89(3), 1083&ndash;1113.</li>
+  <li>Kirk, M. P., &amp; Vincent, J. D. (2014). Professional investor relations within the firm. <span class="ref-title">The Accounting Review</span>, 89(4), 1421&ndash;1452.</li>
+  <li>Roll, R. (1984). A simple implicit measure of the effective bid-ask spread in an efficient market. <span class="ref-title">Journal of Finance</span>, 39(4), 1127&ndash;1139.</li>
+  <li>Arugaslan, O., Cook, D. O., &amp; Kieschnick, R. (2004). Monitoring as a motivation for IPO underpricing. <span class="ref-title">Journal of Finance</span>, 59(5), 2403&ndash;2420.</li>
+  <li>Diamond, D. W., &amp; Verrecchia, R. E. (1991). Disclosure, liquidity, and the cost of capital. <span class="ref-title">Journal of Finance</span>, 46(4), 1325&ndash;1359.</li>
+  <li>Healy, P. M., &amp; Palepu, K. G. (2001). Information asymmetry, corporate disclosure, and the capital markets. <span class="ref-title">Journal of Accounting and Economics</span>, 31(1&ndash;3), 405&ndash;440.</li>
+  <li>Lang, M. H., &amp; Lundholm, R. J. (1996). Corporate disclosure policy and analyst behavior. <span class="ref-title">The Accounting Review</span>, 71(4), 467&ndash;492.</li>
+</ol>
+
+<!-- FOOTER -->
+<div class="wp-footer">
+  <p>&copy; 2026 IRCI &mdash; Investor Relations Composite Index<br>
+  <a href="mailto:brushing@uccs.edu">brushing@uccs.edu</a> &bull; University of Colorado Colorado Springs</p>
+</div>
+
+</div><!-- /.paper -->
+
+<script>
+// Smooth scroll for TOC links
+document.querySelectorAll('.toc a[href^="#"]').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(link.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+</script>
+
+</body>
+</html>

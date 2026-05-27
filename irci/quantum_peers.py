@@ -476,6 +476,13 @@ class QuantumPeerSelector:
         from itertools import combinations
 
         n = len(self.candidates)
+        if n == 0:
+            log.warning("No candidates available for exhaustive search")
+            return []
+
+        # Clamp num_peers to available candidates
+        num_peers = min(num_peers, n)
+
         best_selection = None
         best_energy = float('inf')
 
@@ -487,6 +494,10 @@ class QuantumPeerSelector:
             if energy < best_energy:
                 best_energy = energy
                 best_selection = combo
+
+        if best_selection is None:
+            log.warning("Exhaustive search found no valid selection")
+            return []
 
         selected_tickers = [self.candidates[i].ticker for i in best_selection]
         log.info(f"Exhaustive selection (energy={best_energy:.4f}): {selected_tickers}")
@@ -571,6 +582,17 @@ class QuantumPeerSelector:
         """
         # Fetch features
         self.fetch_candidate_features(candidates)
+
+        if not self.candidates:
+            log.warning(f"No valid candidates found for {self.target_ticker}")
+            return {
+                'target': self.target_ticker,
+                'selected_peers': [],
+                'num_requested': num_peers,
+                'num_selected': 0,
+                'method': method,
+                'error': 'No valid candidate peers after data fetch'
+            }
 
         # Compute similarity and correlation
         self.compute_similarity_matrix()
