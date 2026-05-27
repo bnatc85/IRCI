@@ -6,6 +6,15 @@ import os, json
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
+# Bridge Streamlit Cloud secrets into os.environ so os.getenv() finds them
+try:
+    import streamlit as st
+    for key, value in st.secrets.items():
+        if isinstance(value, str) and key not in os.environ:
+            os.environ[key] = value
+except Exception:
+    pass
+
 @dataclass
 class Settings:
     fmp_api_key: str = os.getenv("FMP_API_KEY", "")
