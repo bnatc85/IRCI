@@ -2148,8 +2148,7 @@ elif run_analysis:
                 sources_str = ", ".join(unique_sources) if unique_sources else "API"
 
                 # Build success message
-                mode_str = "🔄 AGGREGATED" if aggregate_news_sources else "First-match"
-                msg = f"✓ Fetched {len(news_df)} unique articles ({mode_str} mode)"
+                msg = f"✓ Fetched {len(news_df)} unique articles from {len(unique_sources)} sources"
                 msg += f"\n   Sources: {sources_str}"
 
                 if custom_keywords:
